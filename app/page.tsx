@@ -1,65 +1,191 @@
-import Image from "next/image";
+import Link from "next/link";
+import HomeHeader from "@/components/HomeHeader";
+import HomeHero from "@/components/HomeHero";
+import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
 
-export default function Home() {
+const flashDeals = [
+  {
+    id: "fd1",
+    title: "Set de skincare",
+    price: 1200,
+    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    id: "fd2",
+    title: "Polos básicos",
+    price: 950,
+    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    id: "fd3",
+    title: "Organizador viaje",
+    price: 650,
+    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=80",
+  },
+  {
+    id: "fd4",
+    title: "Audífonos",
+    price: 1400,
+    image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
+  },
+];
+
+const curated = [
+  {
+    id: "c1",
+    title: "Outfits de verano",
+    subtitle: "Shop ahora",
+    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80",
+    price: 2300,
+  },
+  {
+    id: "c2",
+    title: "Deportes y sneakers",
+    subtitle: "Corre y entrena",
+    image: "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=600&q=80",
+    price: 2800,
+  },
+  {
+    id: "c3",
+    title: "Tecnología",
+    subtitle: "Hasta 40% off",
+    image: "https://images.unsplash.com/photo-1517059224940-d4af9eec41e5?auto=format&fit=crop&w=600&q=80",
+    price: 5300,
+  },
+  {
+    id: "c4",
+    title: "Accesorios",
+    subtitle: "Top picks",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+    price: 1200,
+  },
+];
+
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="min-h-screen bg-neutral-950 text-neutral-50">
+      <HomeHeader />
+
+      <div className="pt-28">
+        <HomeHero />
+      </div>
+
+      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-28 pt-5">
+        {/* Super deals */}
+        <section className="rounded-[22px] p-4">
+          <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
+            <span>En Caliente</span>
+            <Link href="/descubre" className="text-xs text-orange-400 hover:text-orange-200">
+              Ver más
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {flashDeals.map((deal) => (
+              <div
+                key={deal.id}
+                className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
+              >
+                <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
+                  <img src={deal.image} alt={deal.title} className="h-full w-full object-cover" />
+                </div>
+                <div className="text-xs text-neutral-300 line-clamp-2">{deal.title}</div>
+                <div className="mt-1 text-sm font-semibold text-orange-400">
+                  RD${deal.price.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Super deals 2 */}
+        <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
+          <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
+            <span>Super Ofertas</span>
+            <Link href="/descubre" className="text-xs text-orange-400 hover:text-orange-200">
+              Ver más
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {flashDeals.map((deal) => (
+              <div
+                key={`fd2-${deal.id}`}
+                className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
+              >
+                <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
+                  <img src={deal.image} alt={deal.title} className="h-full w-full object-cover" />
+                </div>
+                <div className="text-xs text-neutral-300 line-clamp-2">{deal.title}</div>
+                <div className="mt-1 text-sm font-semibold text-orange-400">
+                  RD${deal.price.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Curated */}
+        <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+            {curated.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-3 shadow-sm"
+              >
+                <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-[18px]">
+                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                </div>
+                <div className="mt-2 text-sm font-semibold text-orange-400">
+                  RD${item.price.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
+
+      {/* Bottom navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs text-neutral-400">
+          <NavIcon icon={Home} label="Inicio" href="/" active />
+          <NavIcon icon={Navigation} label="Descubre" href="/descubre" />
+          <NavIcon icon={PlusSquare} label="Crear" href="/item/new" />
+          <NavIcon icon={MessageCircle} label="Negociacion" href="/messages" />
+          <NavIcon icon={User} label="Perfil" href="/profile/me" />
+        </div>
+      </nav>
     </div>
+  );
+}
+
+function NavIcon({
+  icon: Icon,
+  label,
+  href,
+  active = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href?: string;
+  active?: boolean;
+}) {
+  const className = [
+    "flex flex-col items-center gap-1 rounded-xl px-3 py-1 hover:text-white",
+    active ? "text-orange-400" : "text-neutral-400",
+  ].join(" ");
+
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={label}>
+        <Icon className="h-5 w-5" />
+        <span className="text-[11px] hidden sm:inline">{label}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <button className={className} aria-label={label}>
+      <Icon className="h-5 w-5" />
+      <span className="text-[11px] hidden sm:inline">{label}</span>
+    </button>
   );
 }
