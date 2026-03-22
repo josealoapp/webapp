@@ -10,6 +10,9 @@ type Item = {
   title: string;
   price: number;
   location: string;
+  image?: string;
+  sellerId?: string;
+  sellerName?: string;
 };
 
 export default function ItemCard({ item }: { item: Item }) {
@@ -20,8 +23,15 @@ export default function ItemCard({ item }: { item: Item }) {
       <div className="relative overflow-hidden rounded-3xl bg-neutral-900 shadow-lg">
         {/* Image */}
         <div className="relative aspect-[3/4] w-full">
-          {/* Placeholder image */}
-          <div className="absolute inset-0 bg-neutral-800" />
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.title}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-neutral-800" />
+          )}
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -79,13 +89,13 @@ export default function ItemCard({ item }: { item: Item }) {
       <InterestModal
         open={open}
         onClose={() => setOpen(false)}
-        item={{ ...item, sellerMaxDiscountPercent: 20 }}
+        item={{ ...item, sellerId: item.sellerId, sellerName: item.sellerName, sellerMaxDiscountPercent: 20 }}
       />
     </>
   );
 }
 
-function ActionIcon({ icon: Icon }: { icon: any }) {
+function ActionIcon({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
   return (
     <button className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900/90 text-orange-400 shadow-md backdrop-blur hover:scale-105 transition">
       <Icon className="h-5 w-5" />

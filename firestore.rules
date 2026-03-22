@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isParticipant(chatData) {
+      return isSignedIn()
+        && (
+          chatData.buyerId == request.auth.uid ||
+          chatData.sellerId == request.auth.uid
+        );
+    }
+
+    match /listings/{listingId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update, delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /chats/{chatId} {
+      allow read: if isParticipant(resource.data);
+
+      allow create: if isSignedIn()
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId is string
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.listingId is string
+        && request.resource.data.listingTitle is string
+        && request.resource.data.listingPrice is number
+        && request.resource.data.buyerName is string
+        && request.resource.data.sellerName is string;
+
+      allow update: if isParticipant(resource.data)
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.listingId == resource.data.listingId;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn()
+        && exists(/databases/$(database)/documents/chats/$(resource.data.chatId))
+        && isParticipant(
+          get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.chatId is string
+        && request.resource.data.text is string
+        && request.resource.data.senderRole in ['buyer', 'seller']
+        && exists(/databases/$(database)/documents/chats/$(request.resource.data.chatId))
+        && isParticipant(
+          get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data
+        );
+    }
+  }
+}

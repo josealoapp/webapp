@@ -1,61 +1,72 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getChats, getMessages, Chat } from "@/lib/storage";
 import { ArrowLeft, MessageCircle, Search } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { ChatRecord, subscribeInboxChatsForUser } from "@/lib/marketplace";
 
 export default function MessagesPage() {
-  const [chats, setChats] = useState<Chat[]>([]);
+  const router = useRouter();
+  const [chats, setChats] = useState<ChatRecord[]>([]);
   const [q, setQ] = useState("");
   const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("comprando");
-  const [currentUser, setCurrentUser] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
-    setChats(getChats());
-    try {
-      const raw = localStorage.getItem("auth_user");
-      if (raw) {
-        const parsed = JSON.parse(raw) as { emailOrUser?: string };
-        if (parsed?.emailOrUser) setCurrentUser(parsed.emailOrUser.trim().toLowerCase());
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user?.uid) {
+        setCurrentUserId(user.uid);
+        setAuthResolved(true);
+        return;
       }
-    } catch {
-      // ignore
-    }
+      setCurrentUserId("");
+      setAuthResolved(true);
+    });
+    return () => unsub();
   }, []);
 
-  const lastMessageByChat = useMemo(() => {
-    const msgs = getMessages();
-    const map = new Map<string, string>();
-    const timeMap = new Map<string, number>();
-
-    for (const m of msgs) {
-      const prevTime = timeMap.get(m.chatId) ?? 0;
-      if (m.createdAt >= prevTime) {
-        timeMap.set(m.chatId, m.createdAt);
-        map.set(m.chatId, m.text);
-      }
+  useEffect(() => {
+    if (authResolved && !currentUserId) {
+      router.replace(`/sign-in?next=${encodeURIComponent("/messages")}`);
     }
-    return map;
-  }, [chats]);
+  }, [authResolved, currentUserId, router]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const unsub = subscribeInboxChatsForUser(currentUserId, (rows) => setChats(rows));
+    return () => unsub();
+  }, [currentUserId]);
+
+  const visibleChats = useMemo(() => {
+    if (activeTab === "comprando") {
+      return chats.filter((chat) => chat.buyerId === currentUserId);
+    }
+
+    return chats.filter((chat) => chat.sellerId === currentUserId);
+  }, [activeTab, chats, currentUserId]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const tabFiltered = chats.filter((c) => {
-      if (!currentUser) return true;
-      const buyer = c.buyerName?.toLowerCase?.() ?? "";
-      const seller = c.sellerName?.toLowerCase?.() ?? "";
-      if (activeTab === "comprando") return buyer === currentUser;
-      return seller === currentUser;
-    });
+    if (!query) return visibleChats;
+    return visibleChats.filter((chat) => {
+      const counterpartName =
+        chat.sellerId === currentUserId ? chat.buyerName : chat.sellerName;
 
-    if (!query) return tabFiltered;
-    return tabFiltered.filter(
-      (c) =>
-        c.sellerName.toLowerCase().includes(query) ||
-        c.listingTitle.toLowerCase().includes(query)
-    );
-  }, [q, chats, activeTab, currentUser]);
+      return (
+        counterpartName.toLowerCase().includes(query) ||
+        chat.listingTitle.toLowerCase().includes(query)
+      );
+    });
+  }, [currentUserId, q, visibleChats]);
+
+  if (!authResolved || !currentUserId) {
+    return <div className="min-h-screen bg-neutral-950 text-neutral-50" />;
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
@@ -109,21 +120,18 @@ export default function MessagesPage() {
       <main className="mx-auto max-w-3xl px-4 py-4 pb-24">
         {filtered.length === 0 ? (
           <div className="rounded-3xl border border-neutral-800 bg-neutral-900/20 p-6 text-sm text-neutral-300">
-            Aún no tienes conversaciones. Cuando hagas una oferta, aparecerá aquí.
+            {activeTab === "comprando"
+              ? "Aún no has enviado ofertas. Cuando ofertes un artículo, aparecerá aquí."
+              : "Aún no has recibido ofertas en tus publicaciones. Cuando alguien te escriba, aparecerá aquí."}
           </div>
         ) : (
           <div className="space-y-3">
             {filtered.map((chat) => {
-              const status: "en_espera" | "joseo" | "acuerdo" | "declinado" | "cerrado" =
-                "en_espera";
-              const statusStyles = {
-                en_espera:
-                  "border-neutral-700/70 bg-neutral-900/50 text-neutral-400",
-                joseo: "border-amber-500/50 bg-amber-500/10 text-amber-200",
-                acuerdo: "border-emerald-500/50 bg-emerald-500/10 text-emerald-200",
-                declinado: "border-red-500/50 bg-red-500/10 text-red-200",
-                cerrado: "border-neutral-700/70 bg-neutral-900/50 text-neutral-400",
-              }[status];
+              const isSellingChat = chat.sellerId === currentUserId;
+              const counterpartName = isSellingChat ? chat.buyerName : chat.sellerName;
+              const roleLabel = isSellingChat ? "Oferta recibida" : "Oferta enviada";
+              const statusStyles =
+                "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
 
               return (
                 <Link
@@ -137,11 +145,11 @@ export default function MessagesPage() {
                         <span
                           className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusStyles}`}
                         >
-                          En espera
+                          {roleLabel}
                         </span>
                       </div>
                       <div className="truncate text-sm font-semibold">
-                        {chat.sellerName}
+                        {counterpartName}
                       </div>
                       <div className="truncate text-xs text-neutral-400">
                         {chat.listingTitle}
@@ -153,7 +161,7 @@ export default function MessagesPage() {
                   </div>
 
                   <div className="mt-3 line-clamp-1 text-sm text-neutral-300">
-                    {lastMessageByChat.get(chat.id) ?? "—"}
+                    {chat.lastMessage ?? "Nueva oferta iniciada"}
                   </div>
                 </Link>
               );

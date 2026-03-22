@@ -1,64 +1,82 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowLeft, Ellipsis, Instagram, ChevronDown, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Instagram, ChevronDown, Settings } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 import CategoryStories from "@/components/CategoryStories";
-
-const storyCategories = [
-  {
-    id: "s1",
-    name: "Tus looks",
-    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "s2",
-    name: "Compras",
-    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "s3",
-    name: "Electrónicos",
-    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "s4",
-    name: "Belleza",
-    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "s5",
-    name: "Favoritos",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=200&q=80",
-  },
-];
+import { auth } from "@/lib/firebase";
+import { Listing, subscribeListings } from "@/lib/marketplace";
 
 export default function MyProfilePage() {
-  const [activeCategoryId, setActiveCategoryId] = useState(storyCategories[0].id);
+  const router = useRouter();
+  const [activeCategoryId, setActiveCategoryId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [authResolved, setAuthResolved] = useState(false);
 
-  const gridsByCategory = useMemo(
-    () =>
-      storyCategories.reduce<
-        Record<
-          string,
-          {
-            id: string;
-            image: string;
-            itemId: string;
-          }[]
-        >
-      >((acc, cat, idx) => {
-        acc[cat.id] = Array.from({ length: 15 }, (_, i) => ({
-          id: `g${cat.id}-${i}`,
-          itemId: `${cat.id}-${i + 1}`,
-          image: `https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=70&sat=${-20 + idx * 5}&sig=${idx * 50 + i}`,
-        }));
-        return acc;
-      }, {}),
-    []
-  );
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
+      setAuthResolved(true);
+    });
+  }, []);
 
-  const gridImages = gridsByCategory[activeCategoryId] ?? [];
+  useEffect(() => {
+    const unsub = subscribeListings((rows) => setListings(rows));
+    return () => unsub();
+  }, []);
+
+  const myListings = listings.filter((item) => item.ownerId === currentUserId);
+  const storyCategories = useMemo(() => {
+    const categories = new Map<string, { id: string; name: string; image: string }>();
+
+    myListings.forEach((item) => {
+      const categoryName = item.category?.trim() || "General";
+      const categoryId = categoryName.toLowerCase();
+
+      if (!categories.has(categoryId)) {
+        categories.set(categoryId, {
+          id: categoryId,
+          name: categoryName,
+          image: item.image,
+        });
+      }
+    });
+
+    return Array.from(categories.values());
+  }, [myListings]);
+
+  useEffect(() => {
+    if (!storyCategories.length) {
+      setActiveCategoryId("");
+      return;
+    }
+
+    setActiveCategoryId((current) =>
+      current && storyCategories.some((category) => category.id === current)
+        ? current
+        : storyCategories[0].id
+    );
+  }, [storyCategories]);
+
+  const visibleListings = activeCategoryId
+    ? myListings.filter((item) => (item.category?.trim() || "General").toLowerCase() === activeCategoryId)
+    : myListings;
+  const isSignedIn = Boolean(currentUserId);
+
+  useEffect(() => {
+    if (authResolved && !currentUserId) {
+      router.replace(`/sign-in?next=${encodeURIComponent("/profile/me")}`);
+    }
+  }, [authResolved, currentUserId, router]);
+
+  if (!authResolved || !isSignedIn) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-neutral-50" />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
@@ -115,15 +133,27 @@ export default function MyProfilePage() {
       </main>
 
       <div className="mt-4 w-full pb-12">
-        <div className="sticky top-0 z-20 bg-neutral-950 pb-3">
-          <CategoryStories categories={storyCategories} activeId={activeCategoryId} onSelect={setActiveCategoryId} />
-        </div>
-        <div className="grid w-full grid-cols-3 gap-[1px] bg-neutral-900">
-          {gridImages.map((item) => (
-            <div key={item.id} className="aspect-square overflow-hidden bg-neutral-800">
-              <img src={item.image} alt={`Grid item ${item.id}`} className="h-full w-full object-cover" />
+        {storyCategories.length > 0 ? (
+          <div className="sticky top-0 z-20 bg-neutral-950 pb-3">
+            <CategoryStories categories={storyCategories} activeId={activeCategoryId} onSelect={setActiveCategoryId} />
+          </div>
+        ) : null}
+        <div className="grid w-full grid-cols-3 gap-px bg-neutral-900">
+          {visibleListings.length === 0 ? (
+            <div className="col-span-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-400">
+              Aun no tienes publicaciones. Crea una para verla aqui.
             </div>
-          ))}
+          ) : (
+            visibleListings.map((item) => (
+              <Link key={item.id} href={`/item/${item.id}`} className="aspect-square overflow-hidden bg-neutral-800">
+                {item.image ? (
+                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-neutral-800" />
+                )}
+              </Link>
+            ))
+          )}
         </div>
       </div>
     </div>

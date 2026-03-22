@@ -4,27 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft, Share2, Star } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 
 import InterestModal from "@/components/InterestModal";
 import { Button } from "@/components/ui/button";
-
-const MOCK_ITEMS = [
-  {
-    id: "1",
-    category: "Electrónicos",
-    title: "Audífonos Bluetooth Pro",
-    location: "Santo Domingo, RD",
-    price: 4500,
-    description:
-      "Audífonos con cancelación de ruido, batería de larga duración y estuche de carga. Ideales para trabajo y gym. Entrega rápida y prueba disponible.",
-    images: [
-      "/images/items/headphones-1.jpg",
-      "/images/items/headphones-2.jpg",
-      "/images/items/headphones-3.jpg",
-    ],
-    sellerMaxDiscountPercent: 10,
-  },
-];
+import { auth } from "@/lib/firebase";
+import { getListingById, Listing } from "@/lib/marketplace";
 
 export default function ItemDetailsPage() {
   const router = useRouter();
@@ -33,37 +18,79 @@ export default function ItemDetailsPage() {
 
   const [openInterest, setOpenInterest] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState("");
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  useEffect(() => {
+    let mounted = true;
+    if (!id) return;
+
+    getListingById(id)
+      .then((row) => {
+        if (!mounted) return;
+        setListing(row);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid || "");
+    });
+
+    return () => unsub();
+  }, []);
+
   const item = useMemo(() => {
     if (!id) return null;
 
-    const found = MOCK_ITEMS.find((x) => x.id === id);
-    if (found) return found;
+    if (listing) {
+      return {
+        id: listing.id,
+        category: listing.category,
+        title: listing.title,
+        location: listing.location,
+        price: listing.price,
+        description: listing.description,
+        images: [listing.image],
+        sellerName: listing.ownerName,
+        sellerId: listing.ownerId,
+        sellerMaxDiscountPercent: 10,
+      };
+    }
 
-    const numericSeed = Number(String(id).replace(/\D/g, "")) || 1;
-    const basePrice = 4500 + (numericSeed % 15) * 150;
+    if (loading) return null;
 
     return {
       id,
       category: "Catálogo",
       title: `Producto ${id}`,
       location: "Santo Domingo, RD",
-      price: basePrice,
+      price: 4500,
       description:
-        "Descripción de ejemplo para este producto. Personaliza este contenido con los datos reales que recibas del backend.",
+        "Este producto no existe o fue removido. Prueba con otra publicación.",
       images: [
-        `https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=1200&q=80&sat=-20&sig=${numericSeed}`,
-        `https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80&sat=-15&sig=${numericSeed + 1}`,
-        `https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80&sat=-15&sig=${numericSeed + 2}`,
+        "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
       ],
+      sellerName: "Vendedor",
+      sellerId: "seller",
       sellerMaxDiscountPercent: 10,
     };
-  }, [id]);
+  }, [id, listing, loading]);
 
   const images = item?.images?.length ? item.images : [];
+  const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
 
   useEffect(() => {
     const root = scrollerRef.current;
@@ -100,7 +127,7 @@ export default function ItemDetailsPage() {
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-neutral-100 px-4 py-10">
         <div className="mx-auto max-w-md">
-          <div className="text-lg font-semibold">Producto no encontrado</div>
+          <div className="text-lg font-semibold">{loading ? "Cargando producto..." : "Producto no encontrado"}</div>
           <Button className="mt-4" onClick={() => router.push("/")}>
             Volver al home
           </Button>
@@ -163,10 +190,12 @@ export default function ItemDetailsPage() {
 
               <div className="flex items-center gap-3 rounded-2xl  backdrop-blur">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-lg font-semibold">
-                  V
+                  {(item.sellerName || "V").trim().charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold">Vendedor</div>
+                  <div className="text-sm font-semibold">
+                    {item.sellerName || "Vendedor"}
+                  </div>
                   <div className="flex items-center gap-1 text-xs text-neutral-300">
                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
@@ -251,9 +280,13 @@ export default function ItemDetailsPage() {
 
           <Button
             className="h-12 rounded-2xl px-5 bg-orange-400 text-black hover:bg-orange-300"
-            onClick={() => setOpenInterest(true)}
+            onClick={() => {
+              if (isOwnListing) return;
+              setOpenInterest(true);
+            }}
+            disabled={isOwnListing}
           >
-            Estoy interesado
+            {isOwnListing ? "Es tu publicación" : "Estoy interesado"}
           </Button>
         </div>
       </div>
@@ -265,6 +298,8 @@ export default function ItemDetailsPage() {
           id: item.id,
           title: item.title,
           price: item.price,
+          sellerId: item.sellerId,
+          sellerName: item.sellerName,
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
         }}
       />

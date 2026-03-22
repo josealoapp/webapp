@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { addMessage, uid, upsertChat } from "@/lib/storage";
 
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { createOffer } from "@/lib/marketplace";
 
 import {
   Card,
@@ -24,11 +24,29 @@ function isValidEmail(value: string) {
 }
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<AuthFallback />}>
+      <SignInContent />
+    </Suspense>
+  );
+}
+
+function AuthFallback() {
+  return (
+    <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+        Cargando...
+      </div>
+    </div>
+  );
+}
+
+function SignInContent() {
   const router = useRouter();
   const sp = useSearchParams();
 
   // Mantengo tu query param "next"
-  const nextPath = useMemo(() => sp.get("next") || "/messages", [sp]);
+  const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
 
   const [emailOrUser, setEmailOrUser] = useState("");
   const [password, setPassword] = useState("");
@@ -85,36 +103,33 @@ export default function SignInPage() {
         const raw = sessionStorage.getItem("pending_interest");
         if (raw) {
           const pending = JSON.parse(raw) as {
-            item: { id: string; title: string; price: number; sellerMaxDiscountPercent: number };
+            item: {
+              id: string;
+              title: string;
+              price: number;
+              sellerId?: string;
+              sellerName?: string;
+              sellerMaxDiscountPercent: number;
+            };
             method: "cash" | "trade" | "cash_trade";
             cashOffer: number;
             minAccepted: number;
             message: string;
+            sellerId?: string;
+            sellerName?: string;
             createdAt: number;
           };
 
-          const chatId = uid("chat");
+          const sellerName = pending.sellerName || pending.item.sellerName || "Vendedor";
+          const sellerId = pending.sellerId || pending.item.sellerId || "seller";
 
-          const buyerName = user.email || email; // mejor que el input
-          const sellerName = "Vendedor";
-
-          upsertChat({
-            id: chatId,
+          const chatId = await createOffer({
             listingId: pending.item.id,
             listingTitle: pending.item.title,
             listingPrice: pending.item.price,
+            sellerId,
             sellerName,
-            buyerName,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          });
-
-          addMessage({
-            id: uid("msg"),
-            chatId,
-            sender: "buyer",
-            text: pending.message,
-            createdAt: Date.now(),
+            message: pending.message,
           });
 
           sessionStorage.removeItem("pending_interest");
@@ -126,8 +141,11 @@ export default function SignInPage() {
       }
 
       router.replace(nextPath);
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: string }).code)
+          : undefined;
 
       if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
         setError("Credenciales incorrectas. Revisa tu email y contraseña.");

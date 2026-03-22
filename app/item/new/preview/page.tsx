@@ -1,12 +1,34 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { createListing } from "@/lib/marketplace";
 
 export default function NewListingPreviewPage() {
+  return (
+    <Suspense fallback={<PreviewFallback />}>
+      <NewListingPreviewContent />
+    </Suspense>
+  );
+}
+
+function PreviewFallback() {
+  return (
+    <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
+      <div className="mx-auto max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-6 text-sm text-neutral-300">
+        Cargando preview...
+      </div>
+    </div>
+  );
+}
+
+function NewListingPreviewContent() {
   const router = useRouter();
   const search = useSearchParams();
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
 
   const data = useMemo(() => {
     const priceValue = Number(search.get("price") ?? "");
@@ -18,11 +40,50 @@ export default function NewListingPreviewPage() {
       description: search.get("description") || "",
       tags: rawTags,
       paymentMethod: search.get("paymentMethod") || "",
+      imageUrl: search.get("imageUrl") || "",
       isPriceValid: Number.isFinite(priceValue) && priceValue > 0,
     };
   }, [search]);
 
   const hasAny = data.title || data.category || data.description;
+
+  const handlePublish = async () => {
+    if (!data.isPriceValid || publishing) return;
+
+    const user = auth.currentUser;
+    if (!user) {
+      const nextPath = `/item/new/preview?${search.toString()}`;
+      router.push(`/sign-in?next=${encodeURIComponent(nextPath)}`);
+      return;
+    }
+
+    setPublishing(true);
+    setPublishError("");
+    try {
+      await createListing({
+        ownerId: user.uid,
+        ownerName: user.displayName || user.email || "Vendedor",
+        title: data.title || "Sin título",
+        price: data.price,
+        category: data.category || "General",
+        description: data.description || "Sin descripción",
+        tags: data.tags,
+        paymentMethod:
+          data.paymentMethod === "intercambio" || data.paymentMethod === "transferencia"
+            ? data.paymentMethod
+            : "efectivo",
+        location: "Santo Domingo",
+        image:
+          data.imageUrl ||
+          "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
+      });
+      router.push("/");
+    } catch {
+      setPublishError("No pudimos publicar en este momento. Intenta de nuevo.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
@@ -52,6 +113,11 @@ export default function NewListingPreviewPage() {
 
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4">
           <div className="text-xs uppercase tracking-wide text-neutral-500">Resumen</div>
+          {data.imageUrl && (
+            <div className="mt-3 h-36 w-full overflow-hidden rounded-xl border border-neutral-800">
+              <img src={data.imageUrl} alt={data.title || "Preview"} className="h-full w-full object-cover" />
+            </div>
+          )}
           <div className="mt-2 text-lg font-semibold text-white">{data.title || "Sin título"}</div>
           <div className="mt-1 text-orange-400">
             {data.isPriceValid ? `RD$${data.price.toLocaleString()}` : "Precio inválido"}
@@ -72,6 +138,12 @@ export default function NewListingPreviewPage() {
             Completa los campos para ver un preview más detallado.
           </div>
         )}
+
+        {publishError && (
+          <div className="rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+            {publishError}
+          </div>
+        )}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
@@ -89,14 +161,13 @@ export default function NewListingPreviewPage() {
               disabled={!data.isPriceValid}
               className={[
                 "h-12 flex-1 rounded-2xl px-4 text-sm font-semibold text-black shadow focus:outline-none focus:ring-2 focus:ring-orange-300",
-                data.isPriceValid ? "bg-orange-400 hover:bg-orange-300" : "bg-neutral-700 text-neutral-300",
+                data.isPriceValid && !publishing
+                  ? "bg-orange-400 hover:bg-orange-300"
+                  : "bg-neutral-700 text-neutral-300",
               ].join(" ")}
-              onClick={() => {
-                if (!data.isPriceValid) return;
-                router.push("/");
-              }}
+              onClick={handlePublish}
             >
-              Publicar
+              {publishing ? "Publicando..." : "Publicar"}
             </button>
           </div>
         </div>

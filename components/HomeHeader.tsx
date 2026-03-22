@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Heart, Menu, Search } from "lucide-react";
+import { Heart, MapPin, Menu, Search } from "lucide-react";
+import LocationPickerModal from "./LocationPickerModal";
 
 const categories = ["Todo", "Mujer", "Hombre", "Electrónicos", "Zapatos", "Hogar"];
 
-export default function HomeHeader() {
-  const [active, setActive] = useState<string>("Todos");
+export default function HomeHeader({
+  selectedLocation,
+  onLocationChange,
+}: {
+  selectedLocation: string;
+  onLocationChange: (location: string) => void;
+}) {
+  const [active, setActive] = useState<string>("Todo");
   const [scrolled, setScrolled] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -41,36 +49,62 @@ export default function HomeHeader() {
           </div>
         </div>
 
-        {/* Categories + menu */}
-        <div className="mt-3 flex items-center gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
-            {categories.map((cat) => {
-              const isActive = cat === active;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActive(cat)}
-                  className={`whitespace-nowrap rounded-3xl px-4 py-2 text-sm font-semibold transition  ${
-                    isActive
-                      ? "border border-orange-400 text-orange-400 shadow-[0_0_0_1px_rgba(255,184,79,0.25)]"
-                      : "border border-transparent bg-black/20 text-white hover:text-orange-200"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+        <div
+          className={`overflow-hidden transition-all duration-300 ${
+            scrolled ? "max-h-0 opacity-0 -translate-y-2 pointer-events-none" : "mt-3 max-h-48 opacity-100"
+          }`}
+        >
+          {/* Categories + menu */}
+          <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
+              {categories.map((cat) => {
+                const isActive = cat === active;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActive(cat)}
+                    className={`whitespace-nowrap rounded-3xl px-4 py-2 text-sm font-semibold transition  ${
+                      isActive
+                        ? "border border-orange-400 text-orange-400 shadow-[0_0_0_1px_rgba(255,184,79,0.25)]"
+                        : "border border-transparent bg-black/20 text-white hover:text-orange-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Link
+              href="/categories"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl  bg-black/30 text-white backdrop-blur hover:text-orange-200"
+              aria-label="Categorías"
+            >
+              <Menu className="h-5 w-5" />
+            </Link>
           </div>
 
-          <Link
-            href="/categories"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl  bg-black/30 text-white backdrop-blur hover:text-orange-200"
-            aria-label="Categorías"
+          {/* Listing location selector */}
+          <button
+            type="button"
+            onClick={() => setLocationModalOpen(true)}
+            className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left backdrop-blur hover:border-orange-400/50"
           >
-            <Menu className="h-5 w-5" />
-          </Link>
+            <span className="text-sm text-white/90">Listing Locations</span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-orange-400">
+              <MapPin className="h-4 w-4" />
+              {selectedLocation}
+            </span>
+          </button>
         </div>
       </div>
+
+      <LocationPickerModal
+        open={locationModalOpen}
+        currentLocation={selectedLocation}
+        onClose={() => setLocationModalOpen(false)}
+        onSelect={onLocationChange}
+      />
     </header>
   );
 }

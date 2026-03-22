@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { sendEmailVerification } from "firebase/auth";
@@ -8,12 +8,30 @@ import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const VERIFY_CONTINUE_URL =
-  process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/messages";
+  process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<VerifyFallback />}>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+
+function VerifyFallback() {
+  return (
+    <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
+      <div className="mx-auto max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-6 text-sm text-neutral-300">
+        Cargando...
+      </div>
+    </div>
+  );
+}
+
+function VerifyEmailContent() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextPath = useMemo(() => sp.get("next") || "/messages", [sp]);
+  const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
 
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");

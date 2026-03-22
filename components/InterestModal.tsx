@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { createOffer } from "@/lib/marketplace";
 
 type Method = "cash" | "trade" | "cash_trade";
 
@@ -16,6 +19,8 @@ export default function InterestModal({
     id: string;
     title: string;
     price: number;
+    sellerId?: string;
+    sellerName?: string;
     sellerMaxDiscountPercent: number;
   };
 }) {
@@ -23,6 +28,7 @@ export default function InterestModal({
   const [method, setMethod] = useState<Method>("cash");
   const [cashOffer, setCashOffer] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const minAccepted = useMemo(() => {
     const min = item.price * (1 - item.sellerMaxDiscountPercent / 100);
@@ -31,7 +37,7 @@ export default function InterestModal({
 
   if (!open) return null;
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     setError("");
 
     if (method === "cash" || method === "cash_trade") {
@@ -49,6 +55,59 @@ export default function InterestModal({
 
       const msg = `Hola, estoy interesado en tu ${item.title}. Te ofrezco RD$${offer.toLocaleString()} en efectivo. Me gustaría saber más detalles del producto.`;
 
+      const user = auth.currentUser;
+      if (user?.uid) {
+        if (item.sellerId && user.uid === item.sellerId) {
+          setError("No puedes enviarte una oferta a tu propia publicación.");
+          return;
+        }
+
+        try {
+          setSubmitting(true);
+          const chatId = await createOffer({
+            listingId: item.id,
+            listingTitle: item.title,
+            listingPrice: item.price,
+            sellerId: item.sellerId || "seller",
+            sellerName: item.sellerName || "Vendedor",
+            message: msg,
+          });
+
+          onClose();
+          router.push(`/chat/${chatId}`);
+          return;
+        } catch (err: unknown) {
+          console.error("offer-submit-debug", {
+            buyerUid: user.uid,
+            sellerId: item.sellerId,
+            listingId: item.id,
+          });
+          const code =
+            typeof err === "object" && err !== null && "code" in err
+              ? String((err as { code?: string }).code)
+              : "";
+
+          console.error("offer-submit-failed", err);
+
+          if (code === "permission-denied") {
+            setError(
+              "Firebase rechazó esta oferta por permisos. Si estás probando tu propia publicación, usa otra cuenta."
+            );
+          } else if (code === "offer/self-offer") {
+            setError("No puedes enviarte una oferta a tu propia publicación.");
+          } else if (code === "auth/missing-token") {
+            setError("Tu sesión no está lista. Entra de nuevo e intenta otra vez.");
+          } else if (code === "unauthenticated") {
+            setError("Tu sesión no está lista. Entra de nuevo e intenta otra vez.");
+          } else {
+            setError("No se pudo enviar la oferta. Intenta de nuevo.");
+          }
+          return;
+        } finally {
+          setSubmitting(false);
+        }
+      }
+
       // Guardamos un borrador en sessionStorage para completarlo luego del login.
       try {
         sessionStorage.setItem(
@@ -59,6 +118,8 @@ export default function InterestModal({
             cashOffer: offer,
             minAccepted,
             message: msg,
+            sellerId: item.sellerId || "seller",
+            sellerName: item.sellerName || "Vendedor",
             createdAt: Date.now(),
           })
         );
@@ -103,9 +164,10 @@ export default function InterestModal({
 
           <button
             onClick={onClose}
-            className="rounded-2xl border border-neutral-800 px-3 py-2 text-sm hover:bg-neutral-900"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-neutral-800 hover:bg-neutral-900"
+            aria-label="Cerrar"
           >
-            Cerrar
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -161,16 +223,20 @@ export default function InterestModal({
 
         <div className="mt-5 flex gap-2">
           <button
-            onClick={onClose}
+            onClick={() => {
+              onClose();
+              router.push("/messages");
+            }}
             className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-sm hover:bg-neutral-900"
           >
-            Cancelar
+            Mensaje
           </button>
           <button
             onClick={handleContinue}
-            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90"
+            disabled={submitting}
+            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
           >
-            Continuar
+            {submitting ? "Enviando..." : "Ofertar"}
           </button>
         </div>
       </div>

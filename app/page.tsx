@@ -1,146 +1,139 @@
+"use client";
+
 import Link from "next/link";
 import HomeHeader from "@/components/HomeHeader";
 import HomeHero from "@/components/HomeHero";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
-
-const flashDeals = [
-  {
-    id: "fd1",
-    title: "Set de skincare",
-    price: 1200,
-    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: "fd2",
-    title: "Polos básicos",
-    price: 950,
-    image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: "fd3",
-    title: "Organizador viaje",
-    price: 650,
-    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: "fd4",
-    title: "Audífonos",
-    price: 1400,
-    image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
-  },
-];
-
-const curated = [
-  {
-    id: "c1",
-    title: "Outfits de verano",
-    subtitle: "Shop ahora",
-    image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80",
-    price: 2300,
-  },
-  {
-    id: "c2",
-    title: "Deportes y sneakers",
-    subtitle: "Corre y entrena",
-    image: "https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=600&q=80",
-    price: 2800,
-  },
-  {
-    id: "c3",
-    title: "Tecnología",
-    subtitle: "Hasta 40% off",
-    image: "https://images.unsplash.com/photo-1517059224940-d4af9eec41e5?auto=format&fit=crop&w=600&q=80",
-    price: 5300,
-  },
-  {
-    id: "c4",
-    title: "Accesorios",
-    subtitle: "Top picks",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
-    price: 1200,
-  },
-];
+import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { Listing, subscribeListings } from "@/lib/marketplace";
 
 export default function HomePage() {
+  const [selectedLocation, setSelectedLocation] = useState("Santo Domingo");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeListings((rows) => setListings(rows));
+    return () => unsub();
+  }, []);
+
+  const myListings = useMemo(
+    () => listings.filter((item) => item.ownerId === currentUserId),
+    [currentUserId, listings]
+  );
+  const marketplaceListings = useMemo(
+    () =>
+      listings.filter(
+        (item) =>
+          item.ownerId !== currentUserId &&
+          normalizeLocation(item.location) === normalizeLocation(selectedLocation)
+      ),
+    [currentUserId, listings, selectedLocation]
+  );
+  const listingsByCategory = useMemo(() => {
+    const categories = new Map<string, Listing[]>();
+
+    marketplaceListings.forEach((item) => {
+      const categoryName = item.category?.trim() || "General";
+      const existing = categories.get(categoryName) || [];
+      categories.set(categoryName, [...existing, item]);
+    });
+
+    return Array.from(categories.entries());
+  }, [marketplaceListings]);
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <HomeHeader />
+      <HomeHeader selectedLocation={selectedLocation} onLocationChange={setSelectedLocation} />
 
-      <div className="pt-28">
+      <div className="pt-40">
         <HomeHero />
       </div>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-28 pt-5">
-        {/* Super deals */}
-        <section className="rounded-[22px] p-4">
-          <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
-            <span>En Caliente</span>
-            <Link href="/descubre" className="text-xs text-orange-400 hover:text-orange-200">
-              Ver más
-            </Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {flashDeals.map((deal) => (
-              <div
-                key={deal.id}
-                className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
-              >
-                <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
-                  <img src={deal.image} alt={deal.title} className="h-full w-full object-cover" />
+        {currentUserId ? (
+          <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
+            <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
+              <span>Mis publicaciones</span>
+              <Link href="/item/new" className="text-xs text-orange-400 hover:text-orange-200">
+                Crear nueva
+              </Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {myListings.length === 0 ? (
+                <div className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/50 p-3 text-sm text-neutral-400">
+                  Aun no tienes publicaciones. Crea una para verla aqui.
                 </div>
-                <div className="text-xs text-neutral-300 line-clamp-2">{deal.title}</div>
-                <div className="mt-1 text-sm font-semibold text-orange-400">
-                  RD${deal.price.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ) : (
+                myListings.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/item/${item.id}`}
+                    className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
+                  >
+                    <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
+                      {item.image ? (
+                        <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-neutral-800" />
+                      )}
+                    </div>
+                    <div className="text-xs text-neutral-300 line-clamp-2">{item.title}</div>
+                    <div className="mt-1 text-sm font-semibold text-orange-400">
+                      RD${item.price.toLocaleString()}
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
+        ) : null}
 
-        {/* Super deals 2 */}
-        <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
-          <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
-            <span>Super Ofertas</span>
-            <Link href="/descubre" className="text-xs text-orange-400 hover:text-orange-200">
-              Ver más
-            </Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {flashDeals.map((deal) => (
-              <div
-                key={`fd2-${deal.id}`}
-                className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
-              >
-                <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
-                  <img src={deal.image} alt={deal.title} className="h-full w-full object-cover" />
-                </div>
-                <div className="text-xs text-neutral-300 line-clamp-2">{deal.title}</div>
-                <div className="mt-1 text-sm font-semibold text-orange-400">
-                  RD${deal.price.toLocaleString()}
-                </div>
+        {listingsByCategory.length === 0 ? (
+          <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
+            <div className="text-sm text-neutral-400">
+              No hay publicaciones disponibles en {selectedLocation}.
+            </div>
+          </section>
+        ) : (
+          listingsByCategory.map(([categoryName, categoryListings]) => (
+            <section key={categoryName} className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
+              <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
+                <span>{categoryName}</span>
+                <Link href="/descubre" className="text-xs text-orange-400 hover:text-orange-200">
+                  Ver más
+                </Link>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Curated */}
-        <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-            {curated.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-3 shadow-sm"
-              >
-                <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-[18px]">
-                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                </div>
-                <div className="mt-2 text-sm font-semibold text-orange-400">
-                  RD${item.price.toLocaleString()}
-                </div>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {categoryListings.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/item/${item.id}`}
+                    className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 shadow-sm"
+                  >
+                    <div className="relative mb-2 h-28 w-full overflow-hidden rounded-[18px]">
+                      {item.image ? (
+                        <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-neutral-800" />
+                      )}
+                    </div>
+                    <div className="text-xs text-neutral-300 line-clamp-2">{item.title}</div>
+                    <div className="mt-1 text-sm font-semibold text-orange-400">
+                      RD${item.price.toLocaleString()}
+                    </div>
+                  </Link>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+          ))
+        )}
       </main>
 
       {/* Bottom navigation */}
@@ -155,6 +148,12 @@ export default function HomePage() {
       </nav>
     </div>
   );
+}
+
+function normalizeLocation(location: string) {
+  const normalized = location.trim().toLowerCase();
+  if (normalized === "sdn") return "santo domingo";
+  return normalized;
 }
 
 function NavIcon({

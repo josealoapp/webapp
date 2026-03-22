@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## AWS S3 uploads
+
+Listing image uploads now use AWS S3 presigned URLs instead of Firebase Storage.
+
+Add these server environment variables before running the app:
+
+```bash
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET=your-bucket-name
+NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL=https://your-bucket-name.s3.us-east-1.amazonaws.com
+```
+
+Notes:
+
+- The bucket must allow public reads for the uploaded listing images, or `NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL` should point to a public CloudFront distribution in front of the bucket.
+- Firebase Auth and Firestore are still used by the app; only image storage moved to S3.
+- Marketplace chat and offer permissions are defined in `firestore.rules` and must be deployed to Firebase before offers can be created successfully.
+
 ## Getting Started
 
 First, run the development server:

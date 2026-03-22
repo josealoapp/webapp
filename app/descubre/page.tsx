@@ -1,22 +1,54 @@
+"use client";
+
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import ItemCard from "@/components/ItemCard";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { Listing, subscribeListings } from "@/lib/marketplace";
 
-const items = [
+const fallbackItems = [
   { id: "1", title: "iPhone 13", price: 35000, location: "Santo Domingo" },
   { id: "2", title: "PS5 Slim", price: 42000, location: "Santiago" },
   { id: "3", title: "MacBook Air M1", price: 48000, location: "SDN" },
 ];
 
 export default function DiscoverPage() {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeListings((rows) => setItems(rows));
+    return () => unsub();
+  }, []);
+
+  const renderedItems = items.length
+    ? items
+        .filter((item) => item.ownerId !== currentUserId)
+        .map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        location: item.location,
+        image: item.image,
+        sellerId: item.ownerId,
+        sellerName: item.ownerName,
+        }))
+    : fallbackItems;
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-24">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
+          {renderedItems.map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
         </div>

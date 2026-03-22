@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +16,29 @@ function isValidEmail(value: string) {
 }
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={<AuthFallback />}>
+      <SignUpContent />
+    </Suspense>
+  );
+}
+
+function AuthFallback() {
+  return (
+    <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
+        Cargando...
+      </div>
+    </div>
+  );
+}
+
+function SignUpContent() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextPath = useMemo(() => sp.get("next") || "/messages", [sp]);
+  const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
+  const verifyContinueUrl =
+    process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -66,6 +86,7 @@ export default function SignUpPage() {
       if (cred.user && trimmedName) {
         await updateProfile(cred.user, { displayName: trimmedName });
       }
+      await sendEmailVerification(cred.user, { url: verifyContinueUrl });
 
       try {
         localStorage.setItem(
@@ -82,8 +103,11 @@ export default function SignUpPage() {
       }
 
       router.replace(`/verify-email?next=${encodeURIComponent(nextPath)}`);
-    } catch (err: any) {
-      const code = err?.code as string | undefined;
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: string }).code)
+          : undefined;
       if (code === "auth/email-already-in-use") {
         setError("Ese email ya está en uso. Intenta iniciar sesión.");
       } else if (code === "auth/weak-password") {
