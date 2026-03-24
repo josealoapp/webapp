@@ -2,9 +2,11 @@
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, ChevronDown, ImagePlus, Info } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { uploadListingImages } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
 
 const categories = ["Electrónicos", "Hogar", "Belleza", "Ropa", "Zapatos", "Accesorios"];
 
@@ -35,6 +37,19 @@ export default function NewListingPage() {
       urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [selectedFiles]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user?.emailVerified) {
+        const destination = getPostAuthDestination("/item/new");
+        if (destination !== "/item/new") {
+          router.replace(destination);
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [router]);
 
   const handlePickFiles = () => fileInputRef.current?.click();
 
@@ -237,6 +252,13 @@ export default function NewListingPage() {
               if (!user) {
                 router.push(`/sign-in?next=${encodeURIComponent("/item/new")}`);
                 return;
+              }
+              if (user.emailVerified) {
+                const destination = getPostAuthDestination("/item/new");
+                if (destination !== "/item/new") {
+                  router.push(destination);
+                  return;
+                }
               }
 
               setUploading(true);

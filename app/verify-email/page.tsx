@@ -6,6 +6,8 @@ import { auth } from "@/lib/firebase";
 import { sendEmailVerification } from "firebase/auth";
 import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getPostAuthDestination } from "@/lib/account-profile";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 const VERIFY_CONTINUE_URL =
   process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
@@ -19,13 +21,7 @@ export default function VerifyEmailPage() {
 }
 
 function VerifyFallback() {
-  return (
-    <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
-      <div className="mx-auto max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-6 text-sm text-neutral-300">
-        Cargando...
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="auth" />;
 }
 
 function VerifyEmailContent() {
@@ -44,7 +40,7 @@ function VerifyEmailContent() {
     }
 
     if (user.emailVerified) {
-      router.replace(nextPath);
+      router.replace(getPostAuthDestination(nextPath));
     }
   }, [router, nextPath]);
 
@@ -75,7 +71,7 @@ function VerifyEmailContent() {
     }
     await user.reload();
     if (user.emailVerified) {
-      router.replace(nextPath);
+      router.replace(getPostAuthDestination(nextPath));
     } else {
       setError("Aún no vemos tu email verificado. Revisa tu bandeja o reenvía el correo.");
     }

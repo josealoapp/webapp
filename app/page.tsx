@@ -5,18 +5,40 @@ import HomeHeader from "@/components/HomeHeader";
 import HomeHero from "@/components/HomeHero";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Listing, subscribeListings } from "@/lib/marketplace";
+import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
 
 export default function HomePage() {
+  const router = useRouter();
   const [selectedLocation, setSelectedLocation] = useState("Santo Domingo");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
+  const [personalInterests, setPersonalInterests] = useState<string[]>([]);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
-  }, []);
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
+
+      if (user?.emailVerified) {
+        const profile = readAccountProfile();
+        setPersonalInterests(
+          profile.accountType === "personal" && profile.interests.length > 0
+            ? profile.interests
+            : []
+        );
+        const destination = getPostAuthDestination("/");
+        if (destination !== "/") {
+          router.replace(destination);
+        }
+        return;
+      }
+
+      setPersonalInterests([]);
+    });
+  }, [router]);
 
   useEffect(() => {
     const unsub = subscribeListings((rows) => setListings(rows));
@@ -27,15 +49,18 @@ export default function HomePage() {
     () => listings.filter((item) => item.ownerId === currentUserId),
     [currentUserId, listings]
   );
-  const marketplaceListings = useMemo(
-    () =>
-      listings.filter(
-        (item) =>
-          item.ownerId !== currentUserId &&
-          normalizeLocation(item.location) === normalizeLocation(selectedLocation)
-      ),
-    [currentUserId, listings, selectedLocation]
-  );
+  const marketplaceListings = useMemo(() => {
+    const normalizedInterests = personalInterests.map(normalizeCategory);
+
+    return listings.filter((item) => {
+      if (item.ownerId === currentUserId) return false;
+      if (normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
+
+      if (normalizedInterests.length === 0) return true;
+
+      return normalizedInterests.includes(normalizeCategory(item.category?.trim() || "General"));
+    });
+  }, [currentUserId, listings, personalInterests, selectedLocation]);
   const listingsByCategory = useMemo(() => {
     const categories = new Map<string, Listing[]>();
 
@@ -98,7 +123,9 @@ export default function HomePage() {
         {listingsByCategory.length === 0 ? (
           <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
             <div className="text-sm text-neutral-400">
-              No hay publicaciones disponibles en {selectedLocation}.
+              {personalInterests.length > 0
+                ? `No hay publicaciones disponibles en ${selectedLocation} para tus intereses seleccionados.`
+                : `No hay publicaciones disponibles en ${selectedLocation}.`}
             </div>
           </section>
         ) : (
@@ -154,6 +181,14 @@ function normalizeLocation(location: string) {
   const normalized = location.trim().toLowerCase();
   if (normalized === "sdn") return "santo domingo";
   return normalized;
+}
+
+function normalizeCategory(category: string) {
+  return category
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
 }
 
 function NavIcon({

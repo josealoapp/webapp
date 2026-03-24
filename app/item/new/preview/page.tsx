@@ -1,10 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createListing } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 export default function NewListingPreviewPage() {
   return (
@@ -15,13 +18,7 @@ export default function NewListingPreviewPage() {
 }
 
 function PreviewFallback() {
-  return (
-    <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
-      <div className="mx-auto max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-6 text-sm text-neutral-300">
-        Cargando preview...
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="detail" />;
 }
 
 function NewListingPreviewContent() {
@@ -29,6 +26,10 @@ function NewListingPreviewContent() {
   const search = useSearchParams();
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const previewPath = useMemo(() => {
+    const query = search.toString();
+    return query ? `/item/new/preview?${query}` : "/item/new/preview";
+  }, [search]);
 
   const data = useMemo(() => {
     const priceValue = Number(search.get("price") ?? "");
@@ -47,14 +48,33 @@ function NewListingPreviewContent() {
 
   const hasAny = data.title || data.category || data.description;
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user?.emailVerified) {
+        const destination = getPostAuthDestination(previewPath);
+        if (destination !== previewPath) {
+          router.replace(destination);
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [previewPath, router]);
+
   const handlePublish = async () => {
     if (!data.isPriceValid || publishing) return;
 
     const user = auth.currentUser;
     if (!user) {
-      const nextPath = `/item/new/preview?${search.toString()}`;
-      router.push(`/sign-in?next=${encodeURIComponent(nextPath)}`);
+      router.push(`/sign-in?next=${encodeURIComponent(previewPath)}`);
       return;
+    }
+    if (user.emailVerified) {
+      const destination = getPostAuthDestination(previewPath);
+      if (destination !== previewPath) {
+        router.push(destination);
+        return;
+      }
     }
 
     setPublishing(true);

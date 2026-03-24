@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createOffer } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 import {
   Card,
@@ -32,13 +34,7 @@ export default function SignInPage() {
 }
 
 function AuthFallback() {
-  return (
-    <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
-      <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
-        Cargando...
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="auth" />;
 }
 
 function SignInContent() {
@@ -98,6 +94,14 @@ function SignInContent() {
         return;
       }
 
+      const postAuthDestination = getPostAuthDestination(nextPath);
+      const onboardingRequired = postAuthDestination.startsWith("/onboarding");
+
+      if (onboardingRequired) {
+        router.replace(postAuthDestination);
+        return;
+      }
+
       // Si venimos del modal "Me interesa", completamos el chat ahora (local storage MVP)
       try {
         const raw = sessionStorage.getItem("pending_interest");
@@ -140,7 +144,7 @@ function SignInContent() {
         // si falla, seguimos normal
       }
 
-      router.replace(nextPath);
+      router.replace(postAuthDestination);
     } catch (err: unknown) {
       const code =
         typeof err === "object" && err !== null && "code" in err

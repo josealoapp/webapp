@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import CategoryStories from "@/components/CategoryStories";
 import { auth } from "@/lib/firebase";
 import { Listing, subscribeListings } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
 
 export default function MyProfilePage() {
   const router = useRouter();
@@ -18,10 +19,17 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
+      if (user?.uid && user.emailVerified) {
+        const destination = getPostAuthDestination("/profile/me");
+        if (destination !== "/profile/me") {
+          router.replace(destination);
+          return;
+        }
+      }
       setCurrentUserId(user?.uid ?? null);
       setAuthResolved(true);
     });
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const unsub = subscribeListings((rows) => setListings(rows));

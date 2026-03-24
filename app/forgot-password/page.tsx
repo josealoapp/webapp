@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { ArrowLeft, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/firebase";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 type Stage = "request" | "reset" | "done";
 
@@ -26,13 +27,7 @@ export default function ForgotPasswordPage() {
 }
 
 function PageFallback() {
-  return (
-    <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
-      <div className="mx-auto max-w-md rounded-3xl border border-neutral-800 bg-neutral-900/30 p-5 text-sm text-neutral-300">
-        Cargando...
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="auth" />;
 }
 
 function ForgotPasswordContent() {

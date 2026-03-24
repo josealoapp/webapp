@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,9 +12,12 @@ import {
   ChevronRight,
   Power,
   SunMoon,
+  UserRoundCog,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { getPostAuthDestination } from "@/lib/account-profile";
 
 type Item = {
   title: string;
@@ -38,9 +42,25 @@ const danger: Item[] = [
 ];
 
 const appearance: Item[] = [{ title: "Apariencia", subtitle: "Claro u oscuro", icon: SunMoon, href: "/settings/appearance" }];
+const accountPreferences: Item[] = [
+  { title: "Tipo de cuenta", subtitle: "Personal o empresarial", icon: UserRoundCog, href: "/settings/account-type" },
+];
 
 export default function SettingsPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user?.emailVerified) {
+        const destination = getPostAuthDestination("/settings");
+        if (destination !== "/settings") {
+          router.replace(destination);
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [router]);
 
   const renderItem = (item: Item) => (
     <button
@@ -100,6 +120,7 @@ export default function SettingsPage() {
 
         <section className="flex flex-col gap-3">
           <div className="text-xs uppercase tracking-wide text-neutral-500">Preferencias</div>
+          {accountPreferences.map(renderItem)}
           {appearance.map(renderItem)}
         </section>
 

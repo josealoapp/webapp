@@ -7,18 +7,26 @@ import { ArrowLeft, MessageCircle, Search } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { ChatRecord, subscribeInboxChatsForUser } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
 
 export default function MessagesPage() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [q, setQ] = useState("");
-  const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("comprando");
+  const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("vendiendo");
   const [currentUserId, setCurrentUserId] = useState("");
   const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user?.uid) {
+        if (user.emailVerified) {
+          const destination = getPostAuthDestination("/messages");
+          if (destination !== "/messages") {
+            router.replace(destination);
+            return;
+          }
+        }
         setCurrentUserId(user.uid);
         setAuthResolved(true);
         return;
@@ -88,7 +96,7 @@ export default function MessagesPage() {
 
         <div className="mx-auto max-w-3xl px-4 pb-4">
           <div className="mb-3 flex items-center justify-center gap-10 border-b border-neutral-800 px-1">
-            {(["comprando", "vendiendo"] as const).map((tab) => (
+            {(["vendiendo", "comprando"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

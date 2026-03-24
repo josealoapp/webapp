@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,13 +25,7 @@ export default function SignUpPage() {
 }
 
 function AuthFallback() {
-  return (
-    <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
-      <div className="mx-auto w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-400">
-        Cargando...
-      </div>
-    </div>
-  );
+  return <AppSkeleton variant="auth" />;
 }
 
 function SignUpContent() {

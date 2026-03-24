@@ -13,6 +13,7 @@ import {
   subscribeChatById,
   subscribeMessagesForChat,
 } from "@/lib/marketplace";
+import { getPostAuthDestination } from "@/lib/account-profile";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -31,6 +32,13 @@ export default function ChatPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user?.uid) {
+        if (user.emailVerified) {
+          const destination = getPostAuthDestination(`/chat/${chatId}`);
+          if (destination !== `/chat/${chatId}`) {
+            router.replace(destination);
+            return;
+          }
+        }
         setCurrentUserId(user.uid);
         setAuthResolved(true);
         return;
@@ -39,7 +47,7 @@ export default function ChatPage() {
       setAuthResolved(true);
     });
     return () => unsub();
-  }, []);
+  }, [chatId, router]);
 
   useEffect(() => {
     if (!authResolved) return;

@@ -10,6 +10,7 @@ import InterestModal from "@/components/InterestModal";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { getListingById, Listing } from "@/lib/marketplace";
+import { AppSkeleton } from "@/components/AppSkeleton";
 
 export default function ItemDetailsPage() {
   const router = useRouter();
@@ -124,10 +125,14 @@ export default function ItemDetailsPage() {
   };
 
   if (!item) {
+    if (loading) {
+      return <AppSkeleton variant="detail" />;
+    }
+
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-neutral-100 px-4 py-10">
         <div className="mx-auto max-w-md">
-          <div className="text-lg font-semibold">{loading ? "Cargando producto..." : "Producto no encontrado"}</div>
+          <div className="text-lg font-semibold">Producto no encontrado</div>
           <Button className="mt-4" onClick={() => router.push("/")}>
             Volver al home
           </Button>

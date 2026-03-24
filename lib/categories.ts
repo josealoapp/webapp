@@ -6,57 +6,51 @@ export type AppCategory = {
 
 export const appCategories: AppCategory[] = [
   {
-    id: "frutas",
-    name: "Frutas",
+    id: "mujer",
+    name: "Mujer",
     image:
-      "https://images.unsplash.com/photo-1574226516831-e1dff420e43e?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "fresco",
-    name: "Fresco",
+    id: "hombre",
+    name: "Hombre",
     image:
-      "https://images.unsplash.com/photo-1448043552756-e747b7a2b2b8?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "snack",
-    name: "Snack",
+    id: "electronicos",
+    name: "Electrónicos",
     image:
-      "https://images.unsplash.com/photo-1604908176852-70b7c15f7f8f?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "grocery",
-    name: "Grocery",
+    id: "hogar",
+    name: "Hogar",
     image:
-      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "nuts",
-    name: "Nueces",
+    id: "belleza",
+    name: "Belleza",
     image:
-      "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "oils",
-    name: "Aceites",
+    id: "ropa",
+    name: "Ropa",
     image:
-      "https://images.unsplash.com/photo-1506617420156-8e4536971650?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "dulces",
-    name: "Dulces",
+    id: "zapatos",
+    name: "Zapatos",
     image:
-      "https://images.unsplash.com/photo-1606313564200-e75d5e30476f?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=200&q=80",
   },
   {
-    id: "uvas",
-    name: "Uvas",
+    id: "accesorios",
+    name: "Accesorios",
     image:
-      "https://images.unsplash.com/photo-1535916707207-35f97e715e1b?auto=format&fit=crop&w=200&q=80",
-  },
-  {
-    id: "bebidas",
-    name: "Bebidas",
-    image:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=200&q=80",
   },
 ];
