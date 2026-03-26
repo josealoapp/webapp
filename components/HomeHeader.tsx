@@ -1,22 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Heart, MapPin, Menu, Search } from "lucide-react";
 import LocationPickerModal from "./LocationPickerModal";
+import { Listing } from "@/lib/marketplace";
 
 const categories = ["Todo", "Mujer", "Hombre", "Electrónicos", "Zapatos", "Hogar"];
 
 export default function HomeHeader({
   selectedLocation,
   onLocationChange,
+  listings,
 }: {
   selectedLocation: string;
   onLocationChange: (location: string) => void;
+  listings: Listing[];
 }) {
+  const router = useRouter();
   const [active, setActive] = useState<string>("Todo");
   const [scrolled, setScrolled] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -24,6 +31,24 @@ export default function HomeHeader({
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const trimmedQuery = query.trim();
+  const suggestions = useMemo(() => {
+    if (!trimmedQuery) {
+      return [] as Listing[];
+    }
+
+    const normalizedQuery = trimmedQuery.toLowerCase();
+    return listings
+      .filter((item) => item.title.toLowerCase().includes(normalizedQuery))
+      .slice(0, 3);
+  }, [listings, trimmedQuery]);
+
+  const openResults = () => {
+    if (!trimmedQuery) return;
+    setShowSuggestions(false);
+    router.push(`/search?q=${encodeURIComponent(trimmedQuery)}&location=${encodeURIComponent(selectedLocation)}`);
+  };
 
   return (
     <header
@@ -43,15 +68,86 @@ export default function HomeHeader({
           <div className="relative flex-1">
             <input
               placeholder="Search for items"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  openResults();
+                }
+              }}
               className="w-full rounded-full border border-white/20 bg-black/30 px-4 py-3 pr-12 text-sm text-white outline-none ring-0 placeholder:text-white/70 focus:border-orange-400"
             />
-            <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white" />
+            <button
+              type="button"
+              onClick={openResults}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
+              aria-label="Buscar"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+
           </div>
         </div>
 
+        {showSuggestions && trimmedQuery ? (
+          <div className="mt-3 rounded-3xl border border-white/10 bg-neutral-950/95 p-3 shadow-2xl backdrop-blur">
+            {suggestions.length > 0 ? (
+              <>
+                <div className="space-y-2">
+                  {suggestions.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setShowSuggestions(false);
+                        router.push(`/item/${item.id}`);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left hover:bg-white/5"
+                    >
+                      <div className="h-12 w-12 overflow-hidden rounded-xl bg-neutral-900">
+                        {item.image ? (
+                          <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-500">
+                            Sin foto
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-white">{item.title}</div>
+                        <div className="mt-1 text-xs text-neutral-400">{item.location}</div>
+                      </div>
+                      <div className="text-sm font-semibold text-orange-400">RD${item.price.toLocaleString()}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={openResults}
+                  className="mt-3 h-11 w-full rounded-2xl border border-neutral-800 bg-neutral-900 text-sm font-semibold text-neutral-100 hover:border-orange-400 hover:text-white"
+                >
+                  Ver todos
+                </button>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-4 text-sm text-neutral-300">
+                No encontramos publicaciones para “{trimmedQuery}”.
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div
           className={`overflow-hidden transition-all duration-300 ${
-            scrolled ? "max-h-0 opacity-0 -translate-y-2 pointer-events-none" : "mt-3 max-h-48 opacity-100"
+            scrolled || (showSuggestions && trimmedQuery)
+              ? "max-h-0 opacity-0 -translate-y-2 pointer-events-none"
+              : "mt-3 max-h-48 opacity-100"
           }`}
         >
           {/* Categories + menu */}

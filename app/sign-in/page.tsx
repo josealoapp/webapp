@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -39,10 +39,7 @@ function AuthFallback() {
 
 function SignInContent() {
   const router = useRouter();
-  const sp = useSearchParams();
-
-  // Mantengo tu query param "next"
-  const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
+  const defaultPostAuthPath = useMemo(() => "/", []);
 
   const [emailOrUser, setEmailOrUser] = useState("");
   const [password, setPassword] = useState("");
@@ -90,11 +87,11 @@ function SignInContent() {
       }
 
       if (!user.emailVerified) {
-        router.replace(`/verify-email?next=${encodeURIComponent(nextPath)}`);
+        router.replace(`/verify-email?next=${encodeURIComponent(defaultPostAuthPath)}`);
         return;
       }
 
-      const postAuthDestination = getPostAuthDestination(nextPath);
+      const postAuthDestination = getPostAuthDestination(defaultPostAuthPath);
       const onboardingRequired = postAuthDestination.startsWith("/onboarding");
 
       if (onboardingRequired) {

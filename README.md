@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## AWS S3 uploads
 
-Listing image uploads now use AWS S3 presigned URLs instead of Firebase Storage.
+Listing image uploads now pass through the app server first. Each image is optimized to WebP on the client, scanned for NSFW content with the open-source `nsfwjs` model on the server, and only then written to AWS S3.
 
 Add these server environment variables before running the app:
 
@@ -17,6 +17,15 @@ NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL=https://your-bucket-name.s3.us-east-1.amazona
 Notes:
 
 - The bucket must allow public reads for the uploaded listing images, or `NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL` should point to a public CloudFront distribution in front of the bucket.
+- The IAM credentials used by the app must allow at least `s3:PutObject` on the target bucket path, or uploads will fail with `upload/s3-access-denied`.
+- Optional moderation tuning:
+
+```bash
+NSFW_BLOCK_HENTAI_THRESHOLD=0.7
+NSFW_BLOCK_PORN_THRESHOLD=0.7
+NSFW_BLOCK_SEXY_THRESHOLD=0.85
+```
+
 - Firebase Auth and Firestore are still used by the app; only image storage moved to S3.
 - Marketplace chat and offer permissions are defined in `firestore.rules` and must be deployed to Firebase before offers can be created successfully.
 

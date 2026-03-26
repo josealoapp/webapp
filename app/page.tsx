@@ -46,7 +46,7 @@ export default function HomePage() {
   }, []);
 
   const myListings = useMemo(
-    () => listings.filter((item) => item.ownerId === currentUserId),
+    () => listings.filter((item) => item.ownerId === currentUserId && item.status !== "sold"),
     [currentUserId, listings]
   );
   const marketplaceListings = useMemo(() => {
@@ -54,6 +54,7 @@ export default function HomePage() {
 
     return listings.filter((item) => {
       if (item.ownerId === currentUserId) return false;
+      if (item.status === "sold") return false;
       if (normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
 
       if (normalizedInterests.length === 0) return true;
@@ -75,7 +76,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <HomeHeader selectedLocation={selectedLocation} onLocationChange={setSelectedLocation} />
+      <HomeHeader selectedLocation={selectedLocation} onLocationChange={setSelectedLocation} listings={marketplaceListings} />
 
       <div className="pt-40">
         <HomeHero />

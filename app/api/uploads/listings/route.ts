@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createListingImageUpload, validateListingImage } from "@/lib/s3";
+import { moderateImageBuffer } from "@/lib/image-moderation";
+import { uploadListingImageObject, validateListingImage } from "@/lib/s3";
 import { getAdminAuth } from "@/lib/firebase-admin";
 
-type UploadRequest = {
-  files?: Array<{
-    name?: string;
-    type?: string;
-    size?: number;
-  }>;
-};
+export const runtime = "nodejs";
 
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
@@ -28,8 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = await getAdminAuth().verifyIdToken(token);
-    const body = (await request.json()) as UploadRequest;
-    const files = body.files || [];
+    const formData = await request.formData();
+    const files = formData
+      .getAll("files")
+      .filter((entry): entry is File => entry instanceof File);
 
     if (!files.length) {
       return NextResponse.json({ error: "upload/no-files" }, { status: 400 });
@@ -39,25 +36,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "upload/too-many-files" }, { status: 400 });
     }
 
-    const uploads = await Promise.all(
+    const preparedFiles = await Promise.all(
       files.map(async (file, index) => {
         const name = file.name || `image-${index + 1}.jpg`;
         const type = file.type || "image/jpeg";
         const size = typeof file.size === "number" ? file.size : 0;
 
         validateListingImage({ name, type, size });
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const moderation = await moderateImageBuffer(buffer);
 
-        const upload = await createListingImageUpload({
-          fileName: name,
-          contentType: type,
-          userId: decoded.uid,
+        if (moderation.blocked) {
+          throw new Error("upload/unsafe-content");
+        }
+
+        return {
+          buffer,
+          name,
+          type,
           index,
+        };
+      })
+    );
+
+    const uploads = await Promise.all(
+      preparedFiles.map(async (file) => {
+        const upload = await uploadListingImageObject({
+          fileName: file.name,
+          contentType: file.type,
+          userId: decoded.uid,
+          index: file.index,
+          body: file.buffer,
         });
 
         return {
-          uploadUrl: upload.uploadUrl,
           fileUrl: upload.fileUrl,
-          contentType: type,
         };
       })
     );
@@ -65,8 +78,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ uploads });
   } catch (error) {
     const message = error instanceof Error ? error.message : "upload/unknown-error";
+    const name = error instanceof Error ? error.name : "";
+    const details =
+      error && typeof error === "object"
+        ? {
+            name,
+            message,
+            code: "code" in error ? String((error as { code?: unknown }).code) : undefined,
+            statusCode:
+              "$metadata" in error &&
+              error.$metadata &&
+              typeof error.$metadata === "object" &&
+              "httpStatusCode" in error.$metadata
+                ? Number((error.$metadata as { httpStatusCode?: unknown }).httpStatusCode)
+                : undefined,
+          }
+        : { name, message };
+
+    console.error("uploads/listings failed", details, error);
+
+    if (name === "AccessDenied" || message.includes("not authorized to perform: s3:PutObject")) {
+      return NextResponse.json(
+        {
+          error: "upload/s3-access-denied",
+          ...(process.env.NODE_ENV !== "production" ? { details } : {}),
+        },
+        { status: 500 }
+      );
+    }
+
     const status = message.startsWith("upload/") ? 400 : 500;
 
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json(
+      {
+        error: message,
+        ...(process.env.NODE_ENV !== "production" ? { details } : {}),
+      },
+      { status }
+    );
   }
 }

@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -28,6 +29,15 @@ export type Listing = {
   location: string;
   image: string;
   createdAt: number;
+  status?: "active" | "sold";
+  soldAt?: number;
+  soldWithJosealo?: boolean;
+  saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
+};
+
+export type ListingSoldFeedback = {
+  soldWithJosealo: boolean;
+  saleSpeedRating: 1 | 2 | 3 | 4 | 5;
 };
 
 export type ChatRecord = {
@@ -73,19 +83,17 @@ export async function uploadListingImages(files: File[]) {
     throw new Error("auth/missing-token");
   }
 
+  const formData = new FormData();
+  optimizedFiles.forEach((file) => {
+    formData.append("files", file);
+  });
+
   const response = await fetch("/api/uploads/listings", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      files: optimizedFiles.map((file) => ({
-        name: file.name,
-        type: file.type || "image/webp",
-        size: file.size,
-      })),
-    }),
+    body: formData,
   });
 
   if (!response.ok) {
@@ -94,25 +102,8 @@ export async function uploadListingImages(files: File[]) {
   }
 
   const payload = (await response.json()) as {
-    uploads: Array<{ uploadUrl: string; fileUrl: string; contentType: string }>;
+    uploads: Array<{ fileUrl: string }>;
   };
-
-  await Promise.all(
-    payload.uploads.map(async (upload, index) => {
-      const file = optimizedFiles[index];
-      const uploadResponse = await fetch(upload.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": upload.contentType,
-        },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(`upload/put-failed:${uploadResponse.status}`);
-      }
-    })
-  );
 
   return payload.uploads.map((upload) => upload.fileUrl);
 }
@@ -181,6 +172,19 @@ export async function getListingById(id: string) {
   if (!snap.exists()) return null;
   const data = snap.data() as Omit<Listing, "id">;
   return { id: snap.id, ...data } as Listing;
+}
+
+export async function markListingSold(listingId: string, feedback: ListingSoldFeedback) {
+  const soldAt = Date.now();
+
+  await updateDoc(doc(db, "listings", listingId), {
+    status: "sold",
+    image: "",
+    soldAt,
+    soldWithJosealo: feedback.soldWithJosealo,
+    saleSpeedRating: feedback.saleSpeedRating,
+    soldAtServer: serverTimestamp(),
+  });
 }
 
 function chatIdFor(listingId: string, buyerId: string) {

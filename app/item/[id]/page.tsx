@@ -9,7 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import InterestModal from "@/components/InterestModal";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
-import { getListingById, Listing } from "@/lib/marketplace";
+import { getListingById, Listing, markListingSold } from "@/lib/marketplace";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
 export default function ItemDetailsPage() {
@@ -22,6 +22,11 @@ export default function ItemDetailsPage() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
+  const [openSoldModal, setOpenSoldModal] = useState(false);
+  const [soldWithJosealo, setSoldWithJosealo] = useState<"si" | "no" | "">("");
+  const [saleSpeedRating, setSaleSpeedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [publishingSold, setPublishingSold] = useState(false);
+  const [soldError, setSoldError] = useState("");
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -90,8 +95,28 @@ export default function ItemDetailsPage() {
     };
   }, [id, listing, loading]);
 
-  const images = item?.images?.length ? item.images : [];
   const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
+  const isSold = listing?.status === "sold";
+  const images = useMemo(() => {
+    if (isSold) {
+      return [] as string[];
+    }
+
+    return item?.images?.length ? item.images : [];
+  }, [isSold, item]);
+  const republishParams = useMemo(() => {
+    if (!listing) return "";
+
+    return new URLSearchParams({
+      title: listing.title,
+      price: String(listing.price),
+      category: listing.category,
+      description: listing.description,
+      tags: listing.tags.join(", "),
+      paymentMethod: listing.paymentMethod,
+      location: listing.location,
+    }).toString();
+  }, [listing]);
 
   useEffect(() => {
     const root = scrollerRef.current;
@@ -145,41 +170,54 @@ export default function ItemDetailsPage() {
     <div className="relative min-h-[100dvh] bg-neutral-950 text-neutral-100">
       {/* HERO CAROUSEL */}
       <div className="relative h-[62vh] w-full overflow-hidden">
-        <div
-          ref={scrollerRef}
-          className="
-            absolute inset-0
-            flex h-full w-full overflow-x-auto
-            snap-x snap-mandatory scroll-smooth
-            no-scrollbar
-          "
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          {images.map((src, i) => (
-            <div
-              key={src + i}
-              ref={(el) => {
-                slideRefs.current[i] = el;
-              }}
-              data-index={i}
-                className="relative h-full w-full flex-shrink-0 snap-start"
-            >
-              <Image
-                src={src}
-                alt={`${item.title} ${i + 1}`}
-                fill
-                priority={i === 0}
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-black/25" />
+        {images.length > 0 ? (
+          <div
+            ref={scrollerRef}
+            className="
+              absolute inset-0
+              flex h-full w-full overflow-x-auto
+              snap-x snap-mandatory scroll-smooth
+              no-scrollbar
+            "
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {images.map((src, i) => (
+              <div
+                key={src + i}
+                ref={(el) => {
+                  slideRefs.current[i] = el;
+                }}
+                data-index={i}
+                  className="relative h-full w-full flex-shrink-0 snap-start"
+              >
+                <Image
+                  src={src}
+                  alt={`${item.title} ${i + 1}`}
+                  fill
+                  priority={i === 0}
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-black/25" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900 text-center">
+            <div className="text-sm font-medium text-neutral-300">Imagen no disponible</div>
+            <div className="mt-2 max-w-[220px] text-xs leading-5 text-neutral-500">
+              {isSold
+                ? "Las publicaciones del histórico conservan la información, pero ya no muestran sus fotos."
+                : "Esta publicación no tiene fotos disponibles."}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {/* Slide counter */}
-        <div className="absolute bottom-16 right-4 z-20 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
-          {activeIndex + 1}/{images.length}
-        </div>
+        {images.length > 0 ? (
+          <div className="absolute bottom-16 right-4 z-20 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
+            {activeIndex + 1}/{images.length}
+          </div>
+        ) : null}
 
         {/* TOP BAR */}
         <div className="absolute left-0 right-0 top-0 z-20 px-4 pt-4">
@@ -235,19 +273,21 @@ export default function ItemDetailsPage() {
         </div>
 
         {/* DOTS */}
-        <div className="absolute bottom-5 left-0 right-0 z-20 flex justify-center gap-2">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goTo(i)}
-              className={[
-                "h-2 w-2 rounded-full transition-all",
-                i === activeIndex ? "bg-white scale-110" : "bg-white/45",
-              ].join(" ")}
-              aria-label={`Imagen ${i + 1}`}
-            />
-          ))}
-        </div>
+        {images.length > 0 ? (
+          <div className="absolute bottom-5 left-0 right-0 z-20 flex justify-center gap-2">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={[
+                  "h-2 w-2 rounded-full transition-all",
+                  i === activeIndex ? "bg-white scale-110" : "bg-white/45",
+                ].join(" ")}
+                aria-label={`Imagen ${i + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/* CONTENT SHEET */}
@@ -270,6 +310,12 @@ export default function ItemDetailsPage() {
             <div className="text-base font-semibold text-neutral-100">Descripción</div>
             <p className="mt-2 text-sm leading-6 text-neutral-300">{item.description}</p>
           </div>
+
+          {isSold ? (
+            <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
+              Esta publicación fue marcada como vendida.
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -286,12 +332,21 @@ export default function ItemDetailsPage() {
           <Button
             className="h-12 rounded-2xl px-5 bg-orange-400 text-black hover:bg-orange-300"
             onClick={() => {
-              if (isOwnListing) return;
+              if (isOwnListing) {
+                if (isSold && republishParams) {
+                  router.push(`/item/new?${republishParams}`);
+                  return;
+                }
+                setSoldError("");
+                setOpenSoldModal(true);
+                return;
+              }
+              if (isSold) return;
               setOpenInterest(true);
             }}
-            disabled={isOwnListing}
+            disabled={publishingSold || (!isOwnListing && isSold)}
           >
-            {isOwnListing ? "Es tu publicación" : "Estoy interesado"}
+            {isOwnListing ? (isSold ? "Publicar de nuevo" : "Marcar vendido") : isSold ? "Vendido" : "Estoy interesado"}
           </Button>
         </div>
       </div>
@@ -308,6 +363,139 @@ export default function ItemDetailsPage() {
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
         }}
       />
+
+      {openSoldModal ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
+            <div className="text-lg font-semibold">Marcar como vendido</div>
+            <p className="mt-2 text-sm leading-6 text-neutral-400">
+              Publica un cierre rapido de tu venta para ayudarnos a mejorar JOSEALO.
+            </p>
+
+            <div className="mt-5">
+              <div className="text-sm font-medium text-neutral-200">¿Lo vendiste gracias a Josealo?</div>
+              <div className="mt-3 flex gap-3">
+                {[
+                  { value: "si" as const, label: "Si" },
+                  { value: "no" as const, label: "No" },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className={[
+                      "flex flex-1 items-center gap-2 rounded-2xl border px-4 py-3 text-sm",
+                      soldWithJosealo === option.value
+                        ? "border-orange-400 bg-orange-400/10 text-orange-200"
+                        : "border-neutral-800 bg-neutral-900 text-neutral-300",
+                    ].join(" ")}
+                  >
+                    <input
+                      type="radio"
+                      name="soldWithJosealo"
+                      value={option.value}
+                      checked={soldWithJosealo === option.value}
+                      onChange={() => setSoldWithJosealo(option.value)}
+                      className="h-4 w-4 accent-orange-400"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="text-sm font-medium text-neutral-200">
+                Del 1 al 5, ¿qué tanto te tomó venderlo siendo 1 mucho tiempo y 5 poco tiempo?
+              </div>
+              <div className="mt-3 grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <label
+                    key={value}
+                    className={[
+                      "flex items-center justify-center rounded-2xl border px-0 py-3 text-sm font-semibold",
+                      saleSpeedRating === value
+                        ? "border-orange-400 bg-orange-400/10 text-orange-200"
+                        : "border-neutral-800 bg-neutral-900 text-neutral-300",
+                    ].join(" ")}
+                  >
+                    <input
+                      type="radio"
+                      name="saleSpeedRating"
+                      value={value}
+                      checked={saleSpeedRating === value}
+                      onChange={() => setSaleSpeedRating(value as 1 | 2 | 3 | 4 | 5)}
+                      className="sr-only"
+                    />
+                    {value}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {soldError ? (
+              <div className="mt-4 rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+                {soldError}
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (publishingSold) return;
+                  setOpenSoldModal(false);
+                }}
+                className="h-12 flex-1 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!listing) return;
+                  if (!soldWithJosealo) {
+                    setSoldError("Selecciona si la venta fue gracias a Josealo.");
+                    return;
+                  }
+                  if (!saleSpeedRating) {
+                    setSoldError("Selecciona un valor del 1 al 5.");
+                    return;
+                  }
+
+                  setPublishingSold(true);
+                  setSoldError("");
+
+                  try {
+                    await markListingSold(listing.id, {
+                      soldWithJosealo: soldWithJosealo === "si",
+                      saleSpeedRating,
+                    });
+                    setListing((current) =>
+                      current
+                        ? {
+                            ...current,
+                            status: "sold",
+                            soldAt: Date.now(),
+                            soldWithJosealo: soldWithJosealo === "si",
+                            saleSpeedRating,
+                          }
+                        : current
+                    );
+                    setOpenSoldModal(false);
+                  } catch {
+                    setSoldError("No pudimos marcar la publicación como vendida. Intenta de nuevo.");
+                  } finally {
+                    setPublishingSold(false);
+                  }
+                }}
+                disabled={publishingSold}
+                className="h-12 flex-1 rounded-2xl bg-orange-400 px-4 text-sm font-semibold text-black hover:bg-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
+              >
+                {publishingSold ? "Publicando..." : "Publicar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

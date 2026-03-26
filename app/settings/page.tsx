@@ -13,6 +13,7 @@ import {
   Power,
   SunMoon,
   UserRoundCog,
+  Archive,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -44,6 +45,7 @@ const danger: Item[] = [
 const appearance: Item[] = [{ title: "Apariencia", subtitle: "Claro u oscuro", icon: SunMoon, href: "/settings/appearance" }];
 const accountPreferences: Item[] = [
   { title: "Tipo de cuenta", subtitle: "Personal o empresarial", icon: UserRoundCog, href: "/settings/account-type" },
+  { title: "Historico", subtitle: "Publicaciones marcadas como vendidas", icon: Archive, href: "/settings/historico" },
 ];
 
 export default function SettingsPage() {

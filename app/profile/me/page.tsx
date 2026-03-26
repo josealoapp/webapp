@@ -9,11 +9,13 @@ import CategoryStories from "@/components/CategoryStories";
 import { auth } from "@/lib/firebase";
 import { Listing, subscribeListings } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
+import { getInitials, getOrCreateUserHandle } from "@/lib/user-handle";
 
 export default function MyProfilePage() {
   const router = useRouter();
   const [activeCategoryId, setActiveCategoryId] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [listings, setListings] = useState<Listing[]>([]);
   const [authResolved, setAuthResolved] = useState(false);
 
@@ -27,6 +29,7 @@ export default function MyProfilePage() {
         }
       }
       setCurrentUserId(user?.uid ?? null);
+      setCurrentUserName(user?.displayName?.trim() || user?.email?.trim() || "Usuario");
       setAuthResolved(true);
     });
   }, [router]);
@@ -36,7 +39,18 @@ export default function MyProfilePage() {
     return () => unsub();
   }, []);
 
-  const myListings = listings.filter((item) => item.ownerId === currentUserId);
+  const myListings = listings.filter((item) => item.ownerId === currentUserId && item.status !== "sold");
+  const userHandle = useMemo(() => {
+    if (!currentUserId) {
+      return "user-001";
+    }
+
+    return getOrCreateUserHandle({
+      uid: currentUserId,
+      name: currentUserName,
+    });
+  }, [currentUserId, currentUserName]);
+  const userInitials = useMemo(() => getInitials(currentUserName), [currentUserName]);
   const storyCategories = useMemo(() => {
     const categories = new Map<string, { id: string; name: string; image: string }>();
 
@@ -108,21 +122,22 @@ export default function MyProfilePage() {
 
       <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-1">
         <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-neutral-800 bg-neutral-900">
-          <span className="text-3xl font-bold">YO</span>
+          <span className="text-3xl font-bold">{userInitials}</span>
         </div>
-        <div className="mt-3 text-sm text-neutral-300">@mi_usuario</div>
+        <div className="mt-3 text-lg font-semibold text-neutral-50">{currentUserName}</div>
+        <div className="mt-1 text-sm text-neutral-300">@{userHandle}</div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">
           <div>
-            <div className="text-base font-semibold text-neutral-50">123</div>
+            <div className="text-base font-semibold text-neutral-50">0</div>
             <div className="text-xs text-neutral-400">Siguiendo</div>
           </div>
           <div>
-            <div className="text-base font-semibold text-neutral-50">4,562</div>
+            <div className="text-base font-semibold text-neutral-50">0</div>
             <div className="text-xs text-neutral-400">Seguidores</div>
           </div>
           <div>
-            <div className="text-base font-semibold text-neutral-50">18.4K</div>
+            <div className="text-base font-semibold text-neutral-50">0</div>
             <div className="text-xs text-neutral-400">Likes</div>
           </div>
         </div>

@@ -92,3 +92,29 @@ export async function createListingImageUpload(input: {
   };
 }
 
+export async function uploadListingImageObject(input: {
+  fileName: string;
+  contentType: string;
+  userId: string;
+  index: number;
+  body: Buffer;
+}) {
+  const { bucket, publicBaseUrl } = getS3Config();
+  const client = createS3Client();
+  const key = buildListingImageKey(input.fileName, input.userId, input.index);
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: input.body,
+      ContentType: input.contentType,
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+
+  return {
+    key,
+    fileUrl: `${publicBaseUrl}/${key}`,
+  };
+}

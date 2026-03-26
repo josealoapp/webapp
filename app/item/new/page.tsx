@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, ChevronDown, ImagePlus, Info } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -12,6 +12,7 @@ const categories = ["Electrónicos", "Hogar", "Belleza", "Ropa", "Zapatos", "Acc
 
 export default function NewListingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
@@ -29,6 +30,28 @@ export default function NewListingPage() {
     { id: "intercambio", label: "Intercambio" },
     { id: "transferencia", label: "Transferencia" },
   ];
+
+  useEffect(() => {
+    const nextTitle = searchParams.get("title");
+    const nextPrice = searchParams.get("price");
+    const nextCategory = searchParams.get("category");
+    const nextDescription = searchParams.get("description");
+    const nextTags = searchParams.get("tags");
+    const nextPaymentMethod = searchParams.get("paymentMethod");
+
+    if (nextTitle !== null) setTitle(nextTitle);
+    if (nextPrice !== null) setPrice(nextPrice);
+    if (nextCategory !== null) setCategory(nextCategory);
+    if (nextDescription !== null) setDescription(nextDescription);
+    if (nextTags !== null) setTags(nextTags);
+    if (
+      nextPaymentMethod === "efectivo" ||
+      nextPaymentMethod === "intercambio" ||
+      nextPaymentMethod === "transferencia"
+    ) {
+      setPaymentMethod(nextPaymentMethod);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const urls = selectedFiles.map((file) => URL.createObjectURL(file));
@@ -288,6 +311,10 @@ export default function NewListingPage() {
                   setPhotoError("Cada foto debe pesar menos de 10 MB.");
                 } else if (code.includes("upload/invalid-type")) {
                   setPhotoError("Solo puedes subir archivos de imagen.");
+                } else if (code.includes("upload/unsafe-content")) {
+                  setPhotoError("Bloqueamos una o más fotos por desnudez o contenido sexual explícito.");
+                } else if (code.includes("upload/s3-access-denied")) {
+                  setPhotoError("AWS bloqueó la subida: tu usuario IAM no tiene permiso s3:PutObject sobre el bucket.");
                 } else if (code.includes("Missing required env var")) {
                   setPhotoError("Falta configurar AWS S3 en las variables del servidor.");
                 } else if (code.includes("presign") || code.includes("put-failed")) {

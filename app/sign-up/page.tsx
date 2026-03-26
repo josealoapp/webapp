@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
@@ -30,8 +30,7 @@ function AuthFallback() {
 
 function SignUpContent() {
   const router = useRouter();
-  const sp = useSearchParams();
-  const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
+  const postSignUpPath = useMemo(() => "/", []);
   const verifyContinueUrl =
     process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
 
@@ -97,7 +96,7 @@ function SignUpContent() {
         // ignore
       }
 
-      router.replace(`/verify-email?next=${encodeURIComponent(nextPath)}`);
+      router.replace(`/verify-email?next=${encodeURIComponent(postSignUpPath)}`);
     } catch (err: unknown) {
       const code =
         typeof err === "object" && err !== null && "code" in err

@@ -30,7 +30,7 @@ export default function DiscoverPage() {
 
   const renderedItems = items.length
     ? items
-        .filter((item) => item.ownerId !== currentUserId)
+        .filter((item) => item.ownerId !== currentUserId && item.status !== "sold")
         .map((item) => ({
         id: item.id,
         title: item.title,
