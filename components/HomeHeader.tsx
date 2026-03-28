@@ -7,19 +7,30 @@ import { Heart, MapPin, Menu, Search } from "lucide-react";
 import LocationPickerModal from "./LocationPickerModal";
 import { Listing } from "@/lib/marketplace";
 
-const categories = ["Todo", "Mujer", "Hombre", "Electrónicos", "Zapatos", "Hogar"];
+const categories = [
+  { label: "Todo", value: "Todo" },
+  { label: "Mujer", value: "Mujer" },
+  { label: "Hombres", value: "Hombre" },
+  { label: "Bazar", value: "Bazar" },
+  { label: "Electrónicos", value: "Electrónicos" },
+  { label: "Zapatos", value: "Zapatos" },
+  { label: "Hogar", value: "Hogar" },
+];
 
 export default function HomeHeader({
   selectedLocation,
   onLocationChange,
   listings,
+  activeCategory,
+  onCategoryChange,
 }: {
   selectedLocation: string;
   onLocationChange: (location: string) => void;
   listings: Listing[];
+  activeCategory: string;
+  onCategoryChange: (category: string) => void;
 }) {
   const router = useRouter();
-  const [active, setActive] = useState<string>("Todo");
   const [scrolled, setScrolled] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -154,18 +165,18 @@ export default function HomeHeader({
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
               {categories.map((cat) => {
-                const isActive = cat === active;
+                const isActive = cat.value === activeCategory;
                 return (
                   <button
-                    key={cat}
-                    onClick={() => setActive(cat)}
+                    key={cat.value}
+                    onClick={() => onCategoryChange(cat.value)}
                     className={`whitespace-nowrap rounded-3xl px-4 py-2 text-sm font-semibold transition  ${
                       isActive
                         ? "border border-orange-400 text-orange-400 shadow-[0_0_0_1px_rgba(255,184,79,0.25)]"
                         : "border border-transparent bg-black/20 text-white hover:text-orange-200"
                     }`}
                   >
-                    {cat}
+                    {cat.label}
                   </button>
                 );
               })}

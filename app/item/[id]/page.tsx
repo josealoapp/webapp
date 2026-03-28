@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Share2, Star } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Share2, Star } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 
 import InterestModal from "@/components/InterestModal";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
-import { getListingById, Listing, markListingSold } from "@/lib/marketplace";
+import { getListingById, Listing, markBazarItemSold, markListingSold } from "@/lib/marketplace";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
 export default function ItemDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const id = params?.id;
 
   const [openInterest, setOpenInterest] = useState(false);
@@ -27,6 +28,7 @@ export default function ItemDetailsPage() {
   const [saleSpeedRating, setSaleSpeedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [publishingSold, setPublishingSold] = useState(false);
   const [soldError, setSoldError] = useState("");
+  const [openBazarMenu, setOpenBazarMenu] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -62,16 +64,23 @@ export default function ItemDetailsPage() {
     if (!id) return null;
 
     if (listing) {
+      const bazarItems = listing.bazarItems || [];
+      const bazarImages = bazarItems.map((entry) => entry.image).filter(Boolean);
       return {
         id: listing.id,
-        category: listing.category,
+        category:
+          listing.type === "bazar"
+            ? `Bazar${listing.bazarCategory ? ` · ${listing.bazarCategory}` : ""}`
+            : listing.category,
         title: listing.title,
         location: listing.location,
         price: listing.price,
         description: listing.description,
-        images: [listing.image],
+        images: listing.type === "bazar" ? bazarImages : [listing.image],
         sellerName: listing.ownerName,
         sellerId: listing.ownerId,
+        bazarItems,
+        type: listing.type || "article",
         sellerMaxDiscountPercent: 10,
       };
     }
@@ -91,19 +100,42 @@ export default function ItemDetailsPage() {
       ],
       sellerName: "Vendedor",
       sellerId: "seller",
+      bazarItems: [],
+      type: "article" as const,
       sellerMaxDiscountPercent: 10,
     };
   }, [id, listing, loading]);
+  const selectedBazarItemId = searchParams.get("bazarItemId") || "";
+  const selectedBazarItem = useMemo(() => {
+    if (item?.type !== "bazar" || !selectedBazarItemId) return null;
+    return item.bazarItems.find((entry) => entry.id === selectedBazarItemId) || null;
+  }, [item, selectedBazarItemId]);
 
   const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
   const isSold = listing?.status === "sold";
+  const isSelectedBazarItemSold = selectedBazarItem?.status === "sold";
+  const isBazarRoot = item?.type === "bazar" && !selectedBazarItem;
+  const estimatedBazarValue = useMemo(() => {
+    if (item?.type !== "bazar") return 0;
+    return (item.bazarItems || [])
+      .filter((entry) => entry.status !== "sold")
+      .reduce((sum, entry) => sum + Number(entry.price || 0), 0);
+  }, [item]);
+  const displayTitle = selectedBazarItem?.title || item?.title || "";
+  const displayDescription = selectedBazarItem?.description || item?.description || "";
+  const displayPrice = selectedBazarItem?.price || item?.price || 0;
+  const displayCategory = selectedBazarItem ? `${item?.category || "Bazar"} · Artículo` : item?.category || "";
   const images = useMemo(() => {
     if (isSold) {
       return [] as string[];
     }
 
+    if (selectedBazarItem?.image) {
+      return [selectedBazarItem.image];
+    }
+
     return item?.images?.length ? item.images : [];
-  }, [isSold, item]);
+  }, [isSold, item, selectedBazarItem]);
   const republishParams = useMemo(() => {
     if (!listing) return "";
 
@@ -237,7 +269,7 @@ export default function ItemDetailsPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">
-                    {item.sellerName || "Vendedor"}
+                    {isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}
                   </div>
                   <div className="flex items-center gap-1 text-xs text-neutral-300">
                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
@@ -258,8 +290,8 @@ export default function ItemDetailsPage() {
                   if (navigator.share) {
                     navigator
                       .share({
-                        title: item.title,
-                        text: item.title,
+                        title: displayTitle,
+                        text: selectedBazarItem ? `${selectedBazarItem.title} en ${item.title}` : displayTitle,
                         url: window.location.href,
                       })
                       .catch(() => {});
@@ -294,9 +326,9 @@ export default function ItemDetailsPage() {
       <div className="relative z-30 -mt-8 rounded-t-3xl border-t border-neutral-800 bg-neutral-950 text-neutral-50">
         <div className="mx-auto max-w-md px-4 pb-28 pt-5">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-800" />
-          <div className="text-xs font-medium text-neutral-400">{item.category}</div>
+          <div className="text-xs font-medium text-neutral-400">{displayCategory}</div>
           <div className="mt-1 text-2xl font-semibold leading-tight text-neutral-50">
-            {item.title}
+            {displayTitle}
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
@@ -306,10 +338,88 @@ export default function ItemDetailsPage() {
             <span>{item.location}</span>
           </div>
 
+          {item.type === "bazar" ? (
+            <div className="mt-5 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-neutral-500">Bazar</div>
+                  <div className="mt-1 text-base font-semibold text-neutral-100">
+                    {isOwnListing ? "Mi bazar" : item.sellerName}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isOwnListing) return;
+                    setOpenBazarMenu(true);
+                  }}
+                  className="flex h-11 w-11 items-center justify-center text-neutral-100"
+                >
+                  {isOwnListing ? <MoreHorizontal className="h-5 w-5" /> : "Follow"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-6">
             <div className="text-base font-semibold text-neutral-100">Descripción</div>
-            <p className="mt-2 text-sm leading-6 text-neutral-300">{item.description}</p>
+            <p className="mt-2 text-sm leading-6 text-neutral-300">{displayDescription}</p>
           </div>
+
+          {item.type === "bazar" && item.bazarItems.length > 0 && isBazarRoot ? (
+            <div className="mt-6">
+              <div className="text-base font-semibold text-neutral-100">Artículos del bazar</div>
+              <div className="mt-3 space-y-3">
+                {item.bazarItems.map((bazarItem) => {
+                  const isSoldItem = bazarItem.status === "sold";
+                  if (!isOwnListing && isSoldItem) return null;
+
+                  return (
+                  <button
+                    key={bazarItem.id}
+                    type="button"
+                    onClick={() => router.push(`/item/${item.id}?bazarItemId=${bazarItem.id}`)}
+                    className={[
+                      "flex w-full gap-3 rounded-2xl border border-neutral-800 p-3 text-left",
+                      isSoldItem ? "bg-neutral-900/40 opacity-60" : "bg-neutral-900/70",
+                    ].join(" ")}
+                  >
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-800">
+                      {bazarItem.image ? (
+                        <Image
+                          src={bazarItem.image}
+                          alt={bazarItem.title}
+                          width={80}
+                          height={80}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-neutral-100">{bazarItem.title}</div>
+                      <p className="mt-1 text-xs leading-5 text-neutral-400">{bazarItem.description}</p>
+                      {isSoldItem ? (
+                        <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Vendido</div>
+                      ) : null}
+                      <div className="mt-2 text-sm font-semibold text-orange-400">
+                        RD${Number(bazarItem.price).toLocaleString()}
+                      </div>
+                    </div>
+                  </button>
+                )})}
+              </div>
+            </div>
+          ) : null}
+
+          {item.type === "bazar" && selectedBazarItem ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/item/${item.id}`)}
+              className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100"
+            >
+              Ver bazar completo
+            </button>
+          ) : null}
 
           {isSold ? (
             <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
@@ -323,9 +433,11 @@ export default function ItemDetailsPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <div className="text-xs text-neutral-500">Precio</div>
+            <div className="text-xs text-neutral-500">
+              {item.type === "bazar" && !selectedBazarItem ? "Valor estimado" : "Precio"}
+            </div>
             <div className="text-lg font-semibold text-neutral-50">
-              RD${Number(item.price).toLocaleString()}
+              RD${Number(item.type === "bazar" && !selectedBazarItem ? estimatedBazarValue : displayPrice).toLocaleString()}
             </div>
           </div>
 
@@ -333,6 +445,35 @@ export default function ItemDetailsPage() {
             className="h-12 rounded-2xl px-5 bg-orange-400 text-black hover:bg-orange-300"
             onClick={() => {
               if (isOwnListing) {
+                if (item.type === "bazar" && selectedBazarItem) {
+                  if (isSelectedBazarItemSold || publishingSold) return;
+                  setPublishingSold(true);
+                  setSoldError("");
+                  markBazarItemSold(item.id, selectedBazarItem.id)
+                    .then(() => {
+                      setListing((current) =>
+                        current
+                          ? {
+                              ...current,
+                              bazarItems: (current.bazarItems || []).map((entry) =>
+                                entry.id === selectedBazarItem.id
+                                  ? { ...entry, status: "sold", soldAt: Date.now() }
+                                  : entry
+                              ),
+                            }
+                          : current
+                      );
+                    })
+                    .catch(() => {
+                      setSoldError("No pudimos marcar este artículo como vendido. Intenta de nuevo.");
+                    })
+                    .finally(() => setPublishingSold(false));
+                  return;
+                }
+                if (item.type === "bazar") {
+                  router.push(`/item/new?listingId=${item.id}`);
+                  return;
+                }
                 if (isSold && republishParams) {
                   router.push(`/item/new?${republishParams}`);
                   return;
@@ -344,9 +485,21 @@ export default function ItemDetailsPage() {
               if (isSold) return;
               setOpenInterest(true);
             }}
-            disabled={publishingSold || (!isOwnListing && isSold)}
+            disabled={publishingSold || (!isOwnListing && (isSold || isSelectedBazarItemSold))}
           >
-            {isOwnListing ? (isSold ? "Publicar de nuevo" : "Marcar vendido") : isSold ? "Vendido" : "Estoy interesado"}
+            {isOwnListing
+              ? item.type === "bazar" && selectedBazarItem
+                ? isSelectedBazarItemSold
+                  ? "Vendido"
+                  : "Marcar vendido"
+                : item.type === "bazar"
+                ? "Editar"
+                : isSold
+                  ? "Publicar de nuevo"
+                  : "Marcar vendido"
+              : isSold || isSelectedBazarItemSold
+                ? "Vendido"
+                : "Estoy interesado"}
           </Button>
         </div>
       </div>
@@ -356,13 +509,19 @@ export default function ItemDetailsPage() {
         onClose={() => setOpenInterest(false)}
         item={{
           id: item.id,
-          title: item.title,
-          price: item.price,
+          title: selectedBazarItem ? selectedBazarItem.title : item.title,
+          price: selectedBazarItem ? selectedBazarItem.price : item.price,
           sellerId: item.sellerId,
-          sellerName: item.sellerName,
+          sellerName: isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName,
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
         }}
       />
+
+      {soldError && item.type === "bazar" && selectedBazarItem ? (
+        <div className="fixed bottom-24 left-4 right-4 z-40 mx-auto max-w-md rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+          {soldError}
+        </div>
+      ) : null}
 
       {openSoldModal ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
@@ -493,6 +652,29 @@ export default function ItemDetailsPage() {
                 {publishingSold ? "Publicando..." : "Publicar"}
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {openBazarMenu ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+          <div className="w-full max-w-sm rounded-3xl border border-neutral-800 bg-neutral-950 p-4 text-neutral-100 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                setOpenBazarMenu(false);
+              }}
+              className="flex h-12 w-full items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 px-4 text-sm font-semibold text-red-300 hover:bg-red-500/15"
+            >
+              Finalizar bazar
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpenBazarMenu(false)}
+              className="mt-3 flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       ) : null}

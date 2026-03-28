@@ -15,19 +15,33 @@ import { auth, db } from "@/lib/firebase";
 import { optimizeListingImage } from "@/lib/image-upload";
 
 export type PaymentMethod = "efectivo" | "intercambio" | "transferencia";
+export type ListingType = "article" | "bazar";
+
+export type BazarItem = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  image: string;
+  status?: "active" | "sold";
+  soldAt?: number;
+};
 
 export type Listing = {
   id: string;
   ownerId: string;
   ownerName: string;
+  type?: ListingType;
   title: string;
   price: number;
   category: string;
+  bazarCategory?: string;
   description: string;
   tags: string[];
   paymentMethod: PaymentMethod;
   location: string;
   image: string;
+  bazarItems?: BazarItem[];
   createdAt: number;
   status?: "active" | "sold";
   soldAt?: number;
@@ -75,6 +89,17 @@ export async function createListing(input: Omit<Listing, "id" | "createdAt">) {
   return ref.id;
 }
 
+export async function updateListing(
+  listingId: string,
+  input: Partial<Omit<Listing, "id" | "createdAt">>
+) {
+  await updateDoc(doc(db, "listings", listingId), {
+    ...input,
+    updatedAt: Date.now(),
+    updatedAtServer: serverTimestamp(),
+  });
+}
+
 export async function uploadListingImages(files: File[]) {
   const optimizedFiles = await Promise.all(files.map((file, index) => optimizeListingImage(file, index)));
   const token = await auth.currentUser?.getIdToken();
@@ -83,29 +108,41 @@ export async function uploadListingImages(files: File[]) {
     throw new Error("auth/missing-token");
   }
 
-  const formData = new FormData();
-  optimizedFiles.forEach((file) => {
-    formData.append("files", file);
-  });
+  const uploads: string[] = [];
+  const batchSize = 10;
 
-  const response = await fetch("/api/uploads/listings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  for (let start = 0; start < optimizedFiles.length; start += batchSize) {
+    const batch = optimizedFiles.slice(start, start + batchSize);
+    const formData = new FormData();
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error || "upload/presign-failed");
+    batch.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const response = await fetch("/api/uploads/listings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; details?: { message?: string; code?: string; statusCode?: number; name?: string } }
+        | null;
+      const detailMessage = payload?.details?.message || payload?.details?.code || payload?.details?.name;
+      throw new Error(detailMessage ? `${payload?.error || "upload/presign-failed"}|${detailMessage}` : payload?.error || "upload/presign-failed");
+    }
+
+    const payload = (await response.json()) as {
+      uploads: Array<{ fileUrl: string }>;
+    };
+
+    uploads.push(...payload.uploads.map((upload) => upload.fileUrl));
   }
 
-  const payload = (await response.json()) as {
-    uploads: Array<{ fileUrl: string }>;
-  };
-
-  return payload.uploads.map((upload) => upload.fileUrl);
+  return uploads;
 }
 
 export async function createOffer(input: {
@@ -184,6 +221,29 @@ export async function markListingSold(listingId: string, feedback: ListingSoldFe
     soldWithJosealo: feedback.soldWithJosealo,
     saleSpeedRating: feedback.saleSpeedRating,
     soldAtServer: serverTimestamp(),
+  });
+}
+
+export async function markBazarItemSold(listingId: string, bazarItemId: string) {
+  const listing = await getListingById(listingId);
+  if (!listing) {
+    throw new Error("listing/not-found");
+  }
+
+  const nextItems = (listing.bazarItems || []).map((item) =>
+    item.id === bazarItemId
+      ? {
+          ...item,
+          status: "sold" as const,
+          soldAt: Date.now(),
+        }
+      : item
+  );
+
+  await updateDoc(doc(db, "listings", listingId), {
+    bazarItems: nextItems,
+    updatedAt: Date.now(),
+    updatedAtServer: serverTimestamp(),
   });
 }
 

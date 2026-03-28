@@ -161,10 +161,12 @@ export default function MyProfilePage() {
             <CategoryStories categories={storyCategories} activeId={activeCategoryId} onSelect={setActiveCategoryId} />
           </div>
         ) : null}
-        <div className="grid w-full grid-cols-3 gap-px bg-neutral-900">
+        <div className="grid w-full grid-cols-3 gap-px">
           {visibleListings.length === 0 ? (
-            <div className="col-span-3 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-400">
-              Aun no tienes publicaciones. Crea una para verla aqui.
+            <div className="col-span-3 flex justify-center px-4 py-8">
+              <div className="max-w-sm rounded-2xl border border-neutral-800 bg-neutral-900/50 px-5 py-4 text-center text-sm text-neutral-400">
+                Aun no tienes publicaciones. Crea una para verla aqui.
+              </div>
             </div>
           ) : (
             visibleListings.map((item) => (

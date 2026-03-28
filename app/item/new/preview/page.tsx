@@ -83,6 +83,7 @@ function NewListingPreviewContent() {
       await createListing({
         ownerId: user.uid,
         ownerName: user.displayName || user.email || "Vendedor",
+        type: "article",
         title: data.title || "Sin título",
         price: data.price,
         category: data.category || "General",
@@ -96,6 +97,7 @@ function NewListingPreviewContent() {
         image:
           data.imageUrl ||
           "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
+        bazarItems: [],
       });
       router.push("/");
     } catch {
@@ -115,7 +117,7 @@ function NewListingPreviewContent() {
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="text-sm font-semibold text-white">Preview</div>
+        <div className="text-sm font-semibold text-white">Preview artículo</div>
         <div className="h-10 w-10" />
       </header>
 
