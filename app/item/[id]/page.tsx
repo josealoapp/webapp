@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, MoreHorizontal, Share2, Star } from "lucide-react";
+import { ArrowLeft, Heart, MoreHorizontal, Share2, Star } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 
 import InterestModal from "@/components/InterestModal";
 import SellerAvatar from "@/components/SellerAvatar";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
+import { getLikeRecordId, likeItem, subscribeLikeIdsForUser, unlikeItem } from "@/lib/likes";
 import { getListingById, Listing, markBazarItemSold, markListingSold } from "@/lib/marketplace";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
@@ -25,12 +26,14 @@ export default function ItemDetailsPage() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [openSoldModal, setOpenSoldModal] = useState(false);
   const [soldWithJosealo, setSoldWithJosealo] = useState<"si" | "no" | "">("");
   const [saleSpeedRating, setSaleSpeedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [publishingSold, setPublishingSold] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [openBazarMenu, setOpenBazarMenu] = useState(false);
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -57,10 +60,21 @@ export default function ItemDetailsPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid || "");
+      setCurrentUserName(user?.displayName?.trim() || user?.email?.trim() || "Usuario");
     });
 
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setLikedIds(new Set());
+      return;
+    }
+
+    const unsub = subscribeLikeIdsForUser(currentUserId, setLikedIds);
+    return () => unsub();
+  }, [currentUserId]);
 
   const item = useMemo(() => {
     if (!id) return null;
@@ -110,6 +124,11 @@ export default function ItemDetailsPage() {
   const displayDescription = selectedBazarItem?.description || item?.description || "";
   const displayPrice = selectedBazarItem?.price || item?.price || 0;
   const displayCategory = selectedBazarItem ? `${item?.category || "Bazar"} · Artículo` : item?.category || "";
+  const likeRecordId = useMemo(() => {
+    if (!currentUserId || !item?.id) return "";
+    return getLikeRecordId(currentUserId, item.id, selectedBazarItem?.id);
+  }, [currentUserId, item?.id, selectedBazarItem?.id]);
+  const isLiked = likeRecordId ? likedIds.has(likeRecordId) : false;
   const images = useMemo(() => {
     if (isSold) {
       return [] as string[];
@@ -134,6 +153,38 @@ export default function ItemDetailsPage() {
       location: listing.location,
     }).toString();
   }, [listing]);
+
+  const toggleLike = async () => {
+    if (!item?.id || !item.sellerId) return;
+
+    const href = `/item/${item.id}${
+      selectedBazarItem?.id ? `?bazarItemId=${encodeURIComponent(selectedBazarItem.id)}` : ""
+    }`;
+
+    if (!currentUserId) {
+      router.push(`/sign-in?next=${encodeURIComponent(href)}`);
+      return;
+    }
+
+    if (isLiked) {
+      await unlikeItem(currentUserId, item.id, selectedBazarItem?.id);
+      return;
+    }
+
+    await likeItem({
+      actorId: currentUserId,
+      actorName: currentUserName,
+      ownerId: item.sellerId,
+      ownerName: item.sellerName || "Vendedor",
+      listingId: item.id,
+      bazarItemId: selectedBazarItem?.id,
+      itemTitle: displayTitle,
+      image: images[0] || "",
+      price: displayPrice,
+      location: item.location,
+      href,
+    });
+  };
 
   useEffect(() => {
     const root = scrollerRef.current;
@@ -278,6 +329,19 @@ export default function ItemDetailsPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleLike}
+                className={[
+                  "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur active:scale-95",
+                  isLiked
+                    ? "border-orange-400 bg-orange-500/20 text-orange-400"
+                    : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
+                ].join(" ")}
+                aria-label={isLiked ? "Quitar like" : "Dar like"}
+              >
+                <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
+              </button>
               <button
                 className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm backdrop-blur active:scale-95"
                 aria-label="Compartir"

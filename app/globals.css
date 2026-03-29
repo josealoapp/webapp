@@ -149,3 +149,18 @@ html[data-theme="light"] .text-neutral-300 { color: #0f172a !important; }
 html[data-theme="light"] .text-neutral-400 { color: #334155 !important; }
 html[data-theme="light"] .border-neutral-800 { border-color: #e2e8f0 !important; }
 html[data-theme="light"] .shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important; }
+
+@keyframes follow-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-3px) rotate(-1deg); }
+  40% { transform: translateX(4px) rotate(1deg); }
+  60% { transform: translateX(-2px) rotate(-0.5deg); }
+  80% { transform: translateX(2px) rotate(0.5deg); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes follow-word-in {
+  0% { transform: translateY(6px); opacity: 0.4; letter-spacing: -0.03em; }
+  45% { transform: translateY(-1px); opacity: 1; letter-spacing: 0.08em; }
+  100% { transform: translateY(0); opacity: 1; letter-spacing: 0; }
+}

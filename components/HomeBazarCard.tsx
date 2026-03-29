@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import SellerAvatar from "@/components/SellerAvatar";
 import { followUser } from "@/lib/follows";
 import { getActiveBazarItems, Listing } from "@/lib/marketplace";
@@ -20,6 +21,7 @@ export default function HomeBazarCard({
   onFollowed?: (userId: string) => void;
 }) {
   const router = useRouter();
+  const [isShakingFollow, setIsShakingFollow] = useState(false);
   const visibleItems = getActiveBazarItems(item);
   const canFollow = Boolean(currentUserId && currentUserId !== item.ownerId && !isFollowing);
 
@@ -51,17 +53,24 @@ export default function HomeBazarCard({
             type="button"
             onClick={async () => {
               if (!currentUserId) return;
+              setIsShakingFollow(true);
               await followUser({
                 followerId: currentUserId,
                 followerName: currentUserName,
                 followeeId: item.ownerId,
                 followeeName: item.ownerName,
               });
-              onFollowed?.(item.ownerId);
+              window.setTimeout(() => {
+                setIsShakingFollow(false);
+                onFollowed?.(item.ownerId);
+              }, 420);
             }}
-            className="flex h-11 items-center rounded-xl border border-neutral-700 px-5 text-sm font-semibold text-neutral-100"
+            className={[
+              "flex h-11 items-center rounded-xl border border-neutral-700 px-5 text-sm font-semibold text-neutral-100 transition-transform duration-200",
+              isShakingFollow ? "animate-[follow-shake_0.42s_ease-in-out]" : "",
+            ].join(" ")}
           >
-            Seguir
+            <span>Seguir</span>
           </button>
         ) : null}
       </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-type NavbarTab = "para-ti" | "tendencias";
+type NavbarTab = "para-ti" | "cerca-de-ti";
 
 export default function Navbar({ activeTab = "para-ti" }: { activeTab?: NavbarTab }) {
   const tabClass = (tab: NavbarTab) =>
@@ -16,8 +16,8 @@ export default function Navbar({ activeTab = "para-ti" }: { activeTab?: NavbarTa
           <Link href="/descubre" className={tabClass("para-ti")}>
             Para Ti
           </Link>
-          <Link href="/descubre/tendencias" className={tabClass("tendencias")}>
-            Tendencias
+          <Link href="/descubre/cerca-de-ti" className={tabClass("cerca-de-ti")}>
+            Cerca de ti
           </Link>
         </div>
         <button

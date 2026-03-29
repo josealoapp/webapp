@@ -9,6 +9,7 @@ import CategoryStories from "@/components/CategoryStories";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import { auth } from "@/lib/firebase";
 import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
+import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import {
   isListingVisibleInOwnerProfile,
   Listing,
@@ -30,6 +31,7 @@ export default function MyProfilePage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
   const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
@@ -61,10 +63,12 @@ export default function MyProfilePage() {
 
     const unsubFollowers = subscribeFollowers(currentUserId, (rows) => setFollowersCount(rows.length));
     const unsubFollowing = subscribeFollowing(currentUserId, (rows) => setFollowingCount(rows.length));
+    const unsubLikes = subscribeIncomingLikesForOwner(currentUserId, (rows) => setLikesCount(rows.length));
 
     return () => {
       unsubFollowers();
       unsubFollowing();
+      unsubLikes();
     };
   }, [currentUserId]);
 
@@ -212,7 +216,7 @@ export default function MyProfilePage() {
             <div className="text-xs text-neutral-400">Seguidores</div>
           </Link>
           <div>
-            <div className="text-base font-semibold text-neutral-50">0</div>
+            <div className="text-base font-semibold text-neutral-50">{likesCount}</div>
             <div className="text-xs text-neutral-400">Likes</div>
           </div>
         </div>

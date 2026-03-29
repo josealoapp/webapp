@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { appCategories } from "@/lib/categories";
+import { requestCurrentSupportedLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
 
 const categories = appCategories.map((category) => category.name);
@@ -51,6 +52,7 @@ export default function NewListingPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploadingArticle, setUploadingArticle] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const [bazarCategory, setBazarCategory] = useState("");
   const [bazarTitle, setBazarTitle] = useState("");
@@ -379,7 +381,9 @@ export default function NewListingPage() {
     setUploadingArticle(true);
     setPriceError(null);
     setPhotoError(null);
+    setLocationError(null);
     try {
+      const currentLocation = await requestCurrentSupportedLocation();
       const urls = await uploadListingImages(selectedFiles);
       const params = new URLSearchParams({
         title: title.trim(),
@@ -389,10 +393,20 @@ export default function NewListingPage() {
         tags: tags.trim(),
         paymentMethod,
         imageUrl: urls[0] || "",
+        location: currentLocation.name,
       });
       router.push(`/item/new/preview?${params.toString()}`);
     } catch (err: unknown) {
-      setPhotoError(normalizeUploadError(err));
+      const message = err instanceof Error ? err.message : "";
+      if (message === "location/not-supported") {
+        setLocationError("Tu dispositivo no permite obtener ubicación. Activa el acceso a ubicación para publicar.");
+      } else if (message === "User denied Geolocation" || message === "location/permission-denied") {
+        setLocationError("Debes permitir acceso a tu ubicación para publicar.");
+      } else if (message === "Timeout expired") {
+        setLocationError("No pudimos obtener tu ubicación a tiempo. Intenta de nuevo.");
+      } else {
+        setPhotoError(normalizeUploadError(err));
+      }
     } finally {
       setUploadingArticle(false);
     }
@@ -419,6 +433,7 @@ export default function NewListingPage() {
     setBazarError(null);
 
     try {
+      const currentLocation = await requestCurrentSupportedLocation();
       const pendingUploadItems = bazarItems.filter((item) => item.file);
       const uploadedUrls = pendingUploadItems.length
         ? await uploadListingImages(pendingUploadItems.map((item) => item.file as File))
@@ -446,7 +461,7 @@ export default function NewListingPage() {
           description: bazarDescription.trim() || `${publishedItems.length} artículos en este bazar.`,
           tags: [],
           paymentMethod: "efectivo" as const,
-          location: "Santo Domingo",
+          location: currentLocation.name,
           image: publishedItems[0]?.image || "",
           bazarItems: publishedItems,
         };
@@ -463,7 +478,16 @@ export default function NewListingPage() {
 
       router.push(editingListingId ? `/item/${editingListingId}` : "/");
     } catch (err: unknown) {
-      setBazarError(normalizeUploadError(err));
+      const message = err instanceof Error ? err.message : "";
+      if (message === "location/not-supported") {
+        setBazarError("Tu dispositivo no permite obtener ubicación. Activa el acceso a ubicación para publicar.");
+      } else if (message === "User denied Geolocation" || message === "location/permission-denied") {
+        setBazarError("Debes permitir acceso a tu ubicación para publicar.");
+      } else if (message === "Timeout expired") {
+        setBazarError("No pudimos obtener tu ubicación a tiempo. Intenta de nuevo.");
+      } else {
+        setBazarError(normalizeUploadError(err));
+      }
     } finally {
       setPublishingBazar(false);
     }
@@ -654,6 +678,7 @@ export default function NewListingPage() {
             </form>
 
             {photoError ? <span className="text-xs text-orange-400">{photoError}</span> : null}
+            {locationError ? <span className="text-xs text-orange-400">{locationError}</span> : null}
           </main>
 
           <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">

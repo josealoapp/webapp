@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Search } from "lucide-react";
-import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
+import SellerAvatar from "@/components/SellerAvatar";
+import { subscribeFollowers, subscribeFollowing, subscribeFollowingIds, unfollowUser } from "@/lib/follows";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 
 type ConnectionRow = {
@@ -23,6 +24,7 @@ export default function ProfileConnectionsPage() {
   const profileName = searchParams.get("name")?.trim() || "Usuario";
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ConnectionRow[]>([]);
+  const [viewerFollowingIds, setViewerFollowingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!userId) return;
@@ -52,6 +54,16 @@ export default function ProfileConnectionsPage() {
 
     return () => unsub();
   }, [tab, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setViewerFollowingIds(new Set());
+      return;
+    }
+
+    const unsub = subscribeFollowingIds(userId, setViewerFollowingIds);
+    return () => unsub();
+  }, [userId]);
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -108,19 +120,38 @@ export default function ProfileConnectionsPage() {
               const handle = getOrCreateUserHandle({ uid: row.profileId, name: row.profileName });
 
               return (
-                <Link
+                <div
                   key={row.id}
-                  href={`/profile/${row.profileId}?name=${encodeURIComponent(row.profileName)}`}
-                  className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-3"
                 >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-neutral-100">{row.profileName}</div>
-                    <div className="mt-1 text-xs text-neutral-400">@{handle}</div>
+                  <Link
+                    href={`/profile/${row.profileId}?name=${encodeURIComponent(row.profileName)}`}
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                  >
+                    <SellerAvatar
+                      userId={row.profileId}
+                      name={row.profileName}
+                      className="h-12 w-12 shrink-0"
+                      initialsClassName="text-sm font-bold"
+                      imageClassName="object-cover"
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-neutral-100">{row.profileName}</div>
+                      <div className="mt-1 text-xs text-neutral-400">@{handle}</div>
+                    </div>
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {tab === "following" && viewerFollowingIds.has(row.profileId) ? (
+                      <button
+                        type="button"
+                        onClick={() => unfollowUser(userId, row.profileId)}
+                        className="flex h-10 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-xs font-semibold text-neutral-100 transition hover:border-orange-400 hover:text-white"
+                      >
+                        Dejar de seguir
+                      </button>
+                    ) : null}
                   </div>
-                  <div className="text-xs text-neutral-500">
-                    {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ""}
-                  </div>
-                </Link>
+                </div>
               );
             })}
           </div>

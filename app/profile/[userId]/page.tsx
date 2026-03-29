@@ -9,6 +9,7 @@ import CategoryStories from "@/components/CategoryStories";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import { auth } from "@/lib/firebase";
 import { followUser, subscribeFollowers, subscribeFollowing, unfollowUser } from "@/lib/follows";
+import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import { isListingVisibleInOwnerProfile, Listing, subscribeListings } from "@/lib/marketplace";
 import { subscribeProfileAvatar } from "@/lib/profile-avatar";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
@@ -23,9 +24,12 @@ export default function PublicProfilePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [isShakingFollow, setIsShakingFollow] = useState(false);
+  const [isAnimatingFollowingText, setIsAnimatingFollowingText] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [followers, setFollowers] = useState<ReturnType<typeof mapFollowRows>>([]);
   const [following, setFollowing] = useState<ReturnType<typeof mapFollowRows>>([]);
+  const [likesCount, setLikesCount] = useState(0);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -50,9 +54,11 @@ export default function PublicProfilePage() {
     if (!userId) return;
     const unsubFollowers = subscribeFollowers(userId, (rows) => setFollowers(mapFollowRows(rows, "followers")));
     const unsubFollowing = subscribeFollowing(userId, (rows) => setFollowing(mapFollowRows(rows, "following")));
+    const unsubLikes = subscribeIncomingLikesForOwner(userId, (rows) => setLikesCount(rows.length));
     return () => {
       unsubFollowers();
       unsubFollowing();
+      unsubLikes();
     };
   }, [userId]);
 
@@ -151,7 +157,7 @@ export default function PublicProfilePage() {
             <div className="text-xs text-neutral-400">Seguidores</div>
           </Link>
           <div>
-            <div className="text-base font-semibold text-neutral-50">0</div>
+            <div className="text-base font-semibold text-neutral-50">{likesCount}</div>
             <div className="text-xs text-neutral-400">Likes</div>
           </div>
         </div>
@@ -166,21 +172,33 @@ export default function PublicProfilePage() {
                   await unfollowUser(currentUserId, userId);
                   return;
                 }
+                setIsShakingFollow(true);
                 await followUser({
                   followerId: currentUserId,
                   followerName: currentUserName,
                   followeeId: userId,
                   followeeName: profileName,
                 });
+                setIsAnimatingFollowingText(true);
+                window.setTimeout(() => setIsShakingFollow(false), 420);
+                window.setTimeout(() => setIsAnimatingFollowingText(false), 900);
               }}
               className={[
-                "flex-none rounded-2xl px-8 py-3 text-sm font-semibold",
+                "flex-none rounded-2xl px-8 py-3 text-sm font-semibold transition-transform duration-200",
                 isFollowing
                   ? "border border-neutral-800 bg-neutral-900 text-neutral-100 hover:border-orange-400 hover:text-white"
                   : "bg-orange-500 text-black hover:bg-orange-400",
+                isShakingFollow ? "animate-[follow-shake_0.42s_ease-in-out]" : "",
               ].join(" ")}
             >
-              {isFollowing ? "Siguiendo" : "Seguir"}
+              <span
+                className={[
+                  "inline-block",
+                  isAnimatingFollowingText ? "animate-[follow-word-in_0.9s_ease]" : "",
+                ].join(" ")}
+              >
+                {isFollowing ? "Siguiendo" : "Seguir"}
+              </span>
             </button>
           ) : null}
           <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">

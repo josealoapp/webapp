@@ -43,6 +43,7 @@ function NewListingPreviewContent() {
       tags: rawTags,
       paymentMethod: search.get("paymentMethod") || "",
       imageUrl: search.get("imageUrl") || "",
+      location: search.get("location") || "",
       isPriceValid: Number.isFinite(priceValue) && priceValue > 0,
     };
   }, [search]);
@@ -95,7 +96,7 @@ function NewListingPreviewContent() {
           data.paymentMethod === "intercambio" || data.paymentMethod === "transferencia"
             ? data.paymentMethod
             : "efectivo",
-        location: "Santo Domingo",
+        location: data.location || "Santo Domingo",
         image:
           data.imageUrl ||
           "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
@@ -148,6 +149,9 @@ function NewListingPreviewContent() {
           </div>
           <div className="mt-2 text-sm text-neutral-300">
             {data.category || "Sin categoría"} · {data.description ? "Con descripción" : "Sin descripción"}
+          </div>
+          <div className="mt-2 text-xs text-neutral-400">
+            {data.location ? `Ubicación actual: ${data.location}` : "Ubicación pendiente"}
           </div>
           <div className="mt-2 text-xs text-neutral-400">
             {data.tags?.length ? `Tags: ${data.tags.join(", ")}` : "Sin tags"}

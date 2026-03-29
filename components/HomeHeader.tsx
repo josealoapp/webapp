@@ -70,12 +70,13 @@ export default function HomeHeader({
       <div className="mx-auto w-full max-w-6xl px-4 pb-3 pt-4">
         {/* Top row */}
         <div className="flex items-center gap-3">
-          <button
+          <Link
+            href="/activity"
             className="flex h-10 w-10 items-center justify-center text-white drop-shadow"
-            aria-label="Favoritos"
+            aria-label="Actividad"
           >
             <Heart className="h-6 w-6" />
-          </button>
+          </Link>
           <div className="relative flex-1">
             <input
               placeholder="Search for items"

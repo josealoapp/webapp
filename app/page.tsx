@@ -18,6 +18,7 @@ import {
   subscribeListings,
 } from "@/lib/marketplace";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
+import { readStoredUserLocation } from "@/lib/location";
 
 export default function HomePage() {
   const router = useRouter();
@@ -51,6 +52,13 @@ export default function HomePage() {
       setPersonalInterests([]);
     });
   }, [router]);
+
+  useEffect(() => {
+    const storedLocation = readStoredUserLocation();
+    if (storedLocation?.name) {
+      setSelectedLocation(storedLocation.name);
+    }
+  }, []);
 
   useEffect(() => {
     const unsub = subscribeListings((rows) => setListings(rows));

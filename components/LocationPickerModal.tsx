@@ -12,6 +12,7 @@ type Props = {
 
 const locationOptions = [
   { name: "Santo Domingo", detail: "Distrito Nacional, República Dominicana" },
+  { name: "San Cristóbal", detail: "San Cristóbal, República Dominicana" },
   { name: "Santiago", detail: "Santiago de los Caballeros, República Dominicana" },
   { name: "La Romana", detail: "La Romana, República Dominicana" },
   { name: "Punta Cana", detail: "La Altagracia, República Dominicana" },

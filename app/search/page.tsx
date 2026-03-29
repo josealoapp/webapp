@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Listing, subscribeListings } from "@/lib/marketplace";
 import LocationPickerModal from "@/components/LocationPickerModal";
+import { readStoredUserLocation } from "@/lib/location";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -19,6 +20,14 @@ export default function SearchPage() {
     const unsub = subscribeListings((rows) => setListings(rows));
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("location")) return;
+    const storedLocation = readStoredUserLocation();
+    if (storedLocation?.name) {
+      setSelectedLocation(storedLocation.name);
+    }
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
