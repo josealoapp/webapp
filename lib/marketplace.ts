@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   where,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -31,6 +32,7 @@ export type Listing = {
   id: string;
   ownerId: string;
   ownerName: string;
+  ownerAvatar?: string;
   type?: ListingType;
   title: string;
   price: number;
@@ -53,6 +55,35 @@ export type ListingSoldFeedback = {
   soldWithJosealo: boolean;
   saleSpeedRating: 1 | 2 | 3 | 4 | 5;
 };
+
+export function getActiveBazarItems(listing: Listing) {
+  return (listing.bazarItems || []).filter((item) => item.status !== "sold");
+}
+
+export function isListingVisibleInMarketplace(listing: Listing) {
+  if (listing.status === "sold") return false;
+  if ((listing.type || "article") !== "bazar") return true;
+  return getActiveBazarItems(listing).length > 0;
+}
+
+export function isListingVisibleInOwnerProfile(listing: Listing) {
+  if (listing.status === "sold") return false;
+  if ((listing.type || "article") !== "bazar") return true;
+  return getActiveBazarItems(listing).length > 0;
+}
+
+export function isListingInHistory(listing: Listing) {
+  if (listing.status === "sold") return true;
+  if ((listing.type || "article") !== "bazar") return false;
+  const bazarItems = listing.bazarItems || [];
+  return bazarItems.length > 0 && bazarItems.every((item) => item.status === "sold");
+}
+
+export function getListingHistoryDate(listing: Listing) {
+  if (listing.soldAt) return listing.soldAt;
+  if ((listing.type || "article") !== "bazar") return 0;
+  return Math.max(0, ...((listing.bazarItems || []).map((item) => item.soldAt ?? 0)));
+}
 
 export type ChatRecord = {
   id: string;
@@ -98,6 +129,23 @@ export async function updateListing(
     updatedAt: Date.now(),
     updatedAtServer: serverTimestamp(),
   });
+}
+
+export async function syncOwnerAvatarAcrossListings(ownerId: string, ownerAvatar: string) {
+  const snap = await getDocs(query(collection(db, "listings"), where("ownerId", "==", ownerId)));
+  if (snap.empty) return;
+
+  const batch = writeBatch(db);
+
+  snap.docs.forEach((listingDoc) => {
+    batch.update(listingDoc.ref, {
+      ownerAvatar,
+      updatedAt: Date.now(),
+      updatedAtServer: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
 }
 
 export async function uploadListingImages(files: File[]) {
@@ -230,18 +278,25 @@ export async function markBazarItemSold(listingId: string, bazarItemId: string) 
     throw new Error("listing/not-found");
   }
 
+  const soldAt = Date.now();
+
   const nextItems = (listing.bazarItems || []).map((item) =>
     item.id === bazarItemId
       ? {
           ...item,
           status: "sold" as const,
-          soldAt: Date.now(),
+          soldAt,
         }
       : item
   );
 
+  const allItemsSold = nextItems.length > 0 && nextItems.every((item) => item.status === "sold");
+
   await updateDoc(doc(db, "listings", listingId), {
     bazarItems: nextItems,
+    status: allItemsSold ? "sold" : "active",
+    soldAt: allItemsSold ? soldAt : null,
+    soldAtServer: allItemsSold ? serverTimestamp() : null,
     updatedAt: Date.now(),
     updatedAtServer: serverTimestamp(),
   });

@@ -7,7 +7,7 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination } from "@/lib/account-profile";
-import { Listing, subscribeListings } from "@/lib/marketplace";
+import { getListingHistoryDate, isListingInHistory, Listing, subscribeListings } from "@/lib/marketplace";
 
 export default function HistoricPage() {
   const router = useRouter();
@@ -52,8 +52,8 @@ export default function HistoricPage() {
   const soldListings = useMemo(
     () =>
       listings
-        .filter((item) => item.ownerId === currentUserId && item.status === "sold")
-        .sort((a, b) => (b.soldAt ?? 0) - (a.soldAt ?? 0)),
+        .filter((item) => item.ownerId === currentUserId && isListingInHistory(item))
+        .sort((a, b) => getListingHistoryDate(b) - getListingHistoryDate(a)),
     [currentUserId, listings]
   );
 
@@ -99,7 +99,7 @@ export default function HistoricPage() {
                   <div className="mt-1 text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
                   <div className="mt-2 text-xs text-neutral-400">{item.category} · {item.location}</div>
                   <div className="mt-1 text-xs text-neutral-500">
-                    Vendida {item.soldAt ? new Date(item.soldAt).toLocaleDateString() : ""}
+                    Vendida {getListingHistoryDate(item) ? new Date(getListingHistoryDate(item)).toLocaleDateString() : ""}
                   </div>
                 </Link>
 

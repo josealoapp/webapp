@@ -40,6 +40,11 @@ export default function InterestModal({
   const handleContinue = async () => {
     setError("");
 
+    if (!item.sellerId || !item.sellerName) {
+      setError("No pudimos identificar al vendedor de esta publicación.");
+      return;
+    }
+
     if (method === "cash" || method === "cash_trade") {
       const offer = Number(cashOffer);
       if (!offer || Number.isNaN(offer)) {
@@ -68,8 +73,8 @@ export default function InterestModal({
             listingId: item.id,
             listingTitle: item.title,
             listingPrice: item.price,
-            sellerId: item.sellerId || "seller",
-            sellerName: item.sellerName || "Vendedor",
+            sellerId: item.sellerId,
+            sellerName: item.sellerName,
             message: msg,
           });
 
@@ -118,8 +123,8 @@ export default function InterestModal({
             cashOffer: offer,
             minAccepted,
             message: msg,
-            sellerId: item.sellerId || "seller",
-            sellerName: item.sellerName || "Vendedor",
+            sellerId: item.sellerId,
+            sellerName: item.sellerName,
             createdAt: Date.now(),
           })
         );

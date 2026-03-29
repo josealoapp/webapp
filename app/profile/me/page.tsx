@@ -2,21 +2,34 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Instagram, ChevronDown, Settings } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import CategoryStories from "@/components/CategoryStories";
+import ProfileAvatar from "@/components/ProfileAvatar";
 import { auth } from "@/lib/firebase";
-import { Listing, subscribeListings } from "@/lib/marketplace";
+import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
+import {
+  isListingVisibleInOwnerProfile,
+  Listing,
+  subscribeListings,
+  syncOwnerAvatarAcrossListings,
+  uploadListingImages,
+} from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
-import { getInitials, getOrCreateUserHandle } from "@/lib/user-handle";
+import { subscribeProfileAvatar, writeProfileAvatar } from "@/lib/profile-avatar";
+import { getOrCreateUserHandle } from "@/lib/user-handle";
 
 export default function MyProfilePage() {
   const router = useRouter();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
@@ -39,7 +52,35 @@ export default function MyProfilePage() {
     return () => unsub();
   }, []);
 
-  const myListings = listings.filter((item) => item.ownerId === currentUserId && item.status !== "sold");
+  useEffect(() => {
+    if (!currentUserId) {
+      setFollowersCount(0);
+      setFollowingCount(0);
+      return;
+    }
+
+    const unsubFollowers = subscribeFollowers(currentUserId, (rows) => setFollowersCount(rows.length));
+    const unsubFollowing = subscribeFollowing(currentUserId, (rows) => setFollowingCount(rows.length));
+
+    return () => {
+      unsubFollowers();
+      unsubFollowing();
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setAvatarUrl("");
+      return;
+    }
+
+    const unsub = subscribeProfileAvatar(currentUserId, setAvatarUrl);
+    return () => unsub();
+  }, [currentUserId]);
+
+  const myListings = listings.filter(
+    (item) => item.ownerId === currentUserId && isListingVisibleInOwnerProfile(item)
+  );
   const userHandle = useMemo(() => {
     if (!currentUserId) {
       return "user-001";
@@ -50,7 +91,6 @@ export default function MyProfilePage() {
       name: currentUserName,
     });
   }, [currentUserId, currentUserName]);
-  const userInitials = useMemo(() => getInitials(currentUserName), [currentUserName]);
   const storyCategories = useMemo(() => {
     const categories = new Map<string, { id: string; name: string; image: string }>();
 
@@ -121,21 +161,46 @@ export default function MyProfilePage() {
       </header>
 
       <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-1">
-        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-neutral-800 bg-neutral-900">
-          <span className="text-3xl font-bold">{userInitials}</span>
-        </div>
+        <ProfileAvatar
+          src={avatarUrl}
+          alt={currentUserName}
+          editable
+          onEdit={() => avatarInputRef.current?.click()}
+        />
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file || !currentUserId) return;
+
+            setAvatarUrl(URL.createObjectURL(file));
+            uploadListingImages([file])
+              .then(async ([uploadedUrl]) => {
+                if (!uploadedUrl) return;
+                writeProfileAvatar(currentUserId, uploadedUrl);
+                await syncOwnerAvatarAcrossListings(currentUserId, uploadedUrl);
+              })
+              .catch(() => {
+                setAvatarUrl("");
+              });
+            event.currentTarget.value = "";
+          }}
+        />
         <div className="mt-3 text-lg font-semibold text-neutral-50">{currentUserName}</div>
         <div className="mt-1 text-sm text-neutral-300">@{userHandle}</div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">
-          <div>
-            <div className="text-base font-semibold text-neutral-50">0</div>
+          <Link href={`/profile/${currentUserId}/connections?tab=following&name=${encodeURIComponent(currentUserName)}`}>
+            <div className="text-base font-semibold text-neutral-50">{followingCount}</div>
             <div className="text-xs text-neutral-400">Siguiendo</div>
-          </div>
-          <div>
-            <div className="text-base font-semibold text-neutral-50">0</div>
+          </Link>
+          <Link href={`/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`}>
+            <div className="text-base font-semibold text-neutral-50">{followersCount}</div>
             <div className="text-xs text-neutral-400">Seguidores</div>
-          </div>
+          </Link>
           <div>
             <div className="text-base font-semibold text-neutral-50">0</div>
             <div className="text-xs text-neutral-400">Likes</div>

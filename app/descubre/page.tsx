@@ -9,12 +9,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Listing, subscribeListings } from "@/lib/marketplace";
 
-const fallbackItems = [
-  { id: "1", title: "iPhone 13", price: 35000, location: "Santo Domingo" },
-  { id: "2", title: "PS5 Slim", price: 42000, location: "Santiago" },
-  { id: "3", title: "MacBook Air M1", price: 48000, location: "SDN" },
-];
-
 export default function DiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -28,10 +22,9 @@ export default function DiscoverPage() {
     return () => unsub();
   }, []);
 
-  const renderedItems = items.length
-    ? items
-        .filter((item) => item.ownerId !== currentUserId && item.status !== "sold")
-        .map((item) => ({
+  const renderedItems = items
+    .filter((item) => item.ownerId !== currentUserId && item.status !== "sold")
+    .map((item) => ({
         id: item.id,
         title: item.title,
         price: item.price,
@@ -39,19 +32,25 @@ export default function DiscoverPage() {
         image: item.image,
         sellerId: item.ownerId,
         sellerName: item.ownerName,
-        }))
-    : fallbackItems;
+        sellerAvatar: item.ownerAvatar,
+      }));
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-24">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {renderedItems.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
-        </div>
+        {renderedItems.length === 0 ? (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+            No hay publicaciones disponibles para descubrir ahora mismo.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {renderedItems.map((item) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Bottom navigation */}

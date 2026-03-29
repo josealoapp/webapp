@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -7,6 +8,7 @@ import { ArrowLeft, MoreHorizontal, Share2, Star } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 
 import InterestModal from "@/components/InterestModal";
+import SellerAvatar from "@/components/SellerAvatar";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { getListingById, Listing, markBazarItemSold, markListingSold } from "@/lib/marketplace";
@@ -79,31 +81,14 @@ export default function ItemDetailsPage() {
         images: listing.type === "bazar" ? bazarImages : [listing.image],
         sellerName: listing.ownerName,
         sellerId: listing.ownerId,
+        sellerAvatar: listing.ownerAvatar,
         bazarItems,
         type: listing.type || "article",
         sellerMaxDiscountPercent: 10,
       };
     }
 
-    if (loading) return null;
-
-    return {
-      id,
-      category: "Catálogo",
-      title: `Producto ${id}`,
-      location: "Santo Domingo, RD",
-      price: 4500,
-      description:
-        "Este producto no existe o fue removido. Prueba con otra publicación.",
-      images: [
-        "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
-      ],
-      sellerName: "Vendedor",
-      sellerId: "seller",
-      bazarItems: [],
-      type: "article" as const,
-      sellerMaxDiscountPercent: 10,
-    };
+    return null;
   }, [id, listing, loading]);
   const selectedBazarItemId = searchParams.get("bazarItemId") || "";
   const selectedBazarItem = useMemo(() => {
@@ -264,21 +249,31 @@ export default function ItemDetailsPage() {
               </button>
 
               <div className="flex items-center gap-3 rounded-2xl  backdrop-blur">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-lg font-semibold">
-                  {(item.sellerName || "V").trim().charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">
-                    {isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}
+                <Link
+                  href={isOwnListing ? "/profile/me" : `/profile/${item.sellerId}?name=${encodeURIComponent(item.sellerName || "Vendedor")}`}
+                  className="flex items-center gap-3"
+                >
+                  <SellerAvatar
+                    userId={item.sellerId}
+                    name={item.sellerName || "Vendedor"}
+                    avatarUrl={item.sellerAvatar}
+                    className="h-10 w-10"
+                    initialsClassName="text-lg font-semibold"
+                    imageClassName="object-cover"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">
+                      {isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-neutral-300">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <Star className="h-3.5 w-3.5 text-neutral-500" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-neutral-300">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <Star className="h-3.5 w-3.5 text-neutral-500" />
-                  </div>
-                </div>
+                </Link>
               </div>
             </div>
 
@@ -347,16 +342,24 @@ export default function ItemDetailsPage() {
                     {isOwnListing ? "Mi bazar" : item.sellerName}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isOwnListing) return;
-                    setOpenBazarMenu(true);
-                  }}
-                  className="flex h-11 w-11 items-center justify-center text-neutral-100"
-                >
-                  {isOwnListing ? <MoreHorizontal className="h-5 w-5" /> : "Follow"}
-                </button>
+                {isOwnListing ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenBazarMenu(true);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center text-neutral-100"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <Link
+                    href={`/profile/${item.sellerId}?name=${encodeURIComponent(item.sellerName || "Vendedor")}`}
+                    className="flex h-11 items-center rounded-xl border border-neutral-700 px-4 text-sm font-semibold text-neutral-100"
+                  >
+                    Ver perfil
+                  </Link>
+                )}
               </div>
             </div>
           ) : null}
@@ -453,14 +456,23 @@ export default function ItemDetailsPage() {
                     .then(() => {
                       setListing((current) =>
                         current
-                          ? {
-                              ...current,
-                              bazarItems: (current.bazarItems || []).map((entry) =>
+                          ? (() => {
+                              const soldAt = Date.now();
+                              const nextItems = (current.bazarItems || []).map((entry) =>
                                 entry.id === selectedBazarItem.id
-                                  ? { ...entry, status: "sold", soldAt: Date.now() }
+                                  ? { ...entry, status: "sold" as const, soldAt }
                                   : entry
-                              ),
-                            }
+                              );
+                              const allItemsSold =
+                                nextItems.length > 0 && nextItems.every((entry) => entry.status === "sold");
+
+                              return {
+                                ...current,
+                                bazarItems: nextItems,
+                                status: allItemsSold ? "sold" : current.status,
+                                soldAt: allItemsSold ? soldAt : current.soldAt,
+                              };
+                            })()
                           : current
                       );
                     })

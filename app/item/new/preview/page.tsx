@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { createListing } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { readProfileAvatar } from "@/lib/profile-avatar";
 
 export default function NewListingPreviewPage() {
   return (
@@ -83,6 +84,7 @@ function NewListingPreviewContent() {
       await createListing({
         ownerId: user.uid,
         ownerName: user.displayName || user.email || "Vendedor",
+        ownerAvatar: readProfileAvatar(user.uid),
         type: "article",
         title: data.title || "Sin título",
         price: data.price,

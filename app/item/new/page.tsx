@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { appCategories } from "@/lib/categories";
+import { readProfileAvatar } from "@/lib/profile-avatar";
 
 const categories = appCategories.map((category) => category.name);
 const maxArticlePhotos = 10;
@@ -436,6 +437,7 @@ export default function NewListingPage() {
         const payload = {
           ownerId: user.uid,
           ownerName: user.displayName || user.email || "Vendedor",
+          ownerAvatar: readProfileAvatar(user.uid),
           type: "bazar" as const,
           title: bazarTitle.trim(),
           price: lowestPrice,

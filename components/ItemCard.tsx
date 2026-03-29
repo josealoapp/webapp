@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Heart, Share2, MapPin } from "lucide-react";
 import { useState } from "react";
 import InterestModal from "./InterestModal";
+import SellerAvatar from "@/components/SellerAvatar";
 
 type Item = {
   id: string;
@@ -13,6 +14,7 @@ type Item = {
   image?: string;
   sellerId?: string;
   sellerName?: string;
+  sellerAvatar?: string;
 };
 
 export default function ItemCard({ item }: { item: Item }) {
@@ -39,7 +41,12 @@ export default function ItemCard({ item }: { item: Item }) {
           {/* Floating actions */}
           <div className="absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-end gap-3">
             <ActionIcon icon={Heart} />
-            <SellerBadge rating={4.5} />
+            <SellerBadge
+              rating={4.5}
+              sellerId={item.sellerId}
+              sellerName={item.sellerName}
+              sellerAvatar={item.sellerAvatar}
+            />
             <ActionIcon icon={Share2} />
           </div>
         </div>
@@ -103,20 +110,50 @@ function ActionIcon({ icon: Icon }: { icon: React.ComponentType<{ className?: st
   );
 }
 
-function SellerBadge({ rating }: { rating: number }) {
-  const avatarUrl =
-    "https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=facearea&w=400&h=400&q=80";
+function SellerBadge({
+  rating,
+  sellerId,
+  sellerName,
+  sellerAvatar,
+}: {
+  rating: number;
+  sellerId?: string;
+  sellerName?: string;
+  sellerAvatar?: string;
+}) {
+  if (!sellerId) {
+    return (
+      <div className="relative flex h-14 w-14 items-center justify-center">
+        <div className="relative h-12 w-12 rounded-full border border-orange-500 shadow-lg">
+          <SellerAvatar
+            name={sellerName || "Vendedor"}
+            avatarUrl={sellerAvatar}
+            className="h-12 w-12"
+            initialsClassName="text-sm font-bold"
+            imageClassName="object-cover"
+          />
+          <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black px-2 py-[2px] text-xs font-bold text-white shadow">
+            {rating.toFixed(1)}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Link
-      href="/profile"
+      href={`/profile/${sellerId}?name=${encodeURIComponent(sellerName || "Vendedor")}`}
       className="relative flex h-14 w-14 items-center justify-center transition hover:scale-105"
       aria-label="Ver perfil"
     >
-      <div className="relative h-12 w-12">
-        <div
-          className="absolute inset-0 rounded-full border border-orange-500 bg-neutral-900 bg-cover bg-center shadow-lg"
-          style={{ backgroundImage: `url(${avatarUrl})` }}
+      <div className="relative h-12 w-12 rounded-full border border-orange-500 shadow-lg">
+        <SellerAvatar
+          userId={sellerId}
+          name={sellerName || "Vendedor"}
+          avatarUrl={sellerAvatar}
+          className="h-12 w-12"
+          initialsClassName="text-sm font-bold"
+          imageClassName="object-cover"
         />
         <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black px-2 py-[2px] text-xs font-bold text-white shadow">
           {rating.toFixed(1)}
