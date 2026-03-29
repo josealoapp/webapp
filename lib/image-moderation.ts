@@ -16,7 +16,13 @@ type ModerationResult = {
   predictions: PredictionType[];
 };
 
-let modelPromise: Promise<Awaited<ReturnType<typeof load>>> | null = null;
+type NsfwModel = Awaited<ReturnType<typeof load>>;
+
+declare global {
+  // Keep the model cached across Next.js dev module reloads to avoid
+  // duplicate TensorFlow variable registration like "Conv1/kernel".
+  var __josealoNsfwModelPromise: Promise<NsfwModel> | undefined;
+}
 
 function getThreshold(name: "hentai" | "porn" | "sexy") {
   const envName = `NSFW_BLOCK_${name.toUpperCase()}_THRESHOLD`;
@@ -35,11 +41,11 @@ function getThreshold(name: "hentai" | "porn" | "sexy") {
 }
 
 function getModel() {
-  if (!modelPromise) {
-    modelPromise = load();
+  if (!globalThis.__josealoNsfwModelPromise) {
+    globalThis.__josealoNsfwModelPromise = load();
   }
 
-  return modelPromise;
+  return globalThis.__josealoNsfwModelPromise;
 }
 
 function findProbability(predictions: PredictionType[], className: ModerationCategory) {

@@ -176,16 +176,26 @@ export default function MyProfilePage() {
             const file = event.target.files?.[0];
             if (!file || !currentUserId) return;
 
-            setAvatarUrl(URL.createObjectURL(file));
-            uploadListingImages([file])
-              .then(async ([uploadedUrl]) => {
-                if (!uploadedUrl) return;
-                writeProfileAvatar(currentUserId, uploadedUrl);
-                await syncOwnerAvatarAcrossListings(currentUserId, uploadedUrl);
-              })
-              .catch(() => {
-                setAvatarUrl("");
-              });
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (typeof reader.result !== "string") return;
+
+              setAvatarUrl(reader.result);
+              writeProfileAvatar(currentUserId, reader.result);
+
+              uploadListingImages([file])
+                .then(async ([uploadedUrl]) => {
+                  if (!uploadedUrl) return;
+                  writeProfileAvatar(currentUserId, uploadedUrl);
+                  setAvatarUrl(uploadedUrl);
+                  await syncOwnerAvatarAcrossListings(currentUserId, uploadedUrl);
+                })
+                .catch((error) => {
+                  console.error("profile-avatar-sync-failed", error);
+                });
+            };
+            reader.readAsDataURL(file);
+
             event.currentTarget.value = "";
           }}
         />

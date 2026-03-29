@@ -9,7 +9,6 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  writeBatch,
   where,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -132,20 +131,25 @@ export async function updateListing(
 }
 
 export async function syncOwnerAvatarAcrossListings(ownerId: string, ownerAvatar: string) {
-  const snap = await getDocs(query(collection(db, "listings"), where("ownerId", "==", ownerId)));
-  if (snap.empty) return;
+  const token = await auth.currentUser?.getIdToken();
 
-  const batch = writeBatch(db);
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
 
-  snap.docs.forEach((listingDoc) => {
-    batch.update(listingDoc.ref, {
-      ownerAvatar,
-      updatedAt: Date.now(),
-      updatedAtServer: serverTimestamp(),
-    });
+  const response = await fetch("/api/profile/avatar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ownerId, ownerAvatar }),
   });
 
-  await batch.commit();
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || "profile/avatar-sync-failed");
+  }
 }
 
 export async function uploadListingImages(files: File[]) {
