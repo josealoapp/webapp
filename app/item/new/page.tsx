@@ -400,6 +400,8 @@ export default function NewListingPage() {
       const message = err instanceof Error ? err.message : "";
       if (message === "location/not-supported") {
         setLocationError("Tu dispositivo no permite obtener ubicación. Activa el acceso a ubicación para publicar.");
+      } else if (message === "location/not-available") {
+        setLocationError("Completa tu país y provincia en tu perfil para publicar con una ubicación válida.");
       } else if (message === "User denied Geolocation" || message === "location/permission-denied") {
         setLocationError("Debes permitir acceso a tu ubicación para publicar.");
       } else if (message === "Timeout expired") {
@@ -481,6 +483,8 @@ export default function NewListingPage() {
       const message = err instanceof Error ? err.message : "";
       if (message === "location/not-supported") {
         setBazarError("Tu dispositivo no permite obtener ubicación. Activa el acceso a ubicación para publicar.");
+      } else if (message === "location/not-available") {
+        setBazarError("Completa tu país y provincia en tu perfil para publicar con una ubicación válida.");
       } else if (message === "User denied Geolocation" || message === "location/permission-denied") {
         setBazarError("Debes permitir acceso a tu ubicación para publicar.");
       } else if (message === "Timeout expired") {

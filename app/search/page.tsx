@@ -6,14 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Listing, subscribeListings } from "@/lib/marketplace";
 import LocationPickerModal from "@/components/LocationPickerModal";
-import { readStoredUserLocation } from "@/lib/location";
+import { getDefaultListingLocation, normalizeLocationName, readStoredUserLocation } from "@/lib/location";
 
 export default function SearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [selectedLocation, setSelectedLocation] = useState(searchParams.get("location") || "Santo Domingo");
+  const [selectedLocation, setSelectedLocation] = useState(
+    searchParams.get("location") || getDefaultListingLocation()
+  );
   const [locationModalOpen, setLocationModalOpen] = useState(false);
 
   useEffect(() => {
@@ -121,7 +123,5 @@ export default function SearchPage() {
 }
 
 function normalizeLocation(location: string) {
-  const normalized = location.trim().toLowerCase();
-  if (normalized === "sdn") return "santo domingo";
-  return normalized;
+  return normalizeLocationName(location);
 }

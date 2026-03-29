@@ -8,13 +8,18 @@ import { Home, MapPin, MessageCircle, Navigation, PlusSquare, User } from "lucid
 import Navbar from "@/components/Navbar";
 import ItemCard from "@/components/ItemCard";
 import { auth } from "@/lib/firebase";
-import { readStoredUserLocation, requestCurrentSupportedLocation } from "@/lib/location";
+import {
+  getDefaultListingLocation,
+  normalizeLocationName,
+  readStoredUserLocation,
+  requestCurrentSupportedLocation,
+} from "@/lib/location";
 import { isListingVisibleInMarketplace, Listing, subscribeListings } from "@/lib/marketplace";
 
 export default function NearbyDiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
@@ -43,7 +48,7 @@ export default function NearbyDiscoverPage() {
     return items
       .filter((item) => item.ownerId !== currentUserId)
       .filter((item) => isListingVisibleInMarketplace(item))
-      .filter((item) => !selectedLocation || item.location === selectedLocation)
+      .filter((item) => !selectedLocation || normalizeLocationName(item.location) === normalizeLocationName(selectedLocation))
       .map((item) => ({
         id: item.id,
         title: item.title,

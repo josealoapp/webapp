@@ -18,11 +18,11 @@ import {
   subscribeListings,
 } from "@/lib/marketplace";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
-import { readStoredUserLocation } from "@/lib/location";
+import { getDefaultListingLocation, normalizeLocationName, readStoredUserLocation } from "@/lib/location";
 
 export default function HomePage() {
   const router = useRouter();
-  const [selectedLocation, setSelectedLocation] = useState("Santo Domingo");
+  const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -321,9 +321,7 @@ export default function HomePage() {
 }
 
 function normalizeLocation(location: string) {
-  const normalized = location.trim().toLowerCase();
-  if (normalized === "sdn") return "santo domingo";
-  return normalized;
+  return normalizeLocationName(location);
 }
 
 function normalizeCategory(category: string) {

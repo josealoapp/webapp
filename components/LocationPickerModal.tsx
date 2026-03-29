@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Search, XCircle } from "lucide-react";
+import { getLocationOptionsForCountry, getSignedUpCountry } from "@/lib/location";
 
 type Props = {
   open: boolean;
@@ -10,16 +11,6 @@ type Props = {
   onSelect: (location: string) => void;
 };
 
-const locationOptions = [
-  { name: "Santo Domingo", detail: "Distrito Nacional, República Dominicana" },
-  { name: "San Cristóbal", detail: "San Cristóbal, República Dominicana" },
-  { name: "Santiago", detail: "Santiago de los Caballeros, República Dominicana" },
-  { name: "La Romana", detail: "La Romana, República Dominicana" },
-  { name: "Punta Cana", detail: "La Altagracia, República Dominicana" },
-  { name: "San Pedro de Macorís", detail: "San Pedro de Macorís, República Dominicana" },
-  { name: "Puerto Plata", detail: "Puerto Plata, República Dominicana" },
-];
-
 export default function LocationPickerModal({
   open,
   currentLocation,
@@ -27,6 +18,8 @@ export default function LocationPickerModal({
   onSelect,
 }: Props) {
   const [query, setQuery] = useState("");
+  const countryName = useMemo(() => getSignedUpCountry(), []);
+  const locationOptions = useMemo(() => getLocationOptionsForCountry(countryName), [countryName]);
 
   const filteredLocations = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -59,7 +52,7 @@ export default function LocationPickerModal({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search city or area"
+            placeholder="Buscar provincia o estado"
             className="flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500"
           />
           {!!query && (
@@ -74,6 +67,9 @@ export default function LocationPickerModal({
         </div>
 
         <div className="mt-4 flex-1 overflow-y-auto">
+          <div className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+            {countryName}
+          </div>
           {filteredLocations.map((location) => {
             const isCurrent = location.name === currentLocation;
 

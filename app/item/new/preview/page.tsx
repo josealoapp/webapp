@@ -8,6 +8,7 @@ import { auth } from "@/lib/firebase";
 import { createListing } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { getDefaultListingLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
 
 export default function NewListingPreviewPage() {
@@ -96,7 +97,7 @@ function NewListingPreviewContent() {
           data.paymentMethod === "intercambio" || data.paymentMethod === "transferencia"
             ? data.paymentMethod
             : "efectivo",
-        location: data.location || "Santo Domingo",
+        location: data.location || getDefaultListingLocation(),
         image:
           data.imageUrl ||
           "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
