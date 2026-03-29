@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Search, XCircle } from "lucide-react";
-import { getLocationOptionsForCountry, getSignedUpCountry } from "@/lib/location";
+import { ArrowLeft, LoaderCircle, MapPin, Search, XCircle } from "lucide-react";
+import {
+  getLocationOptionsForCountry,
+  getSignedUpCountry,
+  requestCurrentSupportedLocation,
+} from "@/lib/location";
 
 type Props = {
   open: boolean;
@@ -18,6 +22,8 @@ export default function LocationPickerModal({
   onSelect,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const countryName = useMemo(() => getSignedUpCountry(), []);
   const locationOptions = useMemo(() => getLocationOptionsForCountry(countryName), [countryName]);
 
@@ -65,6 +71,39 @@ export default function LocationPickerModal({
             </button>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            setDetectingLocation(true);
+            setLocationError("");
+
+            try {
+              const location = await requestCurrentSupportedLocation();
+              onSelect(location.name);
+              onClose();
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "";
+              if (message === "location/permission-denied" || message === "User denied Geolocation") {
+                setLocationError("Debes permitir acceso a ubicación para usar tu ubicación actual.");
+              } else {
+                setLocationError("No pudimos detectar tu ubicación actual.");
+              }
+            } finally {
+              setDetectingLocation(false);
+            }
+          }}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-400/40 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-300 hover:bg-orange-500/15"
+        >
+          {detectingLocation ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+          {detectingLocation ? "Detectando ubicación..." : "Usar mi ubicación actual"}
+        </button>
+
+        {locationError ? (
+          <div className="mt-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
+            {locationError}
+          </div>
+        ) : null}
 
         <div className="mt-4 flex-1 overflow-y-auto">
           <div className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">

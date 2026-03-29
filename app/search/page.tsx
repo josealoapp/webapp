@@ -13,9 +13,7 @@ export default function SearchPage() {
   const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [selectedLocation, setSelectedLocation] = useState(
-    searchParams.get("location") || getDefaultListingLocation()
-  );
+  const [selectedLocation, setSelectedLocation] = useState("");
   const [locationModalOpen, setLocationModalOpen] = useState(false);
 
   useEffect(() => {
@@ -24,6 +22,14 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
+    const queryLocation = searchParams.get("location");
+    if (queryLocation) {
+      setSelectedLocation(queryLocation);
+      return;
+    }
+
+    setSelectedLocation(getDefaultListingLocation());
+
     if (searchParams.get("location")) return;
     const storedLocation = readStoredUserLocation();
     if (storedLocation?.name) {
@@ -35,7 +41,7 @@ export default function SearchPage() {
     const normalizedQuery = query.trim().toLowerCase();
     return listings.filter((item) => {
       if (item.status === "sold") return false;
-      if (normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
+      if (selectedLocation && normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
       if (!normalizedQuery) return true;
       return item.title.toLowerCase().includes(normalizedQuery);
     });

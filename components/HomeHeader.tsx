@@ -201,7 +201,7 @@ export default function HomeHeader({
             <span className="text-sm text-white/90">Listing Locations</span>
             <span className="flex items-center gap-2 text-sm font-semibold text-orange-400">
               <MapPin className="h-4 w-4" />
-              {selectedLocation}
+              {selectedLocation || "Detectando ubicación"}
             </span>
           </button>
         </div>

@@ -213,10 +213,9 @@ export async function requestCurrentSupportedLocation(): Promise<StoredUserLocat
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
     const resolvedName =
-      signedUpProvince ||
-      (normalizeText(country) === normalizeText("República Dominicana")
+      normalizeText(country) === normalizeText("República Dominicana")
         ? resolveDominicanLocation(latitude, longitude)
-        : "");
+        : signedUpProvince;
 
     if (!resolvedName) {
       return fromProfile();

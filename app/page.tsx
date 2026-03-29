@@ -18,11 +18,16 @@ import {
   subscribeListings,
 } from "@/lib/marketplace";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
-import { getDefaultListingLocation, normalizeLocationName, readStoredUserLocation } from "@/lib/location";
+import {
+  getDefaultListingLocation,
+  normalizeLocationName,
+  readStoredUserLocation,
+  requestCurrentSupportedLocation,
+} from "@/lib/location";
 
 export default function HomePage() {
   const router = useRouter();
-  const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
+  const [selectedLocation, setSelectedLocation] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -54,10 +59,20 @@ export default function HomePage() {
   }, [router]);
 
   useEffect(() => {
+    setSelectedLocation(getDefaultListingLocation());
+
     const storedLocation = readStoredUserLocation();
     if (storedLocation?.name) {
       setSelectedLocation(storedLocation.name);
     }
+
+    requestCurrentSupportedLocation()
+      .then((location) => {
+        setSelectedLocation(location.name);
+      })
+      .catch(() => {
+        // Keep the saved/manual selection when geolocation is unavailable or denied.
+      });
   }, []);
 
   useEffect(() => {
@@ -87,7 +102,7 @@ export default function HomePage() {
       .filter((item) => {
         if (item.ownerId === currentUserId) return false;
         if (!isListingVisibleInMarketplace(item)) return false;
-        if (normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
+        if (selectedLocation && normalizeLocation(item.location) !== normalizeLocation(selectedLocation)) return false;
 
         const listingType = item.type || "article";
         const hasVisibleBazarItems = getActiveBazarItems(item).length > 0;
