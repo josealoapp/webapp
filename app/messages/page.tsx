@@ -3,22 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MessageCircle, Search } from "lucide-react";
+import { ArrowLeft, MessageCircle, MoreVertical, Search } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { ChatRecord, subscribeInboxChatsForUser } from "@/lib/marketplace";
-import { getPostAuthDestination } from "@/lib/account-profile";
+import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
+import { ChatRecord, deleteChat, subscribeInboxChatsForUser } from "@/lib/marketplace";
 
 export default function MessagesPage() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [q, setQ] = useState("");
-  const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("vendiendo");
+  const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("comprando");
   const [currentUserId, setCurrentUserId] = useState("");
+  const [accountType, setAccountType] = useState<"personal" | "business">("personal");
   const [authResolved, setAuthResolved] = useState(false);
+  const [openMenuChatId, setOpenMenuChatId] = useState("");
+  const [deletingChatId, setDeletingChatId] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
+      const profile = readAccountProfile();
+      const nextAccountType = profile.accountType === "business" ? "business" : "personal";
+      setAccountType(nextAccountType);
+      setActiveTab(nextAccountType === "business" ? "vendiendo" : "comprando");
+
       if (user?.uid) {
         if (user.emailVerified) {
           const destination = getPostAuthDestination("/messages");
@@ -35,7 +43,7 @@ export default function MessagesPage() {
       setAuthResolved(true);
     });
     return () => unsub();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (authResolved && !currentUserId) {
@@ -71,6 +79,9 @@ export default function MessagesPage() {
       );
     });
   }, [currentUserId, q, visibleChats]);
+  const messageTabs = accountType === "business"
+    ? (["vendiendo", "comprando"] as const)
+    : (["comprando", "vendiendo"] as const);
 
   if (!authResolved || !currentUserId) {
     return <div className="min-h-screen bg-neutral-950 text-neutral-50" />;
@@ -96,7 +107,7 @@ export default function MessagesPage() {
 
         <div className="mx-auto max-w-3xl px-4 pb-4">
           <div className="mb-3 flex items-center justify-center gap-10 border-b border-neutral-800 px-1">
-            {(["vendiendo", "comprando"] as const).map((tab) => (
+            {messageTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -142,36 +153,74 @@ export default function MessagesPage() {
                 "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
 
               return (
-                <Link
+                <div
                   key={chat.id}
-                  href={`/chat/${chat.id}`}
-                  className="block rounded-3xl border border-neutral-800 bg-neutral-900/20 p-4 hover:bg-neutral-900/30"
+                  className="relative rounded-3xl border border-neutral-800 bg-neutral-900/20 p-4 hover:bg-neutral-900/30"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusStyles}`}
-                        >
-                          {roleLabel}
-                        </span>
+                  <Link href={`/chat/${chat.id}`} className="block pr-14">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusStyles}`}
+                          >
+                            {roleLabel}
+                          </span>
+                        </div>
+                        <div className="truncate text-sm font-semibold">
+                          {counterpartName}
+                        </div>
+                        <div className="truncate text-xs text-neutral-400">
+                          {chat.listingTitle}
+                        </div>
                       </div>
-                      <div className="truncate text-sm font-semibold">
-                        {counterpartName}
-                      </div>
-                      <div className="truncate text-xs text-neutral-400">
-                        {chat.listingTitle}
+                      <div className="shrink-0 pr-6 text-xs text-neutral-500">
+                        {new Date(chat.updatedAt).toLocaleDateString()}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-neutral-500">
-                      {new Date(chat.updatedAt).toLocaleDateString()}
+                    <div className="mt-3 line-clamp-1 text-sm text-neutral-300">
+                      {chat.lastMessage ?? "Nueva oferta iniciada"}
                     </div>
-                  </div>
+                  </Link>
 
-                  <div className="mt-3 line-clamp-1 text-sm text-neutral-300">
-                    {chat.lastMessage ?? "Nueva oferta iniciada"}
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setOpenMenuChatId((current) => (current === chat.id ? "" : chat.id));
+                      }}
+                      className="flex h-10 w-10 items-center justify-center text-neutral-300 hover:text-white"
+                      aria-label="Opciones del chat"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+
+                    {openMenuChatId === chat.id ? (
+                      <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[170px] overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
+                        <button
+                          type="button"
+                          onClick={async (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setDeletingChatId(chat.id);
+                            try {
+                              await deleteChat(chat.id);
+                              setOpenMenuChatId("");
+                            } finally {
+                              setDeletingChatId("");
+                            }
+                          }}
+                          disabled={deletingChatId === chat.id}
+                          className="flex w-full items-center justify-start px-4 py-3 text-sm text-red-300 hover:bg-neutral-900 disabled:opacity-60"
+                        >
+                          {deletingChatId === chat.id ? "Deleting..." : "Delete message"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

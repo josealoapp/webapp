@@ -18,6 +18,7 @@ const DOMINICAN_GEO_FALLBACKS = [
 export type StoredUserLocation = {
   name: string;
   country: string;
+  source?: "manual" | "current";
   latitude?: number | null;
   longitude?: number | null;
   updatedAt: number;
@@ -152,6 +153,7 @@ export function readStoredUserLocation() {
         typeof parsed.country === "string" && parsed.country.trim()
           ? parsed.country
           : getSignedUpCountry(),
+      source: parsed.source === "manual" ? "manual" : "current",
       latitude: typeof parsed.latitude === "number" ? parsed.latitude : null,
       longitude: typeof parsed.longitude === "number" ? parsed.longitude : null,
       updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
@@ -164,6 +166,25 @@ export function readStoredUserLocation() {
 export function writeStoredUserLocation(location: StoredUserLocation) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(location));
+}
+
+export function saveManualListingLocation(name: string) {
+  const payload: StoredUserLocation = {
+    name,
+    country: getSignedUpCountry(),
+    source: "manual",
+    latitude: null,
+    longitude: null,
+    updatedAt: Date.now(),
+  };
+
+  writeStoredUserLocation(payload);
+  return payload;
+}
+
+export function shouldAutoRefreshCurrentLocation() {
+  const stored = readStoredUserLocation();
+  return stored?.source !== "manual";
 }
 
 export function getDefaultListingLocation() {
@@ -188,6 +209,7 @@ export async function requestCurrentSupportedLocation(): Promise<StoredUserLocat
     const payload: StoredUserLocation = {
       name: signedUpProvince,
       country,
+      source: "current",
       latitude: null,
       longitude: null,
       updatedAt: Date.now(),
@@ -224,6 +246,7 @@ export async function requestCurrentSupportedLocation(): Promise<StoredUserLocat
     const payload: StoredUserLocation = {
       name: resolvedName,
       country,
+      source: "current",
       latitude,
       longitude,
       updatedAt: Date.now(),

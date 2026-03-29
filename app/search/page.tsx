@@ -6,7 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Listing, subscribeListings } from "@/lib/marketplace";
 import LocationPickerModal from "@/components/LocationPickerModal";
-import { getDefaultListingLocation, normalizeLocationName, readStoredUserLocation } from "@/lib/location";
+import {
+  getDefaultListingLocation,
+  normalizeLocationName,
+  readStoredUserLocation,
+  saveManualListingLocation,
+} from "@/lib/location";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -122,7 +127,10 @@ export default function SearchPage() {
         open={locationModalOpen}
         currentLocation={selectedLocation}
         onClose={() => setLocationModalOpen(false)}
-        onSelect={setSelectedLocation}
+        onSelect={(location) => {
+          setSelectedLocation(location);
+          saveManualListingLocation(location);
+        }}
       />
     </div>
   );

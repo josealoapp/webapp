@@ -231,6 +231,27 @@ export async function createOffer(input: {
   return payload.chatId;
 }
 
+export async function deleteChat(chatId: string) {
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch(`/api/chats/${encodeURIComponent(chatId)}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "chat/delete-failed");
+  }
+}
+
 export async function listListings() {
   const snap = await getDocs(collection(db, "listings"));
   const rows = snap.docs

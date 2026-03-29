@@ -48,6 +48,7 @@ export default function NearbyDiscoverPage() {
     return items
       .filter((item) => item.ownerId !== currentUserId)
       .filter((item) => isListingVisibleInMarketplace(item))
+      .filter((item) => (item.type || "article") === "article")
       .filter((item) => !selectedLocation || normalizeLocationName(item.location) === normalizeLocationName(selectedLocation))
       .map((item) => ({
         id: item.id,

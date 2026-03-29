@@ -23,7 +23,12 @@ export default function DiscoverPage() {
   }, []);
 
   const renderedItems = items
-    .filter((item) => item.ownerId !== currentUserId && item.status !== "sold")
+    .filter(
+      (item) =>
+        item.ownerId !== currentUserId &&
+        item.status !== "sold" &&
+        (item.type || "article") === "article"
+    )
     .map((item) => ({
         id: item.id,
         title: item.title,

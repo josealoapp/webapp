@@ -37,6 +37,87 @@ export default function InterestModal({
 
   if (!open) return null;
 
+  const startChat = async (message: string, nextOnSignedOut = "/messages") => {
+    setError("");
+
+    if (!item.sellerId || !item.sellerName) {
+      setError("No pudimos identificar al vendedor de esta publicación.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (user?.uid) {
+      if (item.sellerId && user.uid === item.sellerId) {
+        setError("No puedes enviarte un mensaje a tu propia publicación.");
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        const chatId = await createOffer({
+          listingId: item.id,
+          listingTitle: item.title,
+          listingPrice: item.price,
+          sellerId: item.sellerId,
+          sellerName: item.sellerName,
+          message,
+        });
+
+        onClose();
+        router.push(`/chat/${chatId}`);
+        return;
+      } catch (err: unknown) {
+        console.error("offer-submit-debug", {
+          buyerUid: user.uid,
+          sellerId: item.sellerId,
+          listingId: item.id,
+        });
+        const code =
+          typeof err === "object" && err !== null && "code" in err
+            ? String((err as { code?: string }).code)
+            : "";
+
+        console.error("offer-submit-failed", err);
+
+        if (code === "permission-denied") {
+          setError(
+            "Firebase rechazó esta conversación por permisos. Si estás probando tu propia publicación, usa otra cuenta."
+          );
+        } else if (code === "offer/self-offer") {
+          setError("No puedes enviarte un mensaje a tu propia publicación.");
+        } else if (code === "auth/missing-token" || code === "unauthenticated") {
+          setError("Tu sesión no está lista. Entra de nuevo e intenta otra vez.");
+        } else {
+          setError("No se pudo abrir el chat. Intenta de nuevo.");
+        }
+        return;
+      } finally {
+        setSubmitting(false);
+      }
+    }
+
+    try {
+      sessionStorage.setItem(
+        "pending_interest",
+        JSON.stringify({
+          item,
+          method,
+          cashOffer: 0,
+          minAccepted,
+          message,
+          sellerId: item.sellerId,
+          sellerName: item.sellerName,
+          createdAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    onClose();
+    router.push(`/sign-in?next=${encodeURIComponent(nextOnSignedOut)}`);
+  };
+
   const handleContinue = async () => {
     setError("");
 
@@ -59,81 +140,7 @@ export default function InterestModal({
       }
 
       const msg = `Hola, estoy interesado en tu ${item.title}. Te ofrezco RD$${offer.toLocaleString()} en efectivo. Me gustaría saber más detalles del producto.`;
-
-      const user = auth.currentUser;
-      if (user?.uid) {
-        if (item.sellerId && user.uid === item.sellerId) {
-          setError("No puedes enviarte una oferta a tu propia publicación.");
-          return;
-        }
-
-        try {
-          setSubmitting(true);
-          const chatId = await createOffer({
-            listingId: item.id,
-            listingTitle: item.title,
-            listingPrice: item.price,
-            sellerId: item.sellerId,
-            sellerName: item.sellerName,
-            message: msg,
-          });
-
-          onClose();
-          router.push(`/chat/${chatId}`);
-          return;
-        } catch (err: unknown) {
-          console.error("offer-submit-debug", {
-            buyerUid: user.uid,
-            sellerId: item.sellerId,
-            listingId: item.id,
-          });
-          const code =
-            typeof err === "object" && err !== null && "code" in err
-              ? String((err as { code?: string }).code)
-              : "";
-
-          console.error("offer-submit-failed", err);
-
-          if (code === "permission-denied") {
-            setError(
-              "Firebase rechazó esta oferta por permisos. Si estás probando tu propia publicación, usa otra cuenta."
-            );
-          } else if (code === "offer/self-offer") {
-            setError("No puedes enviarte una oferta a tu propia publicación.");
-          } else if (code === "auth/missing-token") {
-            setError("Tu sesión no está lista. Entra de nuevo e intenta otra vez.");
-          } else if (code === "unauthenticated") {
-            setError("Tu sesión no está lista. Entra de nuevo e intenta otra vez.");
-          } else {
-            setError("No se pudo enviar la oferta. Intenta de nuevo.");
-          }
-          return;
-        } finally {
-          setSubmitting(false);
-        }
-      }
-
-      // Guardamos un borrador en sessionStorage para completarlo luego del login.
-      try {
-        sessionStorage.setItem(
-          "pending_interest",
-          JSON.stringify({
-            item,
-            method,
-            cashOffer: offer,
-            minAccepted,
-            message: msg,
-            sellerId: item.sellerId,
-            sellerName: item.sellerName,
-            createdAt: Date.now(),
-          })
-        );
-      } catch {
-        // ignore
-      }
-
-      onClose();
-      router.push(`/sign-in?next=${encodeURIComponent("/messages")}`);
+      await startChat(msg);
       return;
     }
 
@@ -147,6 +154,7 @@ export default function InterestModal({
     <div className="fixed inset-0 z-[100]">
       {/* overlay */}
       <button
+        type="button"
         className="absolute inset-0 bg-black/60"
         onClick={onClose}
         aria-label="Cerrar"
@@ -168,6 +176,7 @@ export default function InterestModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-neutral-800 hover:bg-neutral-900"
             aria-label="Cerrar"
@@ -228,15 +237,17 @@ export default function InterestModal({
 
         <div className="mt-5 flex gap-2">
           <button
-            onClick={() => {
-              onClose();
-              router.push("/messages");
-            }}
+            type="button"
+            onClick={() =>
+              startChat(`Hola, estoy interesado en tu ${item.title}. ¿Sigue disponible?`)
+            }
+            disabled={submitting}
             className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-sm hover:bg-neutral-900"
           >
             Mensaje
           </button>
           <button
+            type="button"
             onClick={handleContinue}
             disabled={submitting}
             className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
@@ -260,6 +271,7 @@ function Option({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={[
         "rounded-2xl border px-3 py-3 text-sm",

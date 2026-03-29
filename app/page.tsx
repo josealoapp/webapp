@@ -23,6 +23,8 @@ import {
   normalizeLocationName,
   readStoredUserLocation,
   requestCurrentSupportedLocation,
+  saveManualListingLocation,
+  shouldAutoRefreshCurrentLocation,
 } from "@/lib/location";
 
 export default function HomePage() {
@@ -66,13 +68,15 @@ export default function HomePage() {
       setSelectedLocation(storedLocation.name);
     }
 
-    requestCurrentSupportedLocation()
-      .then((location) => {
-        setSelectedLocation(location.name);
-      })
-      .catch(() => {
-        // Keep the saved/manual selection when geolocation is unavailable or denied.
-      });
+    if (shouldAutoRefreshCurrentLocation()) {
+      requestCurrentSupportedLocation()
+        .then((location) => {
+          setSelectedLocation(location.name);
+        })
+        .catch(() => {
+          // Keep the saved/manual selection when geolocation is unavailable or denied.
+        });
+    }
   }, []);
 
   useEffect(() => {
@@ -156,7 +160,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       <HomeHeader
         selectedLocation={selectedLocation}
-        onLocationChange={setSelectedLocation}
+        onLocationChange={(location) => {
+          setSelectedLocation(location);
+          saveManualListingLocation(location);
+        }}
         listings={marketplaceListings}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
@@ -258,10 +265,14 @@ export default function HomePage() {
               <div>
                 <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
                   <span>Bazar</span>
-                  <Link href="/" className="text-xs text-orange-400 hover:text-orange-200" onClick={(e) => {
-                    e.preventDefault();
-                    setActiveCategory("Bazar");
-                  }}>
+                  <Link
+                    href="/"
+                    className="text-xs text-orange-400 hover:text-orange-200"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveCategory("Bazar");
+                    }}
+                  >
                     Ver más
                   </Link>
                 </div>
