@@ -158,7 +158,9 @@ function OnboardingContent() {
   );
 
   const finishPersonalOnboarding = () => {
+    const currentProfile = readAccountProfile();
     writeAccountProfile({
+      ...currentProfile,
       accountType: "personal",
       onboardingCompleted: true,
       pendingBusinessUpgrade: false,
@@ -228,7 +230,9 @@ function OnboardingContent() {
     }
 
     setBusinessProfile(cleanedProfile);
+    const currentProfile = readAccountProfile();
     writeAccountProfile({
+      ...currentProfile,
       accountType: "business",
       onboardingCompleted: true,
       pendingBusinessUpgrade: false,

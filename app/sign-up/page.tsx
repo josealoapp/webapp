@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { readAccountProfile, writeAccountProfile } from "@/lib/account-profile";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ function SignUpContent() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -96,6 +98,17 @@ function SignUpContent() {
         // ignore
       }
 
+      try {
+        const currentProfile = readAccountProfile();
+        writeAccountProfile({
+          ...currentProfile,
+          whatsappPhone: whatsappNumber.trim(),
+          useWhatsappForCustomers: currentProfile.useWhatsappForCustomers,
+        });
+      } catch {
+        // ignore
+      }
+
       router.replace(`/verify-email?next=${encodeURIComponent(postSignUpPath)}`);
     } catch (err: unknown) {
       const code =
@@ -149,6 +162,20 @@ function SignUpContent() {
                   className="border-neutral-800 bg-neutral-950"
                   autoComplete="email"
                   inputMode="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">Numero de whatsapp (Opcional)</Label>
+                <Input
+                  id="whatsapp"
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="Ej. +1 809 555 1234"
+                  className="border-neutral-800 bg-neutral-950"
+                  autoComplete="tel"
+                  inputMode="tel"
                 />
               </div>
 

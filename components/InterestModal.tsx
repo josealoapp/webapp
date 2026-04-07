@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createOffer } from "@/lib/marketplace";
+import { buildWhatsappUrl } from "@/lib/whatsapp";
 
 type Method = "cash" | "trade" | "cash_trade";
 
@@ -21,6 +22,8 @@ export default function InterestModal({
     price: number;
     sellerId?: string;
     sellerName?: string;
+    sellerWhatsappNumber?: string;
+    sellerUsesWhatsapp?: boolean;
     sellerMaxDiscountPercent: number;
   };
 }) {
@@ -34,8 +37,40 @@ export default function InterestModal({
     const min = item.price * (1 - item.sellerMaxDiscountPercent / 100);
     return Math.ceil(min);
   }, [item.price, item.sellerMaxDiscountPercent]);
+  const usesWhatsapp = Boolean(item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim());
 
   if (!open) return null;
+
+  const openWhatsapp = () => {
+    setError("");
+
+    if (!item.sellerWhatsappNumber || !item.sellerName) {
+      setError("Este vendedor no tiene un número de WhatsApp disponible.");
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (currentUser?.uid && item.sellerId === currentUser.uid) {
+      setError("No puedes abrir WhatsApp hacia tu propia publicación.");
+      return;
+    }
+
+    const itemUrl = typeof window !== "undefined" ? window.location.href : "";
+    const url = buildWhatsappUrl({
+      phone: item.sellerWhatsappNumber,
+      vendorName: item.sellerName,
+      itemName: item.title,
+      itemUrl,
+    });
+
+    if (!url) {
+      setError("El número de WhatsApp del vendedor no es válido.");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+    onClose();
+  };
 
   const startChat = async (message: string, nextOnSignedOut = "/messages") => {
     setError("");
@@ -166,7 +201,9 @@ export default function InterestModal({
 
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-base font-semibold">¿Cómo piensas pagar?</div>
+            <div className="text-base font-semibold">
+              {usesWhatsapp ? "Contacta por WhatsApp" : "¿Cómo piensas pagar?"}
+            </div>
             <div className="mt-1 text-sm text-neutral-400">
               {item.title} ·{" "}
               <span className="text-neutral-200">
@@ -185,22 +222,28 @@ export default function InterestModal({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Option active={method === "cash"} onClick={() => setMethod("cash")}>
-            Efectivo
-          </Option>
-          <Option active={method === "trade"} onClick={() => setMethod("trade")}>
-            Intercambio
-          </Option>
-          <Option
-            active={method === "cash_trade"}
-            onClick={() => setMethod("cash_trade")}
-          >
-            Ambos
-          </Option>
-        </div>
+        {usesWhatsapp ? (
+          <div className="mt-4 rounded-3xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-100">
+            Esta publicación usa WhatsApp como canal principal. Al continuar, abrirás una conversación con el vendedor.
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <Option active={method === "cash"} onClick={() => setMethod("cash")}>
+              Efectivo
+            </Option>
+            <Option active={method === "trade"} onClick={() => setMethod("trade")}>
+              Intercambio
+            </Option>
+            <Option
+              active={method === "cash_trade"}
+              onClick={() => setMethod("cash_trade")}
+            >
+              Ambos
+            </Option>
+          </div>
+        )}
 
-        {(method === "cash" || method === "cash_trade") && (
+        {!usesWhatsapp && (method === "cash" || method === "cash_trade") && (
           <div className="mt-4 rounded-3xl border border-neutral-800 bg-neutral-900/30 p-4">
             <div className="text-sm font-medium">Oferta en efectivo</div>
             <div className="mt-1 text-xs text-neutral-400">
@@ -220,7 +263,7 @@ export default function InterestModal({
           </div>
         )}
 
-        {method === "trade" && (
+        {!usesWhatsapp && method === "trade" && (
           <div className="mt-4 rounded-3xl border border-neutral-800 bg-neutral-900/30 p-4">
             <div className="text-sm font-medium">Intercambio</div>
             <div className="mt-1 text-xs text-neutral-400">
@@ -235,26 +278,38 @@ export default function InterestModal({
           </div>
         )}
 
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              startChat(`Hola, estoy interesado en tu ${item.title}. ¿Sigue disponible?`)
-            }
-            disabled={submitting}
-            className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-sm hover:bg-neutral-900"
-          >
-            Mensaje
-          </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={submitting}
-            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
-          >
-            {submitting ? "Enviando..." : "Ofertar"}
-          </button>
-        </div>
+        {usesWhatsapp ? (
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={openWhatsapp}
+              className="w-full rounded-2xl border border-green-500/30 bg-green-500/15 px-4 py-3 text-sm font-semibold text-green-100 hover:bg-green-500/20"
+            >
+              Whatsapp
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                startChat(`Hola, estoy interesado en tu ${item.title}. ¿Sigue disponible?`)
+              }
+              disabled={submitting}
+              className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-sm hover:bg-neutral-900"
+            >
+              Mensaje
+            </button>
+            <button
+              type="button"
+              onClick={handleContinue}
+              disabled={submitting}
+              className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
+            >
+              {submitting ? "Enviando..." : "Ofertar"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

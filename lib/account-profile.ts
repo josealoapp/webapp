@@ -19,6 +19,8 @@ export type AccountProfile = {
   onboardingCompleted: boolean;
   pendingBusinessUpgrade: boolean;
   interests: string[];
+  whatsappPhone: string;
+  useWhatsappForCustomers: boolean;
   businessProfile: BusinessProfile | null;
   businessVerificationPending: boolean;
   businessVerificationMessage: string | null;
@@ -45,6 +47,8 @@ export function getDefaultAccountProfile(): AccountProfile {
     onboardingCompleted: false,
     pendingBusinessUpgrade: false,
     interests: [],
+    whatsappPhone: "",
+    useWhatsappForCustomers: false,
     businessProfile: null,
     businessVerificationPending: false,
     businessVerificationMessage: null,
@@ -101,4 +105,14 @@ export function getPostAuthDestination(nextPath: string) {
   }
 
   return nextPath || "/";
+}
+
+export function getWhatsappContactSettings(profile: AccountProfile = readAccountProfile()) {
+  const fallbackBusinessWhatsapp = profile.businessProfile?.whatsapp?.trim() || "";
+  const phone = profile.whatsappPhone.trim() || fallbackBusinessWhatsapp;
+
+  return {
+    phone,
+    enabled: Boolean(profile.useWhatsappForCustomers && phone),
+  };
 }

@@ -6,7 +6,7 @@ import { ArrowLeft, Info } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createListing } from "@/lib/marketplace";
-import { getPostAuthDestination } from "@/lib/account-profile";
+import { getPostAuthDestination, getWhatsappContactSettings } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import { getDefaultListingLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
@@ -83,10 +83,13 @@ function NewListingPreviewContent() {
     setPublishing(true);
     setPublishError("");
     try {
+      const whatsappContact = getWhatsappContactSettings();
       await createListing({
         ownerId: user.uid,
         ownerName: user.displayName || user.email || "Vendedor",
         ownerAvatar: readProfileAvatar(user.uid),
+        sellerWhatsappNumber: whatsappContact.phone,
+        sellerUsesWhatsapp: whatsappContact.enabled,
         type: "article",
         title: data.title || "Sin título",
         price: data.price,

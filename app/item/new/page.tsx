@@ -6,7 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, ChevronDown, ImagePlus, Info, Plus } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages } from "@/lib/marketplace";
-import { getPostAuthDestination } from "@/lib/account-profile";
+import { getPostAuthDestination, getWhatsappContactSettings } from "@/lib/account-profile";
 import { appCategories } from "@/lib/categories";
 import { requestCurrentSupportedLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
@@ -451,10 +451,13 @@ export default function NewListingPage() {
       const lowestPrice = publishedItems.reduce((min, item) => Math.min(min, item.price), publishedItems[0]?.price || 0);
 
       try {
+        const whatsappContact = getWhatsappContactSettings();
         const payload = {
           ownerId: user.uid,
           ownerName: user.displayName || user.email || "Vendedor",
           ownerAvatar: readProfileAvatar(user.uid),
+          sellerWhatsappNumber: whatsappContact.phone,
+          sellerUsesWhatsapp: whatsappContact.enabled,
           type: "bazar" as const,
           title: bazarTitle.trim(),
           price: lowestPrice,

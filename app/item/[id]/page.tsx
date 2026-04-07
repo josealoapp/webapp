@@ -96,6 +96,8 @@ export default function ItemDetailsPage() {
         sellerName: listing.ownerName,
         sellerId: listing.ownerId,
         sellerAvatar: listing.ownerAvatar,
+        sellerWhatsappNumber: listing.sellerWhatsappNumber,
+        sellerUsesWhatsapp: listing.sellerUsesWhatsapp,
         bazarItems,
         type: listing.type || "article",
         sellerMaxDiscountPercent: 10,
@@ -589,6 +591,8 @@ export default function ItemDetailsPage() {
           price: selectedBazarItem ? selectedBazarItem.price : item.price,
           sellerId: item.sellerId,
           sellerName: isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName,
+          sellerWhatsappNumber: item.sellerWhatsappNumber,
+          sellerUsesWhatsapp: item.sellerUsesWhatsapp,
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
         }}
       />

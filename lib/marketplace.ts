@@ -32,6 +32,8 @@ export type Listing = {
   ownerId: string;
   ownerName: string;
   ownerAvatar?: string;
+  sellerWhatsappNumber?: string;
+  sellerUsesWhatsapp?: boolean;
   type?: ListingType;
   title: string;
   price: number;
@@ -150,6 +152,24 @@ export async function syncOwnerAvatarAcrossListings(ownerId: string, ownerAvatar
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(payload?.error || "profile/avatar-sync-failed");
   }
+}
+
+export async function syncSellerWhatsappAcrossListings(
+  ownerId: string,
+  input: { sellerWhatsappNumber: string; sellerUsesWhatsapp: boolean }
+) {
+  const snap = await getDocs(query(collection(db, "listings"), where("ownerId", "==", ownerId)));
+
+  await Promise.all(
+    snap.docs.map((docSnap) =>
+      updateDoc(doc(db, "listings", docSnap.id), {
+        sellerWhatsappNumber: input.sellerWhatsappNumber,
+        sellerUsesWhatsapp: input.sellerUsesWhatsapp,
+        updatedAt: Date.now(),
+        updatedAtServer: serverTimestamp(),
+      })
+    )
+  );
 }
 
 export async function uploadListingImages(files: File[]) {

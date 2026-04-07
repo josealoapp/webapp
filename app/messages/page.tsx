@@ -16,6 +16,7 @@ export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<"comprando" | "vendiendo">("comprando");
   const [currentUserId, setCurrentUserId] = useState("");
   const [accountType, setAccountType] = useState<"personal" | "business">("personal");
+  const [usesWhatsappForCustomers, setUsesWhatsappForCustomers] = useState(false);
   const [authResolved, setAuthResolved] = useState(false);
   const [openMenuChatId, setOpenMenuChatId] = useState("");
   const [deletingChatId, setDeletingChatId] = useState("");
@@ -26,6 +27,7 @@ export default function MessagesPage() {
       const nextAccountType = profile.accountType === "business" ? "business" : "personal";
       setAccountType(nextAccountType);
       setActiveTab(nextAccountType === "business" ? "vendiendo" : "comprando");
+      setUsesWhatsappForCustomers(profile.useWhatsappForCustomers);
 
       if (user?.uid) {
         if (user.emailVerified) {
@@ -137,6 +139,11 @@ export default function MessagesPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4 pb-24">
+        {activeTab === "vendiendo" && usesWhatsappForCustomers ? (
+          <div className="mb-4 rounded-3xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-100">
+            Tus negociaciones están siendo manejadas por WhatsApp.
+          </div>
+        ) : null}
         {filtered.length === 0 ? (
           <div className="rounded-3xl border border-neutral-800 bg-neutral-900/20 p-6 text-sm text-neutral-300">
             {activeTab === "comprando"
