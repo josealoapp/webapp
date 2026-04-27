@@ -13,6 +13,7 @@ import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import { isListingVisibleInOwnerProfile, Listing, subscribeListings } from "@/lib/marketplace";
 import { subscribeProfileAvatar } from "@/lib/profile-avatar";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
+import { getInstagramProfileUrl, subscribeInstagramUsername } from "@/lib/user-instagram";
 
 export default function PublicProfilePage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function PublicProfilePage() {
   const [followers, setFollowers] = useState<ReturnType<typeof mapFollowRows>>([]);
   const [following, setFollowing] = useState<ReturnType<typeof mapFollowRows>>([]);
   const [likesCount, setLikesCount] = useState(0);
+  const [instagramUsername, setInstagramUsername] = useState("");
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -69,6 +71,16 @@ export default function PublicProfilePage() {
     }
 
     const unsub = subscribeProfileAvatar(userId, setAvatarUrl);
+    return () => unsub();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setInstagramUsername("");
+      return;
+    }
+
+    const unsub = subscribeInstagramUsername(userId, setInstagramUsername);
     return () => unsub();
   }, [userId]);
 
@@ -201,9 +213,17 @@ export default function PublicProfilePage() {
               </span>
             </button>
           ) : null}
-          <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">
-            <Instagram className="h-4 w-4" />
-          </button>
+          {instagramUsername ? (
+            <a
+              href={getInstagramProfileUrl(instagramUsername)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white"
+              aria-label={`Abrir Instagram de ${profileName}`}
+            >
+              <Instagram className="h-4 w-4" />
+            </a>
+          ) : null}
           <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">
             <ChevronDown className="h-4 w-4" />
           </button>

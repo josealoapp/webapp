@@ -15,6 +15,7 @@ import {
   UserRoundCog,
   Archive,
   Phone,
+  Instagram,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -33,6 +34,7 @@ const security: Item[] = [
   { title: "Cambiar contraseña", subtitle: "Actualiza tu password", icon: Shield, href: "/settings/password" },
   { title: "Ubicación", subtitle: "Administra tu ciudad o zona", icon: MapPin, href: "/settings/location" },
   { title: "Connectar con whatsapp", subtitle: "Configura tu número y el canal de contacto", icon: Phone, href: "/settings/whatsapp" },
+  { title: "Agregar instagram", subtitle: "Configura tu usuario para mostrar el botón en tu perfil", icon: Instagram, href: "/settings/instagram" },
 ];
 
 const support: Item[] = [

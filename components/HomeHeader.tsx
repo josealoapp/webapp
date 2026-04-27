@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Heart, MapPin, Menu, Search } from "lucide-react";
 import LocationPickerModal from "./LocationPickerModal";
 import { Listing } from "@/lib/marketplace";
+import logoIcon from "@/app/logo.svg";
 
 const categories = [
   { label: "Todo", value: "Todo" },
@@ -71,13 +73,14 @@ export default function HomeHeader({
         {/* Top row */}
         <div className="flex items-center gap-3">
           <Link
-            href="/activity"
-            className="flex h-10 w-10 items-center justify-center text-white drop-shadow"
-            aria-label="Actividad"
+            href="/"
+            className="flex h-10 w-10 items-center justify-center text-white"
+            aria-label="Josealo"
           >
-            <Heart className="h-6 w-6" />
+            <Image src={logoIcon} alt="Josealo logo" width={24} height={24} priority />
           </Link>
           <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/70" />
             <input
               placeholder="Search for items"
               value={query}
@@ -92,17 +95,17 @@ export default function HomeHeader({
                   openResults();
                 }
               }}
-              className="w-full rounded-full border border-white/20 bg-black/30 px-4 py-3 pr-12 text-sm text-white outline-none ring-0 placeholder:text-white/70 focus:border-orange-400"
+              className="w-full rounded-full border border-white/20 bg-black/30 py-3 pl-12 pr-4 text-sm text-white outline-none ring-0 placeholder:text-white/70 focus:border-orange-400"
             />
-            <button
-              type="button"
-              onClick={openResults}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
-              aria-label="Buscar"
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/activity"
+              className="flex h-10 w-10 items-center justify-center text-white drop-shadow"
+              aria-label="Actividad"
             >
-              <Search className="h-5 w-5" />
-            </button>
-
+              <Heart className="h-6 w-6" />
+            </Link>
           </div>
         </div>
 

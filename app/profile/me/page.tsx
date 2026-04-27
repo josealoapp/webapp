@@ -225,9 +225,13 @@ export default function MyProfilePage() {
           <button className="flex-none rounded-2xl border border-neutral-800 bg-neutral-900 px-8 py-3 text-sm font-semibold text-neutral-100 hover:border-orange-400 hover:text-white">
             Editar perfil
           </button>
-          <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">
+          <Link
+            href="/settings/instagram"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white"
+            aria-label="Agregar instagram"
+          >
             <Instagram className="h-4 w-4" />
-          </button>
+          </Link>
           <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">
             <ChevronDown className="h-4 w-4" />
           </button>
