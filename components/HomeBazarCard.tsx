@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SellerAvatar from "@/components/SellerAvatar";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { followUser } from "@/lib/follows";
 import { getActiveBazarItems, Listing } from "@/lib/marketplace";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
 
 export default function HomeBazarCard({
   item,
@@ -22,8 +24,14 @@ export default function HomeBazarCard({
 }) {
   const router = useRouter();
   const [isShakingFollow, setIsShakingFollow] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const visibleItems = getActiveBazarItems(item);
   const canFollow = Boolean(currentUserId && currentUserId !== item.ownerId && !isFollowing);
+
+  useEffect(() => {
+    const unsub = subscribeVerifiedUser(item.ownerId, setIsVerified);
+    return () => unsub();
+  }, [item.ownerId]);
 
   return (
     <div className="overflow-hidden rounded-[26px] border border-neutral-800 bg-neutral-950/80 p-4 shadow-sm">
@@ -44,7 +52,10 @@ export default function HomeBazarCard({
           </div>
           <div className="min-w-0">
             <div className="truncate text-base font-semibold text-neutral-100">{item.title}</div>
-            <div className="text-xs text-neutral-400">{item.ownerName}</div>
+            <div className="flex items-center gap-1 text-xs text-neutral-400">
+              <span>{item.ownerName}</span>
+              {isVerified ? <VerifiedBadge className="h-3.5 w-3.5" /> : null}
+            </div>
           </div>
         </Link>
 

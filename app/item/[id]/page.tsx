@@ -12,8 +12,12 @@ import SellerAvatar from "@/components/SellerAvatar";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser, unlikeItem } from "@/lib/likes";
+import { createItemReport, REPORT_REASONS } from "@/lib/item-reports";
 import { getListingById, Listing, markBazarItemSold, markListingSold } from "@/lib/marketplace";
+import { buildWhatsappUrl } from "@/lib/whatsapp";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export default function ItemDetailsPage() {
   const router = useRouter();
@@ -33,10 +37,19 @@ export default function ItemDetailsPage() {
   const [publishingSold, setPublishingSold] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [openBazarMenu, setOpenBazarMenu] = useState(false);
+  const [openReportMenu, setOpenReportMenu] = useState(false);
+  const [openReportModal, setOpenReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportError, setReportError] = useState("");
+  const [reportSuccess, setReportSuccess] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [sellerVerified, setSellerVerified] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const reportMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -67,6 +80,19 @@ export default function ItemDetailsPage() {
   }, []);
 
   useEffect(() => {
+    if (!openReportMenu) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!reportMenuRef.current?.contains(event.target as Node)) {
+        setOpenReportMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openReportMenu]);
+
+  useEffect(() => {
     if (!currentUserId) {
       setLikedIds(new Set());
       return;
@@ -75,6 +101,16 @@ export default function ItemDetailsPage() {
     const unsub = subscribeLikeIdsForUser(currentUserId, setLikedIds);
     return () => unsub();
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (!listing?.ownerId) {
+      setSellerVerified(false);
+      return;
+    }
+
+    const unsub = subscribeVerifiedUser(listing.ownerId, setSellerVerified);
+    return () => unsub();
+  }, [listing?.ownerId]);
 
   const item = useMemo(() => {
     if (!id) return null;
@@ -186,6 +222,86 @@ export default function ItemDetailsPage() {
       location: item.location,
       href,
     });
+  };
+
+  const openWhatsappInterest = () => {
+    if (!item?.sellerWhatsappNumber || !item?.sellerName) {
+      setOpenInterest(true);
+      return;
+    }
+
+    if (currentUserId && item.sellerId === currentUserId) {
+      setOpenInterest(true);
+      return;
+    }
+
+    const itemUrl = typeof window !== "undefined" ? window.location.href : "";
+    const url = buildWhatsappUrl({
+      phone: item.sellerWhatsappNumber,
+      vendorName: item.sellerName,
+      itemName: selectedBazarItem ? selectedBazarItem.title : item.title,
+      itemUrl,
+    });
+
+    if (!url) {
+      setOpenInterest(true);
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleOpenReportModal = () => {
+    setOpenReportMenu(false);
+    setOpenReportModal(true);
+    setReportError("");
+    setReportSuccess("");
+  };
+
+  const handleSubmitReport = async () => {
+    if (!item) return;
+
+    if (!auth.currentUser) {
+      const href = `/item/${item.id}${selectedBazarItem?.id ? `?bazarItemId=${encodeURIComponent(selectedBazarItem.id)}` : ""}`;
+      router.push(`/sign-in?next=${encodeURIComponent(href)}`);
+      return;
+    }
+
+    if (!reportReason) {
+      setReportError("Selecciona una razón de reporte.");
+      return;
+    }
+
+    if (reportReason === "otro" && !reportDetails.trim()) {
+      setReportError("Escribe el detalle del reporte.");
+      return;
+    }
+
+    setSubmittingReport(true);
+    setReportError("");
+    setReportSuccess("");
+
+    try {
+      await createItemReport({
+        listingId: item.id,
+        bazarItemId: selectedBazarItem?.id,
+        sellerId: item.sellerId,
+        itemTitle: selectedBazarItem ? selectedBazarItem.title : item.title,
+        reason: reportReason,
+        details: reportReason === "otro" ? reportDetails.trim() : "",
+      });
+      setReportSuccess("Reporte enviado.");
+      setReportReason("");
+      setReportDetails("");
+      window.setTimeout(() => {
+        setOpenReportModal(false);
+        setReportSuccess("");
+      }, 900);
+    } catch {
+      setReportError("No pudimos enviar el reporte. Intenta de nuevo.");
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   useEffect(() => {
@@ -315,8 +431,9 @@ export default function ItemDetailsPage() {
                     imageClassName="object-cover"
                   />
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold">
-                      {isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <span>{isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}</span>
+                      {sellerVerified ? <VerifiedBadge className="h-3.5 w-3.5" /> : null}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-neutral-300">
                       <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
@@ -387,9 +504,37 @@ export default function ItemDetailsPage() {
       <div className="relative z-30 -mt-8 rounded-t-3xl border-t border-neutral-800 bg-neutral-950 text-neutral-50">
         <div className="mx-auto max-w-md px-4 pb-28 pt-5">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-800" />
-          <div className="text-xs font-medium text-neutral-400">{displayCategory}</div>
-          <div className="mt-1 text-2xl font-semibold leading-tight text-neutral-50">
-            {displayTitle}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-medium text-neutral-400">{displayCategory}</div>
+              <div className="mt-1 text-2xl font-semibold leading-tight text-neutral-50">
+                {displayTitle}
+              </div>
+            </div>
+            {!isOwnListing ? (
+              <div ref={reportMenuRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenReportMenu((current) => !current)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-200"
+                  aria-label="Opciones"
+                >
+                  <MoreHorizontal className="h-6 w-6" />
+                </button>
+
+                {openReportMenu ? (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-30 min-w-[160px] rounded-2xl border border-neutral-800 bg-neutral-900 p-2 shadow-2xl">
+                    <button
+                      type="button"
+                      onClick={handleOpenReportModal}
+                      className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-200 hover:bg-neutral-800"
+                    >
+                      Reportar
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
@@ -561,6 +706,10 @@ export default function ItemDetailsPage() {
                 return;
               }
               if (isSold) return;
+              if (item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim()) {
+                openWhatsappInterest();
+                return;
+              }
               setOpenInterest(true);
             }}
             disabled={publishingSold || (!isOwnListing && (isSold || isSelectedBazarItemSold))}
@@ -758,6 +907,76 @@ export default function ItemDetailsPage() {
           </div>
         </div>
       ) : null}
+
+      {openReportModal ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
+            <div className="text-lg font-semibold">Razon de reporte</div>
+            <div className="mt-1 text-sm text-neutral-400">
+              Selecciona la razón por la que deseas reportar este artículo.
+            </div>
+
+            <div className="mt-5">
+              <label className="text-sm font-medium text-neutral-200">Razon</label>
+              <select
+                value={reportReason}
+                onChange={(event) => {
+                  setReportReason(event.target.value);
+                  setReportError("");
+                  setReportSuccess("");
+                }}
+                className="mt-2 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 outline-none focus:border-orange-400"
+              >
+                <option value="">Selecciona una opción</option>
+                {REPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {reportReason === "otro" ? (
+              <div className="mt-4">
+                <label className="text-sm font-medium text-neutral-200">Detalle</label>
+                <textarea
+                  value={reportDetails}
+                  onChange={(event) => {
+                    setReportDetails(event.target.value);
+                    setReportError("");
+                    setReportSuccess("");
+                  }}
+                  placeholder="Escribe el motivo del reporte"
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-100 outline-none focus:border-orange-400"
+                />
+              </div>
+            ) : null}
+
+            {reportError ? (
+              <div className="mt-4 rounded-2xl border border-red-900/40 bg-red-950/30 p-4 text-sm text-red-200">
+                {reportError}
+              </div>
+            ) : null}
+
+            {reportSuccess ? (
+              <div className="mt-4 rounded-2xl border border-emerald-900/40 bg-emerald-950/30 p-4 text-sm text-emerald-200">
+                {reportSuccess}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleSubmitReport}
+              disabled={submittingReport}
+              className="mt-5 h-12 w-full rounded-2xl bg-orange-400 px-4 text-sm font-semibold text-black hover:bg-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
+            >
+              {submittingReport ? "Enviando..." : "Enviar"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }

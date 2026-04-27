@@ -20,6 +20,8 @@ import {
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { subscribeProfileAvatar, writeProfileAvatar } from "@/lib/profile-avatar";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export default function MyProfilePage() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export default function MyProfilePage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [authResolved, setAuthResolved] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -79,6 +82,16 @@ export default function MyProfilePage() {
     }
 
     const unsub = subscribeProfileAvatar(currentUserId, setAvatarUrl);
+    return () => unsub();
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setIsVerified(false);
+      return;
+    }
+
+    const unsub = subscribeVerifiedUser(currentUserId, setIsVerified);
     return () => unsub();
   }, [currentUserId]);
 
@@ -203,7 +216,10 @@ export default function MyProfilePage() {
             event.currentTarget.value = "";
           }}
         />
-        <div className="mt-3 text-lg font-semibold text-neutral-50">{currentUserName}</div>
+        <div className="mt-3 flex items-center gap-2 text-lg font-semibold text-neutral-50">
+          <span>{currentUserName}</span>
+          {isVerified ? <VerifiedBadge /> : null}
+        </div>
         <div className="mt-1 text-sm text-neutral-300">@{userHandle}</div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">

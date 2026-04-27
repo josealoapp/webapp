@@ -14,6 +14,8 @@ import { isListingVisibleInOwnerProfile, Listing, subscribeListings } from "@/li
 import { subscribeProfileAvatar } from "@/lib/profile-avatar";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 import { getInstagramProfileUrl, subscribeInstagramUsername } from "@/lib/user-instagram";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export default function PublicProfilePage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function PublicProfilePage() {
   const [following, setFollowing] = useState<ReturnType<typeof mapFollowRows>>([]);
   const [likesCount, setLikesCount] = useState(0);
   const [instagramUsername, setInstagramUsername] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -81,6 +84,16 @@ export default function PublicProfilePage() {
     }
 
     const unsub = subscribeInstagramUsername(userId, setInstagramUsername);
+    return () => unsub();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setIsVerified(false);
+      return;
+    }
+
+    const unsub = subscribeVerifiedUser(userId, setIsVerified);
     return () => unsub();
   }, [userId]);
 
@@ -156,7 +169,10 @@ export default function PublicProfilePage() {
 
       <main className="mx-auto flex max-w-md flex-col items-center px-4 pb-1">
         <ProfileAvatar src={avatarUrl || publicListings[0]?.ownerAvatar} alt={profileName} />
-        <div className="mt-3 text-lg font-semibold text-neutral-50">{profileName}</div>
+        <div className="mt-3 flex items-center gap-2 text-lg font-semibold text-neutral-50">
+          <span>{profileName}</span>
+          {isVerified ? <VerifiedBadge /> : null}
+        </div>
         <div className="mt-1 text-sm text-neutral-300">@{profileHandle}</div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">

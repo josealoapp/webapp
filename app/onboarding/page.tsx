@@ -224,11 +224,6 @@ function OnboardingContent() {
       return;
     }
 
-    if (!cleanedProfile.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedProfile.email)) {
-      setError("Ingresa un correo electronico valido.");
-      return;
-    }
-
     setBusinessProfile(cleanedProfile);
     const currentProfile = readAccountProfile();
     writeAccountProfile({
@@ -646,18 +641,6 @@ function OnboardingContent() {
                       value={businessProfile.rnc}
                       onChange={(e) => setBusinessProfile((current) => ({ ...current, rnc: e.target.value }))}
                       placeholder="Tu codigo RNC"
-                      className="border-neutral-800 bg-neutral-950"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="businessEmail">Correo electronico</Label>
-                    <Input
-                      id="businessEmail"
-                      type="email"
-                      value={businessProfile.email}
-                      onChange={(e) => setBusinessProfile((current) => ({ ...current, email: e.target.value }))}
-                      placeholder="negocio@correo.com"
                       className="border-neutral-800 bg-neutral-950"
                     />
                   </div>

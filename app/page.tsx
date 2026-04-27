@@ -190,9 +190,10 @@ export default function HomePage() {
               ) : (
                 myListings.map((item) => (
                   (() => {
+                    const activeBazarItems = item.type === "bazar" ? getActiveBazarItems(item) : [];
                     const displayPrice =
                       item.type === "bazar"
-                        ? getActiveBazarItems(item).reduce((sum, bazarItem) => sum + Number(bazarItem.price || 0), 0)
+                        ? activeBazarItems.reduce((sum, bazarItem) => sum + Number(bazarItem.price || 0), 0)
                         : item.price;
 
                     return (
@@ -207,6 +208,11 @@ export default function HomePage() {
                       ) : (
                         <div className="h-full w-full bg-neutral-800" />
                       )}
+                      {item.type === "bazar" ? (
+                        <div className="absolute bottom-2 right-2 flex h-10 min-w-10 items-center justify-center rounded-[18px] border border-white/15 bg-neutral-900/95 px-3 text-lg font-medium text-white shadow-sm">
+                          {activeBazarItems.length}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="text-xs text-neutral-300 line-clamp-2">{item.title}</div>
                     {item.type === "bazar" ? (
