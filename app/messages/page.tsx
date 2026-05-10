@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AppBottomNav from "@/components/AppBottomNav";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MessageCircle, MoreVertical, Search } from "lucide-react";
@@ -20,6 +21,7 @@ export default function MessagesPage() {
   const [authResolved, setAuthResolved] = useState(false);
   const [openMenuChatId, setOpenMenuChatId] = useState("");
   const [deletingChatId, setDeletingChatId] = useState("");
+  const [screenError, setScreenError] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -56,7 +58,18 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    const unsub = subscribeInboxChatsForUser(currentUserId, (rows) => setChats(rows));
+    const unsub = subscribeInboxChatsForUser(
+      currentUserId,
+      (rows) => {
+        setScreenError("");
+        setChats(rows);
+      },
+      (code) => {
+        if (code === "permission-denied") {
+          setScreenError("No tienes permisos para ver estas negociaciones.");
+        }
+      }
+    );
     return () => unsub();
   }, [currentUserId]);
 
@@ -139,6 +152,11 @@ export default function MessagesPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4 pb-24">
+        {screenError ? (
+          <div className="mb-4 rounded-3xl border border-red-900/40 bg-red-950/30 p-4 text-sm text-red-200">
+            {screenError}
+          </div>
+        ) : null}
         {activeTab === "vendiendo" && usesWhatsappForCustomers ? (
           <div className="mb-4 rounded-3xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-100">
             Tus negociaciones están siendo manejadas por WhatsApp.
@@ -233,6 +251,8 @@ export default function MessagesPage() {
           </div>
         )}
       </main>
+
+      <AppBottomNav active="messages" />
     </div>
   );
 }

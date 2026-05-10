@@ -16,6 +16,7 @@ import {
   Archive,
   Phone,
   Instagram,
+  Tags,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -48,6 +49,7 @@ const danger: Item[] = [
 
 const appearance: Item[] = [{ title: "Apariencia", subtitle: "Claro u oscuro", icon: SunMoon, href: "/settings/appearance" }];
 const accountPreferences: Item[] = [
+  { title: "Intereses", subtitle: "Selecciona tus 8 categorías principales", icon: Tags, href: "/settings/interests" },
   { title: "Tipo de cuenta", subtitle: "Personal o empresarial", icon: UserRoundCog, href: "/settings/account-type" },
   { title: "Historico", subtitle: "Publicaciones marcadas como vendidas", icon: Archive, href: "/settings/historico" },
 ];

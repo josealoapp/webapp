@@ -611,8 +611,8 @@ function OnboardingContent() {
                                       }))
                                     }
                                     className="h-auto w-full justify-start gap-3 rounded-none px-4 py-3 text-left text-sm font-normal text-neutral-100 hover:bg-neutral-800/70"
-                                  >
-                                    <span
+                                    >
+                                      <span
                                       className={[
                                         "flex h-5 w-5 items-center justify-center rounded-md border transition",
                                         selected
@@ -621,7 +621,7 @@ function OnboardingContent() {
                                       ].join(" ")}
                                     >
                                       <Check className="h-3.5 w-3.5" />
-                                    </span>
+                                      </span>
                                     <span className="text-sm text-neutral-100">{category.name}</span>
                                   </Button>
                                 );

@@ -87,7 +87,11 @@ export default function ActivityPage() {
       setFollowing(subscribeFollowingRows(rows))
     );
     const unsubListings = subscribeListings(setListings);
-    const unsubChats = subscribeInboxChatsForUser(currentUserId, setChats);
+    const unsubChats = subscribeInboxChatsForUser(
+      currentUserId,
+      setChats,
+      () => setChats([])
+    );
 
     return () => {
       unsubLikes();
