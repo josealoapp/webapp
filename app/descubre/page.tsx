@@ -13,7 +13,7 @@ import SellerAvatar from "@/components/SellerAvatar";
 import { readAccountProfile } from "@/lib/account-profile";
 import { normalizeCategoryName } from "@/lib/categories";
 import { auth } from "@/lib/firebase";
-import { likeItem } from "@/lib/likes";
+import { getLikeRecordId, likeItem, subscribeLikeIdsForUser } from "@/lib/likes";
 import { getActiveBazarItems, Listing, subscribeListings } from "@/lib/marketplace";
 
 type DiscoverItem = {
@@ -59,6 +59,7 @@ export default function DiscoverPage() {
   const [interestsLoaded, setInterestsLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "swipe">("list");
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [likedRecordIds, setLikedRecordIds] = useState<Set<string>>(new Set());
   const [swipeSessionTotal, setSwipeSessionTotal] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [heartBurstId, setHeartBurstId] = useState("");
@@ -76,6 +77,13 @@ export default function DiscoverPage() {
     const unsub = subscribeListings((rows) => setItems(rows));
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const unsub = subscribeLikeIdsForUser(currentUserId, setLikedRecordIds);
+    return () => unsub();
+  }, [currentUserId]);
 
   useEffect(() => {
     const loadInterests = () => {
@@ -103,7 +111,7 @@ export default function DiscoverPage() {
 
   const renderedItems = useMemo(() => {
     return items
-      .flatMap((item) => {
+      .flatMap<DiscoverItem>((item) => {
         if (item.ownerId === currentUserId || item.status === "sold") return [];
 
         const listingType = item.type || "article";
@@ -180,8 +188,13 @@ export default function DiscoverPage() {
   }, [currentUserId, interestCategoryKeys, items, specificInterestKeys]);
 
   const swipeItems = useMemo(
-    () => renderedItems.filter((item) => !dismissedIds.has(item.id)),
-    [dismissedIds, renderedItems]
+    () =>
+      renderedItems.filter((item) => {
+        if (dismissedIds.has(item.id)) return false;
+        if (!currentUserId) return true;
+        return !likedRecordIds.has(getLikeRecordId(currentUserId, item.listingId, item.bazarItemId));
+      }),
+    [currentUserId, dismissedIds, likedRecordIds, renderedItems]
   );
   const activeItem = swipeItems[0];
   const effectiveSwipeTotal = swipeSessionTotal || renderedItems.length;
@@ -195,7 +208,13 @@ export default function DiscoverPage() {
 
     if (nextMode !== "swipe") return;
 
-    setSwipeSessionTotal(renderedItems.length);
+    setDismissedIds(new Set());
+    setSwipeSessionTotal(
+      renderedItems.filter((item) => {
+        if (!currentUserId) return true;
+        return !likedRecordIds.has(getLikeRecordId(currentUserId, item.listingId, item.bazarItemId));
+      }).length
+    );
     const hasSeenSwipeHint = window.localStorage.getItem(SWIPE_HINT_STORAGE_KEY) === "true";
     if (!hasSeenSwipeHint) {
       window.localStorage.setItem(SWIPE_HINT_STORAGE_KEY, "true");
@@ -276,6 +295,11 @@ export default function DiscoverPage() {
       return;
     }
 
+    if (Math.abs(finalDragX) < 8) {
+      router.push(activeItem.href);
+      return;
+    }
+
     setDragX(0);
   };
 
@@ -328,7 +352,8 @@ export default function DiscoverPage() {
                         const stackTransform = isActive
                           ? `translateX(${dragX}px) rotate(${dragX / 18}deg)`
                           : `translateY(${index * 12}px) scale(${1 - index * 0.04})`;
-                        const stackOpacity = isActive ? 1 : 1 - index * 0.12;
+                        const swipeFade = Math.max(0, 1 - Math.abs(dragX) / 150);
+                        const stackOpacity = isActive ? swipeFade : 1 - index * 0.12;
 
                         return (
                           <SwipeCard
@@ -350,11 +375,11 @@ export default function DiscoverPage() {
                       })}
                     </div>
 
-                    <div className="relative z-30 mt-8 flex items-center justify-center gap-4 pb-10">
+                    <div className="relative z-30 -mt-9 flex items-center justify-center gap-4 pb-4">
                       <button
                         type="button"
                         onClick={() => dismissItem(activeItem.id)}
-                        className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-neutral-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-neutral-800 transition active:scale-95"
+                        className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/55 text-neutral-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95"
                         aria-label="Descartar"
                       >
                         <X className="h-10 w-10" />
@@ -366,7 +391,7 @@ export default function DiscoverPage() {
                         type="button"
                         onClick={() => void handleLike(activeItem)}
                         className={[
-                          "flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950 text-orange-400 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-neutral-800 transition active:scale-95",
+                          "flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/55 text-orange-400 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95",
                           heartBurstId === activeItem.id ? "scale-110" : "",
                         ].join(" ")}
                         aria-label="Guardar like"
