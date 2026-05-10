@@ -45,6 +45,9 @@ function NewListingPreviewContent() {
       paymentMethod: search.get("paymentMethod") || "",
       imageUrl: search.get("imageUrl") || "",
       location: search.get("location") || "",
+      vehicleYear: search.get("vehicleYear") || "",
+      clothingSize: search.get("clothingSize") || "",
+      shoeSize: search.get("shoeSize") || "",
       isPriceValid: Number.isFinite(priceValue) && priceValue > 0,
     };
   }, [search]);
@@ -104,6 +107,9 @@ function NewListingPreviewContent() {
         image:
           data.imageUrl ||
           "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
+        ...(data.vehicleYear ? { vehicleYear: Number(data.vehicleYear) } : {}),
+        ...(data.clothingSize ? { clothingSize: data.clothingSize } : {}),
+        ...(data.shoeSize ? { shoeSize: data.shoeSize } : {}),
         bazarItems: [],
       });
       router.push("/");
@@ -157,6 +163,15 @@ function NewListingPreviewContent() {
           <div className="mt-2 text-xs text-neutral-400">
             {data.location ? `Ubicación actual: ${data.location}` : "Ubicación pendiente"}
           </div>
+          {data.vehicleYear || data.clothingSize || data.shoeSize ? (
+            <div className="mt-2 text-xs text-neutral-400">
+              {data.vehicleYear
+                ? `Año del vehículo: ${data.vehicleYear}`
+                : data.clothingSize
+                  ? `Talla: ${data.clothingSize}`
+                  : `Talla de zapatos: ${data.shoeSize}`}
+            </div>
+          ) : null}
           <div className="mt-2 text-xs text-neutral-400">
             {data.tags?.length ? `Tags: ${data.tags.join(", ")}` : "Sin tags"}
           </div>

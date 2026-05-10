@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 const s3PublicBaseUrl = process.env.NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL;
 const s3Hostname = s3PublicBaseUrl
@@ -8,6 +12,9 @@ const s3Hostname = s3PublicBaseUrl
     : null;
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: rootDir,
+  },
   images: {
     remotePatterns: [
       {

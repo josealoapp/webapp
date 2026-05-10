@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -23,6 +22,9 @@ export type BazarItem = {
   description: string;
   price: number;
   image: string;
+  vehicleYear?: number;
+  clothingSize?: string;
+  shoeSize?: string;
   status?: "active" | "sold";
   soldAt?: number;
 };
@@ -44,6 +46,9 @@ export type Listing = {
   paymentMethod: PaymentMethod;
   location: string;
   image: string;
+  vehicleYear?: number;
+  clothingSize?: string;
+  shoeSize?: string;
   bazarItems?: BazarItem[];
   createdAt: number;
   status?: "active" | "sold";
@@ -284,8 +289,26 @@ export async function listListings() {
   return rows;
 }
 
+function subscribeWithPolling(load: () => Promise<void>, intervalMs = 15000) {
+  let cancelled = false;
+
+  const run = async () => {
+    if (cancelled) return;
+    await load();
+  };
+
+  void run();
+  const intervalId = window.setInterval(run, intervalMs);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
+}
+
 export function subscribeListings(onData: (listings: Listing[]) => void) {
-  return onSnapshot(collection(db, "listings"), (snap) => {
+  return subscribeWithPolling(async () => {
+    const snap = await getDocs(collection(db, "listings"));
     const rows = snap.docs
       .map((d) => {
         const data = d.data() as Omit<Listing, "id">;
@@ -414,20 +437,26 @@ export function subscribeChatById(
   onData: (chat: ChatRecord | null) => void,
   onError?: (code?: string) => void
 ) {
-  return onSnapshot(
-    doc(db, "chats", chatId),
-    (snap) => {
+  return subscribeWithPolling(
+    async () => {
+      try {
+        const snap = await getDoc(doc(db, "chats", chatId));
       if (!snap.exists()) {
         onData(null);
         return;
       }
 
       onData({ id: snap.id, ...(snap.data() as Omit<ChatRecord, "id">) } as ChatRecord);
+      } catch (error: unknown) {
+        const code =
+          typeof error === "object" && error !== null && "code" in error
+            ? String((error as { code?: string }).code)
+            : undefined;
+        onError?.(code);
+        onData(null);
+      }
     },
-    (error) => {
-      onError?.(error.code);
-      onData(null);
-    }
+    5000
   );
 }
 
@@ -438,9 +467,10 @@ export function subscribeMessagesForChat(
 ) {
   const q = query(collection(db, "messages"), where("chatId", "==", chatId));
 
-  return onSnapshot(
-    q,
-    (snap) => {
+  return subscribeWithPolling(
+    async () => {
+      try {
+        const snap = await getDocs(q);
       const rows = snap.docs
         .map((d) => ({
           id: d.id,
@@ -449,10 +479,15 @@ export function subscribeMessagesForChat(
         .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
 
       onData(rows as MessageRecord[]);
+      } catch (error: unknown) {
+        const code =
+          typeof error === "object" && error !== null && "code" in error
+            ? String((error as { code?: string }).code)
+            : undefined;
+        onError?.(code);
+      }
     },
-    (error) => {
-      onError?.(error.code);
-    }
+    5000
   );
 }
 
@@ -464,7 +499,8 @@ export function subscribeChatsForUser(
   const field = role === "buyer" ? "buyerId" : "sellerId";
   const q = query(collection(db, "chats"), where(field, "==", userId));
 
-  return onSnapshot(q, (snap) => {
+  return subscribeWithPolling(async () => {
+    const snap = await getDocs(q);
     const rows = snap.docs
       .map((d) => ({
         id: d.id,
@@ -478,52 +514,50 @@ export function subscribeChatsForUser(
 
 export function subscribeInboxChatsForUser(
   userId: string,
-  onData: (chats: ChatRecord[]) => void
+  onData: (chats: ChatRecord[]) => void,
+  onError?: (code?: string) => void
 ) {
-  const chatMap = new Map<string, ChatRecord>();
+  let cancelled = false;
 
-  const emit = () => {
-    const rows = Array.from(chatMap.values()).sort(
-      (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
-    );
-    onData(rows);
-  };
+  const load = async () => {
+    try {
+      const [buyerSnap, sellerSnap] = await Promise.all([
+        getDocs(query(collection(db, "chats"), where("buyerId", "==", userId))),
+        getDocs(query(collection(db, "chats"), where("sellerId", "==", userId))),
+      ]);
 
-  const subscribeByRole = (role: "buyer" | "seller") => {
-    const field = role === "buyer" ? "buyerId" : "sellerId";
-    const q = query(collection(db, "chats"), where(field, "==", userId));
+      if (cancelled) return;
 
-    return onSnapshot(q, (snap) => {
-      const currentIds = new Set(snap.docs.map((docSnap) => docSnap.id));
+      const rows = new Map<string, ChatRecord>();
 
-      for (const [chatId, chat] of chatMap.entries()) {
-        const belongsToRole =
-          role === "buyer" ? chat.buyerId === userId : chat.sellerId === userId;
-
-        if (belongsToRole && !currentIds.has(chatId)) {
-          chatMap.delete(chatId);
-        }
-      }
-
-      snap.docs.forEach((docSnap) => {
-        chatMap.set(
-          docSnap.id,
-          {
-            id: docSnap.id,
-            ...(docSnap.data() as Omit<ChatRecord, "id">),
-          } as ChatRecord
-        );
+      [...buyerSnap.docs, ...sellerSnap.docs].forEach((docSnap) => {
+        rows.set(docSnap.id, {
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<ChatRecord, "id">),
+        } as ChatRecord);
       });
 
-      emit();
-    });
+      onData(
+        Array.from(rows.values()).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+      );
+    } catch (error: unknown) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: string }).code)
+          : undefined;
+
+      if (!cancelled) {
+        onError?.(code);
+        onData([]);
+      }
+    }
   };
 
-  const unsubBuyer = subscribeByRole("buyer");
-  const unsubSeller = subscribeByRole("seller");
+  void load();
+  const intervalId = window.setInterval(load, 15000);
 
   return () => {
-    unsubBuyer();
-    unsubSeller();
+    cancelled = true;
+    window.clearInterval(intervalId);
   };
 }

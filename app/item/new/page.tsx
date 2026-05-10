@@ -1,17 +1,21 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { ArrowLeft, ChevronDown, ImagePlus, Info, Plus } from "lucide-react";
+import { ArrowLeft, ImagePlus, Info, Plus, Search } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages } from "@/lib/marketplace";
-import { getPostAuthDestination, getWhatsappContactSettings } from "@/lib/account-profile";
-import { appCategories } from "@/lib/categories";
+import { getPostAuthDestination, getWhatsappContactSettings, readAccountProfile } from "@/lib/account-profile";
+import {
+  appCategories,
+  getCategoryInputKind,
+  normalizeCategoryName,
+  type CategoryInputKind,
+  sortCategoriesByInterest,
+} from "@/lib/categories";
 import { requestCurrentSupportedLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
-
-const categories = appCategories.map((category) => category.name);
 const maxArticlePhotos = 10;
 const maxBazarItems = 20;
 
@@ -20,6 +24,9 @@ type DraftBazarItem = {
   title: string;
   description: string;
   price: string;
+  vehicleYear?: string;
+  clothingSize?: string;
+  shoeSize?: string;
   file?: File | null;
   previewUrl: string;
   imageUrl?: string;
@@ -31,23 +38,352 @@ const paymentOptions: Array<{ id: "efectivo" | "intercambio" | "transferencia"; 
   { id: "transferencia", label: "Transferencia" },
 ];
 
+const normalizedCategoryMap = new Map(
+  appCategories.map((category) => [normalizeCategoryName(category.name), category.name] as const)
+);
+
+function resolveCategoryName(value: string) {
+  return normalizedCategoryMap.get(normalizeCategoryName(value)) || "";
+}
+
+const predictiveCategoryRules = [
+  {
+    category: "Celulares y smartphones",
+    keywords: [
+      "iphone",
+      "samsung",
+      "galaxy",
+      "motorola",
+      "xiaomi",
+      "redmi",
+      "huawei",
+      "oppo",
+      "pixel",
+      "celular",
+      "smartphone",
+      "telefono",
+    ],
+  },
+  {
+    category: "Ropa para hombres",
+    keywords: [
+      "tshirt",
+      "t-shirt",
+      "camisa",
+      "camiseta",
+      "polo",
+      "pantalon",
+      "jean",
+      "zara",
+      "h&m",
+      "vestido",
+      "falda",
+      "blusa",
+    ],
+  },
+  {
+    category: "Zapatos",
+    keywords: [
+      "zapato",
+      "zapatos",
+      "tenis",
+      "sneakers",
+      "botas",
+      "sandalias",
+      "tacones",
+      "nike",
+      "adidas",
+      "jordan",
+      "crocs",
+    ],
+  },
+  {
+    category: "Autos",
+    keywords: [
+      "carro",
+      "auto",
+      "vehiculo",
+      "toyota",
+      "honda",
+      "hyundai",
+      "kia",
+      "nissan",
+      "jeep",
+      "bmw",
+      "mercedes",
+      "ford",
+    ],
+  },
+  {
+    category: "Propiedades en venta",
+    keywords: [
+      "casa",
+      "apartamento",
+      "solar",
+      "terreno",
+      "villa",
+      "local",
+      "propiedad",
+      "penthouse",
+      "residencial",
+      "finca",
+      "lote",
+    ],
+  },
+];
+
+function predictCategoryFromTitle(value: string) {
+  const normalized = normalizeCategoryName(value);
+  if (!normalized) return "";
+  const padded = ` ${normalized} `;
+  const words = normalized.split(/\s+/).filter(Boolean);
+
+  return (
+    predictiveCategoryRules.find((rule) =>
+      rule.keywords.some((keyword) => {
+        const normalizedKeyword = normalizeCategoryName(keyword);
+        if (padded.includes(` ${normalizedKeyword} `)) return true;
+        if (normalizedKeyword.length < 5) return false;
+
+        return words.some((word) => {
+          if (word.length < 5) return false;
+          return getEditDistance(word, normalizedKeyword) <= 1;
+        });
+      })
+    )?.category || ""
+  );
+}
+
+function getEditDistance(a: string, b: string) {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] =
+        a[i - 1] === b[j - 1]
+          ? previous[j - 1]
+          : Math.min(previous[j - 1], previous[j], current[j - 1]) + 1;
+    }
+
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[b.length];
+}
+
+function CategorySuggestField({
+  label,
+  value,
+  options,
+  placeholder,
+  error,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  placeholder: string;
+  error?: string | null;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const suggestions = useMemo(() => {
+    const query = value.trim().toLowerCase();
+    const exactMatches = options.filter((option) => option.toLowerCase().startsWith(query));
+    const partialMatches = options.filter(
+      (option) => !exactMatches.includes(option) && option.toLowerCase().includes(query)
+    );
+    const matches = query ? [...exactMatches, ...partialMatches] : options;
+    return matches.slice(0, 8);
+  }, [options, value]);
+
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="text-xs text-neutral-400">{label}</span>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-6 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            window.setTimeout(() => setOpen(false), 120);
+          }}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && suggestions[0]) {
+              event.preventDefault();
+              onChange(suggestions[0]);
+              setOpen(false);
+            }
+          }}
+          className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 pl-11 pr-4 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none"
+        />
+        {open && suggestions.length > 0 ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
+            {suggestions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className={[
+                  "flex w-full items-center px-4 py-3 text-left text-sm transition",
+                  option === value
+                    ? "bg-orange-400/10 text-orange-300"
+                    : "text-neutral-200 hover:bg-neutral-900 hover:text-white",
+                ].join(" ")}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {error ? <span className="text-xs text-orange-400">{error}</span> : null}
+    </label>
+  );
+}
+
+function CategoryMetadataFields({
+  kind,
+  vehicleYear,
+  clothingSize,
+  shoeSize,
+  inputSurfaceClassName,
+  onVehicleYearChange,
+  onClothingSizeChange,
+  onShoeSizeChange,
+}: {
+  kind: CategoryInputKind;
+  vehicleYear: string;
+  clothingSize: string;
+  shoeSize: string;
+  inputSurfaceClassName: string;
+  onVehicleYearChange: (value: string) => void;
+  onClothingSizeChange: (value: string) => void;
+  onShoeSizeChange: (value: string) => void;
+}) {
+  if (kind === "vehicle") {
+    return (
+      <label className="flex flex-col gap-2">
+        <span className="text-xs text-neutral-400">Año del vehículo</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="1900"
+          max="2026"
+          placeholder="Ej. 2022"
+          value={vehicleYear}
+          onChange={(e) => onVehicleYearChange(e.target.value)}
+          className={[
+            "h-12 rounded-2xl border border-neutral-800 px-4 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none",
+            inputSurfaceClassName,
+          ].join(" ")}
+        />
+      </label>
+    );
+  }
+
+  if (kind === "clothing") {
+    return (
+      <label className="flex flex-col gap-2">
+        <span className="text-xs text-neutral-400">Talla</span>
+        <select
+          value={clothingSize}
+          onChange={(e) => onClothingSizeChange(e.target.value)}
+          className={[
+            "h-12 rounded-2xl border border-neutral-800 px-4 text-sm text-neutral-100 focus:border-orange-400 focus:outline-none",
+            inputSurfaceClassName,
+          ].join(" ")}
+        >
+          <option value="">Selecciona una talla</option>
+          <option value="XS">XS</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+        </select>
+      </label>
+    );
+  }
+
+  if (kind === "shoes") {
+    return (
+      <label className="flex flex-col gap-2">
+        <span className="text-xs text-neutral-400">Talla de zapatos</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="1"
+          placeholder="Ej. 40"
+          value={shoeSize}
+          onChange={(e) => onShoeSizeChange(e.target.value)}
+          className={[
+            "h-12 rounded-2xl border border-neutral-800 px-4 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none",
+            inputSurfaceClassName,
+          ].join(" ")}
+        />
+      </label>
+    );
+  }
+
+  return null;
+}
+
+function getCategoryMetadataPayload(kind: CategoryInputKind, values: {
+  vehicleYear: string;
+  clothingSize: string;
+  shoeSize: string;
+}) {
+  if (kind === "vehicle" && values.vehicleYear) {
+    return { vehicleYear: Number(values.vehicleYear) };
+  }
+  if (kind === "clothing" && values.clothingSize) {
+    return { clothingSize: values.clothingSize };
+  }
+  if (kind === "shoes" && values.shoeSize) {
+    return { shoeSize: values.shoeSize };
+  }
+  return {};
+}
+
 export default function NewListingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [orderedCategories, setOrderedCategories] = useState<string[]>(() =>
+    appCategories.map((category) => category.name)
+  );
   const articleFileInputRef = useRef<HTMLInputElement | null>(null);
   const bazarImageInputRef = useRef<HTMLInputElement | null>(null);
   const bazarItemsRef = useRef<DraftBazarItem[]>([]);
   const bazarItemPreviewUrlRef = useRef("");
+  const categoryWasManuallyChangedRef = useRef(false);
+  const lastPredictedCategoryRef = useRef("");
 
   const [listingType, setListingType] = useState<"article" | "bazar">("article");
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
+  const [vehicleYear, setVehicleYear] = useState("");
+  const [clothingSize, setClothingSize] = useState("");
+  const [shoeSize, setShoeSize] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "intercambio" | "transferencia">("efectivo");
   const [priceError, setPriceError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -63,9 +399,13 @@ export default function NewListingPage() {
   const [bazarItemTitle, setBazarItemTitle] = useState("");
   const [bazarItemDescription, setBazarItemDescription] = useState("");
   const [bazarItemPrice, setBazarItemPrice] = useState("");
+  const [bazarItemVehicleYear, setBazarItemVehicleYear] = useState("");
+  const [bazarItemClothingSize, setBazarItemClothingSize] = useState("");
+  const [bazarItemShoeSize, setBazarItemShoeSize] = useState("");
   const [bazarItemFile, setBazarItemFile] = useState<File | null>(null);
   const [bazarItemPreviewUrl, setBazarItemPreviewUrl] = useState("");
   const [bazarError, setBazarError] = useState<string | null>(null);
+  const [bazarCategoryError, setBazarCategoryError] = useState<string | null>(null);
   const [publishingBazar, setPublishingBazar] = useState(false);
   const [editingListingId, setEditingListingId] = useState("");
 
@@ -78,6 +418,30 @@ export default function NewListingPage() {
   const defaultBazarDescription = bazarCategory
     ? `Venta de articulos de ${bazarCategory} aparta el tuyo.`
     : "Venta de articulos aparta el tuyo.";
+  const articleCategoryKind = getCategoryInputKind(resolveCategoryName(category) || category);
+  const bazarCategoryKind = getCategoryInputKind(resolveCategoryName(bazarCategory) || bazarCategory);
+
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+
+    if (categoryWasManuallyChangedRef.current) return;
+
+    const predictedCategory = predictCategoryFromTitle(value);
+    if (!predictedCategory) return;
+    if (category && category !== lastPredictedCategoryRef.current) return;
+
+    lastPredictedCategoryRef.current = predictedCategory;
+    setCategory(predictedCategory);
+    setCategoryError(null);
+  };
+
+  useEffect(() => {
+    setOrderedCategories(
+      sortCategoriesByInterest(appCategories, readAccountProfile().interests).map(
+        (category) => category.name
+      )
+    );
+  }, []);
 
   useEffect(() => {
     const nextTitle = searchParams.get("title");
@@ -86,12 +450,21 @@ export default function NewListingPage() {
     const nextDescription = searchParams.get("description");
     const nextTags = searchParams.get("tags");
     const nextPaymentMethod = searchParams.get("paymentMethod");
+    const nextVehicleYear = searchParams.get("vehicleYear");
+    const nextClothingSize = searchParams.get("clothingSize");
+    const nextShoeSize = searchParams.get("shoeSize");
 
     if (nextTitle !== null) setTitle(nextTitle);
     if (nextPrice !== null) setPrice(nextPrice);
-    if (nextCategory !== null) setCategory(nextCategory);
+    if (nextCategory !== null) {
+      setCategory(nextCategory);
+      categoryWasManuallyChangedRef.current = true;
+    }
     if (nextDescription !== null) setDescription(nextDescription);
     if (nextTags !== null) setTags(nextTags);
+    if (nextVehicleYear !== null) setVehicleYear(nextVehicleYear);
+    if (nextClothingSize !== null) setClothingSize(nextClothingSize);
+    if (nextShoeSize !== null) setShoeSize(nextShoeSize);
     const nextListingId = searchParams.get("listingId");
     if (nextListingId) {
       setEditingListingId(nextListingId);
@@ -125,6 +498,9 @@ export default function NewListingPage() {
           title: item.title,
           description: item.description,
           price: String(item.price),
+          vehicleYear: item.vehicleYear ? String(item.vehicleYear) : "",
+          clothingSize: item.clothingSize || "",
+          shoeSize: item.shoeSize || "",
           previewUrl: item.image,
           imageUrl: item.image,
           file: null,
@@ -222,6 +598,9 @@ export default function NewListingPage() {
     setBazarItemTitle("");
     setBazarItemDescription("");
     setBazarItemPrice("");
+    setBazarItemVehicleYear("");
+    setBazarItemClothingSize("");
+    setBazarItemShoeSize("");
     setBazarItemFile(null);
     if (bazarItemPreviewUrl && !options?.preservePreviewUrl) {
       URL.revokeObjectURL(bazarItemPreviewUrl);
@@ -260,6 +639,13 @@ export default function NewListingPage() {
         title: bazarItemTitle.trim(),
         description: bazarItemDescription.trim(),
         price: String(numericPrice),
+        ...(bazarCategoryKind === "vehicle" && bazarItemVehicleYear
+          ? { vehicleYear: bazarItemVehicleYear }
+          : {}),
+        ...(bazarCategoryKind === "clothing" && bazarItemClothingSize
+          ? { clothingSize: bazarItemClothingSize }
+          : {}),
+        ...(bazarCategoryKind === "shoes" && bazarItemShoeSize ? { shoeSize: bazarItemShoeSize } : {}),
         file: bazarItemFile,
         previewUrl: bazarItemPreviewUrl,
         imageUrl: "",
@@ -366,8 +752,13 @@ export default function NewListingPage() {
 
   const handleArticleContinue = async () => {
     const numericPrice = Number(price);
+    const resolvedCategory = resolveCategoryName(category);
     if (!numericPrice || numericPrice <= 0) {
       setPriceError("El precio debe ser mayor a 0.");
+      return;
+    }
+    if (!resolvedCategory) {
+      setCategoryError("Selecciona una categoría válida de la lista.");
       return;
     }
     if (selectedFiles.length === 0) {
@@ -380,6 +771,7 @@ export default function NewListingPage() {
 
     setUploadingArticle(true);
     setPriceError(null);
+    setCategoryError(null);
     setPhotoError(null);
     setLocationError(null);
     try {
@@ -388,12 +780,20 @@ export default function NewListingPage() {
       const params = new URLSearchParams({
         title: title.trim(),
         price: numericPrice.toString(),
-        category: category.trim(),
+        category: resolvedCategory,
         description: description.trim(),
         tags: tags.trim(),
         paymentMethod,
         imageUrl: urls[0] || "",
         location: currentLocation.name,
+      });
+      const metadata = getCategoryMetadataPayload(articleCategoryKind, {
+        vehicleYear,
+        clothingSize,
+        shoeSize,
+      });
+      Object.entries(metadata).forEach(([key, value]) => {
+        params.set(key, String(value));
       });
       router.push(`/item/new/preview?${params.toString()}`);
     } catch (err: unknown) {
@@ -415,8 +815,9 @@ export default function NewListingPage() {
   };
 
   const handlePublishBazar = async () => {
-    if (!bazarCategory.trim()) {
-      setBazarError("Selecciona el tipo de bazar.");
+    const resolvedBazarCategory = resolveCategoryName(bazarCategory);
+    if (!resolvedBazarCategory) {
+      setBazarCategoryError("Selecciona una categoría válida de la lista.");
       return;
     }
     if (!bazarTitle.trim()) {
@@ -433,6 +834,7 @@ export default function NewListingPage() {
 
     setPublishingBazar(true);
     setBazarError(null);
+    setBazarCategoryError(null);
 
     try {
       const currentLocation = await requestCurrentSupportedLocation();
@@ -447,6 +849,9 @@ export default function NewListingPage() {
         description: item.description,
         price: Number(item.price),
         image: item.imageUrl || uploadedUrls[uploadedIndex++] || "",
+        ...(item.vehicleYear ? { vehicleYear: Number(item.vehicleYear) } : {}),
+        ...(item.clothingSize ? { clothingSize: item.clothingSize } : {}),
+        ...(item.shoeSize ? { shoeSize: item.shoeSize } : {}),
       }));
       const lowestPrice = publishedItems.reduce((min, item) => Math.min(min, item.price), publishedItems[0]?.price || 0);
 
@@ -461,8 +866,8 @@ export default function NewListingPage() {
           type: "bazar" as const,
           title: bazarTitle.trim(),
           price: lowestPrice,
-          category: bazarCategory.trim(),
-          bazarCategory: bazarCategory.trim(),
+          category: resolvedBazarCategory,
+          bazarCategory: resolvedBazarCategory,
           description: bazarDescription.trim() || `${publishedItems.length} artículos en este bazar.`,
           tags: [],
           paymentMethod: "efectivo" as const,
@@ -594,7 +999,7 @@ export default function NewListingPage() {
                   type="text"
                   placeholder="Ej. iPhone 13 128GB en buen estado"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => handleTitleChange(e.target.value)}
                   className="h-12 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none"
                 />
               </label>
@@ -617,6 +1022,30 @@ export default function NewListingPage() {
                 {priceError ? <span className="text-xs text-orange-400">{priceError}</span> : null}
               </label>
 
+              <CategorySuggestField
+                label="Categoría"
+                value={category}
+                options={orderedCategories}
+                placeholder="Escribe para buscar una categoría"
+                error={categoryError}
+                onChange={(value) => {
+                  categoryWasManuallyChangedRef.current = true;
+                  setCategory(value);
+                  setCategoryError(null);
+                }}
+              />
+
+              <CategoryMetadataFields
+                kind={articleCategoryKind}
+                vehicleYear={vehicleYear}
+                clothingSize={clothingSize}
+                shoeSize={shoeSize}
+                inputSurfaceClassName="bg-neutral-900"
+                onVehicleYearChange={setVehicleYear}
+                onClothingSizeChange={setClothingSize}
+                onShoeSizeChange={setShoeSize}
+              />
+
               <div className="flex flex-col gap-2">
                 <span className="text-xs text-neutral-400">Método de pago</span>
                 <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -638,27 +1067,6 @@ export default function NewListingPage() {
                   ))}
                 </div>
               </div>
-
-              <label className="flex flex-col gap-2">
-                <span className="text-xs text-neutral-400">Categoría</span>
-                <div className="relative">
-                  <select
-                    className="h-12 w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900 px-4 pr-10 text-sm text-neutral-100 focus:border-orange-400 focus:outline-none"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Selecciona una categoría
-                    </option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-                </div>
-              </label>
 
               <label className="flex flex-col gap-2">
                 <span className="text-xs text-neutral-400">Descripción</span>
@@ -711,26 +1119,17 @@ export default function NewListingPage() {
               </p>
             </div>
 
-            <label className="flex flex-col gap-2">
-              <span className="text-xs text-neutral-400">Tipo de bazar</span>
-              <div className="relative">
-                <select
-                  className="h-12 w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900 px-4 pr-10 text-sm text-neutral-100 focus:border-orange-400 focus:outline-none"
-                  value={bazarCategory}
-                  onChange={(e) => setBazarCategory(e.target.value)}
-                >
-                  <option value="" disabled>
-                    Selecciona una categoría
-                  </option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-              </div>
-            </label>
+            <CategorySuggestField
+              label="Tipo de bazar"
+              value={bazarCategory}
+              options={orderedCategories}
+              placeholder="Escribe para buscar una categoría"
+              error={bazarCategoryError}
+              onChange={(value) => {
+                setBazarCategory(value);
+                setBazarCategoryError(null);
+              }}
+            />
 
             <label className="flex flex-col gap-2">
               <span className="text-xs text-neutral-400">Título de bazar</span>
@@ -822,6 +1221,17 @@ export default function NewListingPage() {
                     />
                   </div>
                 </label>
+
+                <CategoryMetadataFields
+                  kind={bazarCategoryKind}
+                  vehicleYear={bazarItemVehicleYear}
+                  clothingSize={bazarItemClothingSize}
+                  shoeSize={bazarItemShoeSize}
+                  inputSurfaceClassName="bg-neutral-950"
+                  onVehicleYearChange={setBazarItemVehicleYear}
+                  onClothingSizeChange={setBazarItemClothingSize}
+                  onShoeSizeChange={setBazarItemShoeSize}
+                />
               </div>
 
               <button
@@ -858,6 +1268,15 @@ export default function NewListingPage() {
                           RD${Number(item.price).toLocaleString()}
                         </div>
                         <p className="mt-1 text-xs leading-5 text-neutral-400">{item.description}</p>
+                        {item.vehicleYear || item.clothingSize || item.shoeSize ? (
+                          <div className="mt-1 text-xs text-neutral-500">
+                            {item.vehicleYear
+                              ? `Año: ${item.vehicleYear}`
+                              : item.clothingSize
+                                ? `Talla: ${item.clothingSize}`
+                                : `Talla zapatos: ${item.shoeSize}`}
+                          </div>
+                        ) : null}
                       </div>
                       <button
                         type="button"
