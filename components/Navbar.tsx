@@ -1,9 +1,15 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 
 type NavbarTab = "para-ti" | "cerca-de-ti";
 
-export default function Navbar({ activeTab = "para-ti" }: { activeTab?: NavbarTab }) {
+export default function Navbar({
+  activeTab = "para-ti",
+  rightAction,
+}: {
+  activeTab?: NavbarTab;
+  rightAction?: ReactNode;
+}) {
   const tabClass = (tab: NavbarTab) =>
     tab === activeTab
       ? "rounded-3xl border border-orange-400/80 px-5 py-2 text-orange-400 shadow-[0_0_0_1px_rgba(255,184,79,0.25)]"
@@ -20,12 +26,7 @@ export default function Navbar({ activeTab = "para-ti" }: { activeTab?: NavbarTa
             Cerca de ti
           </Link>
         </div>
-        <button
-          className="ml-auto flex h-10 w-10 items-center justify-center text-neutral-300 hover:text-white"
-          aria-label="Buscar"
-        >
-          <Search className="h-5 w-5" />
-        </button>
+        <div className="ml-auto flex h-10 w-10 items-center justify-center">{rightAction}</div>
       </div>
     </header>
   );

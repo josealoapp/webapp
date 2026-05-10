@@ -8,6 +8,8 @@ import SellerAvatar from "@/components/SellerAvatar";
 
 type Item = {
   id: string;
+  listingId?: string;
+  href?: string;
   title: string;
   price: number;
   location: string;
@@ -77,7 +79,7 @@ export default function ItemCard({ item }: { item: Item }) {
           {/* CTA */}
           <div className="mt-4 flex gap-2">
             <Link
-              href={`/item/${item.id}`}
+              href={item.href || `/item/${item.id}`}
               className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-center text-sm hover:bg-neutral-900"
             >
               Detalles
@@ -96,7 +98,13 @@ export default function ItemCard({ item }: { item: Item }) {
       <InterestModal
         open={open}
         onClose={() => setOpen(false)}
-        item={{ ...item, sellerId: item.sellerId, sellerName: item.sellerName, sellerMaxDiscountPercent: 20 }}
+        item={{
+          ...item,
+          id: item.listingId || item.id,
+          sellerId: item.sellerId,
+          sellerName: item.sellerName,
+          sellerMaxDiscountPercent: 20,
+        }}
       />
     </>
   );

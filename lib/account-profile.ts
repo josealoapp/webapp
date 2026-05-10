@@ -19,6 +19,7 @@ export type AccountProfile = {
   onboardingCompleted: boolean;
   pendingBusinessUpgrade: boolean;
   interests: string[];
+  specificInterests: string[];
   whatsappPhone: string;
   useWhatsappForCustomers: boolean;
   businessProfile: BusinessProfile | null;
@@ -47,6 +48,7 @@ export function getDefaultAccountProfile(): AccountProfile {
     onboardingCompleted: false,
     pendingBusinessUpgrade: false,
     interests: [],
+    specificInterests: [],
     whatsappPhone: "",
     useWhatsappForCustomers: false,
     businessProfile: null,
@@ -76,6 +78,7 @@ export function readAccountProfile(): AccountProfile {
         ? { ...DEFAULT_BUSINESS_PROFILE, ...parsed.businessProfile }
         : null,
       interests: Array.isArray(parsed.interests) ? parsed.interests : [],
+      specificInterests: Array.isArray(parsed.specificInterests) ? parsed.specificInterests : [],
       updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
     };
   } catch {

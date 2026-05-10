@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
-import { ArrowLeft, Bell, Heart, MessageCircle, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, Heart, Search, Sparkles } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import SellerAvatar from "@/components/SellerAvatar";
 import { auth } from "@/lib/firebase";
@@ -38,7 +38,10 @@ type ActivityEntry = {
 
 export default function ActivityPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"activity" | "likes">("activity");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"activity" | "likes">(
+    searchParams.get("tab") === "likes" ? "likes" : "activity"
+  );
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [authResolved, setAuthResolved] = useState(false);

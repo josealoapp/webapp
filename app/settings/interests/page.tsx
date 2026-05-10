@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination, readAccountProfile, writeAccountProfile } from "@/lib/account-profile";
@@ -30,10 +30,31 @@ function resolveSavedInterests(interests: string[]) {
   return resolved.slice(0, MAX_INTERESTS);
 }
 
+function resolveSpecificInterests(interests: string[]) {
+  const resolved: string[] = [];
+  const seen = new Set<string>();
+
+  interests.forEach((interest) => {
+    const value = interest.trim().replace(/\s+/g, " ");
+    const normalized = normalizeCategoryName(value);
+
+    if (!value || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    resolved.push(value);
+  });
+
+  return resolved;
+}
+
 export default function InterestsSettingsPage() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [specificInterests, setSpecificInterests] = useState<string[]>([]);
+  const [specificInput, setSpecificInput] = useState("");
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -51,6 +72,7 @@ export default function InterestsSettingsPage() {
 
       const profile = readAccountProfile();
       setSelected(resolveSavedInterests(profile.interests));
+      setSpecificInterests(resolveSpecificInterests(profile.specificInterests));
       setLoaded(true);
     });
 
@@ -94,6 +116,22 @@ export default function InterestsSettingsPage() {
     });
   };
 
+  const addSpecificInterest = (value: string) => {
+    const nextValue = value.trim().replace(/\s+/g, " ");
+    if (!nextValue) return;
+
+    setError("");
+    setSuccess("");
+    setSpecificInterests((current) => resolveSpecificInterests([...current, nextValue]));
+    setSpecificInput("");
+  };
+
+  const removeSpecificInterest = (value: string) => {
+    setError("");
+    setSuccess("");
+    setSpecificInterests((current) => current.filter((item) => item !== value));
+  };
+
   const handleSave = () => {
     if (saving) return;
 
@@ -104,11 +142,18 @@ export default function InterestsSettingsPage() {
     try {
       const profile = readAccountProfile();
       const normalizedSelection = resolveSavedInterests(selected);
+      const normalizedSpecificInterests = resolveSpecificInterests([
+        ...specificInterests,
+        specificInput,
+      ]);
       writeAccountProfile({
         ...profile,
         interests: normalizedSelection,
+        specificInterests: normalizedSpecificInterests,
       });
       setSelected(normalizedSelection);
+      setSpecificInterests(normalizedSpecificInterests);
+      setSpecificInput("");
       setSuccess("Tus intereses fueron actualizados.");
     } catch {
       setError("No pudimos guardar tus intereses.");
@@ -141,10 +186,47 @@ export default function InterestsSettingsPage() {
 
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-40 pt-24">
         <div className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5">
-          <div className="text-lg font-semibold text-white">Tus 8 categorías principales</div>
-          <p className="mt-2 text-sm text-neutral-400">
-            Estas categorías aparecen primero en la sección de categorías y se priorizan en toda la app.
+          <div className="text-lg font-semibold text-white">Intereses especificos</div>
+          <p className="mt-2 text-sm leading-6 text-neutral-400">
+            Seguido de una coma agrega tus intereses. Esto nos ayuda a dar prioridad a lo que realmente te interesa cada vez que entres a Josealo.
           </p>
+          <div className="mt-4 flex min-h-14 flex-wrap items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-950 px-3 py-2 focus-within:border-orange-400">
+            {specificInterests.map((interest) => (
+              <span
+                key={interest}
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-orange-400/40 bg-orange-400/10 px-3 py-1.5 text-sm font-medium text-orange-200"
+              >
+                <span className="max-w-[13rem] truncate">{interest}</span>
+                <button
+                  type="button"
+                  onClick={() => removeSpecificInterest(interest)}
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-orange-100 transition hover:bg-orange-400/20"
+                  aria-label={`Eliminar ${interest}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <input
+              value={specificInput}
+              onChange={(event) => setSpecificInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === ",") {
+                  event.preventDefault();
+                  addSpecificInterest(specificInput);
+                }
+              }}
+              onBlur={() => addSpecificInterest(specificInput)}
+              placeholder={specificInterests.length === 0 ? "Ej. iPhone 17, Hyundai 2026" : "Agregar otro"}
+              className="h-9 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-neutral-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-neutral-800" />
+          <div className="text-sm font-semibold text-white">Intereses generales</div>
+          <div className="h-px flex-1 bg-neutral-800" />
         </div>
 
         <div className="relative">
