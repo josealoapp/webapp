@@ -115,26 +115,57 @@ export type MessageRecord = {
 };
 
 export async function createListing(input: Omit<Listing, "id" | "createdAt">) {
-  const createdAt = Date.now();
-  const payload = {
-    ...input,
-    createdAt,
-    createdAtServer: serverTimestamp(),
-  };
+  const token = await auth.currentUser?.getIdToken();
 
-  const ref = await addDoc(collection(db, "listings"), payload);
-  return ref.id;
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/listings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { id?: string; error?: string } | null;
+
+  if (!response.ok || !payload?.id) {
+    throw new Error(payload?.error || "listing/create-failed");
+  }
+
+  return payload.id;
 }
 
 export async function updateListing(
   listingId: string,
   input: Partial<Omit<Listing, "id" | "createdAt">>
 ) {
-  await updateDoc(doc(db, "listings", listingId), {
-    ...input,
-    updatedAt: Date.now(),
-    updatedAtServer: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/listings", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      id: listingId,
+      ...input,
+    }),
   });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "listing/update-failed");
+  }
 }
 
 export async function syncOwnerAvatarAcrossListings(ownerId: string, ownerAvatar: string) {
