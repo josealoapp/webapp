@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
-const VERIFY_CONTINUE_URL =
-  process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
+function getVerifyContinueUrl(nextPath: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
+}
 
 export default function VerifyEmailPage() {
   return (
@@ -33,15 +35,22 @@ function VerifyEmailContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     const user = auth.currentUser;
     if (!user) {
       router.replace("/sign-in");
       return;
     }
 
-    if (user.emailVerified) {
-      router.replace(getPostAuthDestination(nextPath));
-    }
+    user.reload().then(() => {
+      if (!cancelled && auth.currentUser?.emailVerified) {
+        router.replace(getPostAuthDestination(nextPath));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router, nextPath]);
 
   const resend = async () => {
@@ -54,10 +63,10 @@ function VerifyEmailContent() {
     setError("");
     try {
       await sendEmailVerification(user, {
-        url: VERIFY_CONTINUE_URL,
+        url: getVerifyContinueUrl(nextPath),
       });
       setStatus("sent");
-    } catch (err) {
+    } catch {
       setStatus("error");
       setError("No pudimos reenviar el email. Intenta de nuevo.");
     }

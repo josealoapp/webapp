@@ -29,11 +29,14 @@ function AuthFallback() {
   return <AppSkeleton variant="auth" />;
 }
 
+function getVerifyContinueUrl(nextPath: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
+}
+
 function SignUpContent() {
   const router = useRouter();
   const postSignUpPath = useMemo(() => "/", []);
-  const verifyContinueUrl =
-    process.env.NEXT_PUBLIC_VERIFY_CONTINUE_URL || "http://localhost:3000/";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -82,7 +85,7 @@ function SignUpContent() {
       if (cred.user && trimmedName) {
         await updateProfile(cred.user, { displayName: trimmedName });
       }
-      await sendEmailVerification(cred.user, { url: verifyContinueUrl });
+      await sendEmailVerification(cred.user, { url: getVerifyContinueUrl(postSignUpPath) });
 
       try {
         localStorage.setItem(
