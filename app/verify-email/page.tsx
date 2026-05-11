@@ -50,6 +50,7 @@ function VerifyEmailContent() {
   const router = useRouter();
   const sp = useSearchParams();
   const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
+  const initialEmailStatus = useMemo(() => sp.get("email") || "", [sp]);
 
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
@@ -73,6 +74,40 @@ function VerifyEmailContent() {
     };
   }, [router, nextPath]);
 
+  useEffect(() => {
+    if (initialEmailStatus !== "failed" || status !== "idle") return;
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setStatus("sending");
+      setError("Estamos reenviando el correo de verificación.");
+
+      sendVerificationEmailWithRedirect(user, nextPath)
+        .then((result) => {
+          if (cancelled) return;
+          setStatus("sent");
+          setError(
+            result === "fallback"
+              ? "Correo reenviado. Si no lo ves, revisa spam o promociones."
+              : "Correo de verificación reenviado."
+          );
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setStatus("error");
+          setError("No pudimos enviar el correo automáticamente. Presiona Reenviar email.");
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialEmailStatus, nextPath, status]);
+
   const resend = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -85,13 +120,11 @@ function VerifyEmailContent() {
       const result = await sendVerificationEmailWithRedirect(user, nextPath);
       setStatus("sent");
       if (result === "fallback") {
-        setError(
-          "Email reenviado. El dominio de la app debe agregarse en Firebase Authorized domains para que el link vuelva directo al onboarding."
-        );
+        setError("Correo reenviado. Si no lo ves, revisa spam o promociones.");
       }
     } catch {
       setStatus("error");
-      setError("No pudimos reenviar el email. Intenta de nuevo.");
+      setError("No pudimos reenviar el email. Revisa tu conexión e intenta de nuevo.");
     }
   };
 

@@ -125,9 +125,11 @@ function SignUpContent() {
       // The account already exists; profile completion can continue after verification.
     }
 
+    let verificationEmailStatus: "sent" | "failed" = "sent";
     try {
       await sendVerificationEmailWithRedirect(cred.user, postSignUpPath);
     } catch {
+      verificationEmailStatus = "failed";
       // Do not block account creation if Firebase rejects or delays the verification email.
     }
 
@@ -156,7 +158,9 @@ function SignUpContent() {
       // ignore
     }
 
-    router.replace(`/verify-email?next=${encodeURIComponent(postSignUpPath)}`);
+    router.replace(
+      `/verify-email?next=${encodeURIComponent(postSignUpPath)}&email=${verificationEmailStatus}`
+    );
   };
 
   return (
