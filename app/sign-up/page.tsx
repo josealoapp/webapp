@@ -98,39 +98,9 @@ function SignUpContent() {
       return;
     }
 
+    let cred;
     try {
-      const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
-      if (cred.user && trimmedName) {
-        await updateProfile(cred.user, { displayName: trimmedName });
-      }
-      await sendVerificationEmailWithRedirect(cred.user, postSignUpPath);
-
-      try {
-        localStorage.setItem(
-          "auth_user",
-          JSON.stringify({
-            uid: cred.user?.uid,
-            email: cred.user?.email,
-            name: cred.user?.displayName || trimmedName,
-            signedInAt: Date.now(),
-          })
-        );
-      } catch {
-        // ignore
-      }
-
-      try {
-        const currentProfile = readAccountProfile();
-        writeAccountProfile({
-          ...currentProfile,
-          whatsappPhone: whatsappNumber.trim(),
-          useWhatsappForCustomers: currentProfile.useWhatsappForCustomers,
-        });
-      } catch {
-        // ignore
-      }
-
-      router.replace(`/verify-email?next=${encodeURIComponent(postSignUpPath)}`);
+      cred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
     } catch (err: unknown) {
       const code =
         typeof err === "object" && err !== null && "code" in err
@@ -143,9 +113,50 @@ function SignUpContent() {
       } else {
         setError("No pudimos crear la cuenta. Intenta de nuevo.");
       }
-    } finally {
       setLoading(false);
+      return;
     }
+
+    try {
+      if (cred.user && trimmedName) {
+        await updateProfile(cred.user, { displayName: trimmedName });
+      }
+    } catch {
+      // The account already exists; profile completion can continue after verification.
+    }
+
+    try {
+      await sendVerificationEmailWithRedirect(cred.user, postSignUpPath);
+    } catch {
+      // Do not block account creation if Firebase rejects or delays the verification email.
+    }
+
+    try {
+      localStorage.setItem(
+        "auth_user",
+        JSON.stringify({
+          uid: cred.user?.uid,
+          email: cred.user?.email,
+          name: cred.user?.displayName || trimmedName,
+          signedInAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    try {
+      const currentProfile = readAccountProfile();
+      writeAccountProfile({
+        ...currentProfile,
+        whatsappPhone: whatsappNumber.trim(),
+        useWhatsappForCustomers: currentProfile.useWhatsappForCustomers,
+      });
+    } catch {
+      // ignore
+    }
+
+    router.replace(`/verify-email?next=${encodeURIComponent(postSignUpPath)}`);
   };
 
   return (
