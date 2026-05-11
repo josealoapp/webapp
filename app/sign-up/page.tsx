@@ -29,29 +29,6 @@ function AuthFallback() {
   return <AppSkeleton variant="auth" />;
 }
 
-function getVerifyContinueUrl(nextPath: string) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
-}
-
-async function sendVerificationEmailWithRedirect(user: Parameters<typeof sendEmailVerification>[0], nextPath: string) {
-  try {
-    await sendEmailVerification(user, { url: getVerifyContinueUrl(nextPath) });
-  } catch (err: unknown) {
-    const code =
-      typeof err === "object" && err !== null && "code" in err
-        ? String((err as { code?: string }).code)
-        : "";
-
-    if (code === "auth/unauthorized-continue-uri" || code === "auth/invalid-continue-uri") {
-      await sendEmailVerification(user);
-      return;
-    }
-
-    throw err;
-  }
-}
-
 function SignUpContent() {
   const router = useRouter();
   const postSignUpPath = useMemo(() => "/", []);
@@ -127,7 +104,7 @@ function SignUpContent() {
 
     let verificationEmailStatus: "sent" | "failed" = "sent";
     try {
-      await sendVerificationEmailWithRedirect(cred.user, postSignUpPath);
+      await sendEmailVerification(cred.user);
     } catch {
       verificationEmailStatus = "failed";
       // Do not block account creation if Firebase rejects or delays the verification email.

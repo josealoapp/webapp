@@ -9,31 +9,6 @@ import { Button } from "@/components/ui/button";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
-function getVerifyContinueUrl(nextPath: string) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
-}
-
-async function sendVerificationEmailWithRedirect(user: Parameters<typeof sendEmailVerification>[0], nextPath: string) {
-  try {
-    await sendEmailVerification(user, {
-      url: getVerifyContinueUrl(nextPath),
-    });
-  } catch (err: unknown) {
-    const code =
-      typeof err === "object" && err !== null && "code" in err
-        ? String((err as { code?: string }).code)
-        : "";
-
-    if (code === "auth/unauthorized-continue-uri" || code === "auth/invalid-continue-uri") {
-      await sendEmailVerification(user);
-      return "fallback";
-    }
-
-    throw err;
-  }
-}
-
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={<VerifyFallback />}>
@@ -86,15 +61,11 @@ function VerifyEmailContent() {
       setStatus("sending");
       setError("Estamos reenviando el correo de verificación.");
 
-      sendVerificationEmailWithRedirect(user, nextPath)
-        .then((result) => {
+      sendEmailVerification(user)
+        .then(() => {
           if (cancelled) return;
           setStatus("sent");
-          setError(
-            result === "fallback"
-              ? "Correo reenviado. Si no lo ves, revisa spam o promociones."
-              : "Correo de verificación reenviado."
-          );
+          setError("Correo de verificación reenviado. Si no lo ves, revisa spam o promociones.");
         })
         .catch(() => {
           if (cancelled) return;
@@ -117,11 +88,9 @@ function VerifyEmailContent() {
     setStatus("sending");
     setError("");
     try {
-      const result = await sendVerificationEmailWithRedirect(user, nextPath);
+      await sendEmailVerification(user);
       setStatus("sent");
-      if (result === "fallback") {
-        setError("Correo reenviado. Si no lo ves, revisa spam o promociones.");
-      }
+      setError("Correo reenviado. Si no lo ves, revisa spam o promociones.");
     } catch {
       setStatus("error");
       setError("No pudimos reenviar el email. Revisa tu conexión e intenta de nuevo.");
