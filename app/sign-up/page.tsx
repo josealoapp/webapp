@@ -34,6 +34,24 @@ function getVerifyContinueUrl(nextPath: string) {
   return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
 }
 
+async function sendVerificationEmailWithRedirect(user: Parameters<typeof sendEmailVerification>[0], nextPath: string) {
+  try {
+    await sendEmailVerification(user, { url: getVerifyContinueUrl(nextPath) });
+  } catch (err: unknown) {
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code?: string }).code)
+        : "";
+
+    if (code === "auth/unauthorized-continue-uri" || code === "auth/invalid-continue-uri") {
+      await sendEmailVerification(user);
+      return;
+    }
+
+    throw err;
+  }
+}
+
 function SignUpContent() {
   const router = useRouter();
   const postSignUpPath = useMemo(() => "/", []);
@@ -85,7 +103,7 @@ function SignUpContent() {
       if (cred.user && trimmedName) {
         await updateProfile(cred.user, { displayName: trimmedName });
       }
-      await sendEmailVerification(cred.user, { url: getVerifyContinueUrl(postSignUpPath) });
+      await sendVerificationEmailWithRedirect(cred.user, postSignUpPath);
 
       try {
         localStorage.setItem(

@@ -14,6 +14,26 @@ function getVerifyContinueUrl(nextPath: string) {
   return `${origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
 }
 
+async function sendVerificationEmailWithRedirect(user: Parameters<typeof sendEmailVerification>[0], nextPath: string) {
+  try {
+    await sendEmailVerification(user, {
+      url: getVerifyContinueUrl(nextPath),
+    });
+  } catch (err: unknown) {
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code?: string }).code)
+        : "";
+
+    if (code === "auth/unauthorized-continue-uri" || code === "auth/invalid-continue-uri") {
+      await sendEmailVerification(user);
+      return "fallback";
+    }
+
+    throw err;
+  }
+}
+
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={<VerifyFallback />}>
@@ -62,10 +82,13 @@ function VerifyEmailContent() {
     setStatus("sending");
     setError("");
     try {
-      await sendEmailVerification(user, {
-        url: getVerifyContinueUrl(nextPath),
-      });
+      const result = await sendVerificationEmailWithRedirect(user, nextPath);
       setStatus("sent");
+      if (result === "fallback") {
+        setError(
+          "Email reenviado. El dominio de la app debe agregarse en Firebase Authorized domains para que el link vuelva directo al onboarding."
+        );
+      }
     } catch {
       setStatus("error");
       setError("No pudimos reenviar el email. Intenta de nuevo.");
