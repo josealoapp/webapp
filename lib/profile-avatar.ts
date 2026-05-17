@@ -1,5 +1,8 @@
 "use client";
 
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export const DEFAULT_PROFILE_AVATAR = "/default-avatar.svg";
 
 type ProfileAvatarRegistry = Record<string, string>;
@@ -42,6 +45,35 @@ export function writeProfileAvatar(userId: string, value: string) {
   }
 
   writeRegistry(registry);
+
+  void setDoc(
+    doc(db, "userProfiles", userId),
+    {
+      avatarUrl: value || "",
+      updatedAt: Date.now(),
+      updatedAtServer: serverTimestamp(),
+    },
+    { merge: true }
+  ).catch(() => {
+    // Local cache remains usable if Firestore is offline.
+  });
+}
+
+export async function loadProfileAvatar(userId: string) {
+  if (!userId) return "";
+
+  try {
+    const snapshot = await getDoc(doc(db, "userProfiles", userId));
+    const avatarUrl = typeof snapshot.data()?.avatarUrl === "string" ? snapshot.data()?.avatarUrl : "";
+    if (avatarUrl) {
+      const registry = readRegistry();
+      registry[userId] = avatarUrl;
+      writeRegistry(registry);
+    }
+    return avatarUrl || readProfileAvatar(userId);
+  } catch {
+    return readProfileAvatar(userId);
+  }
 }
 
 export function subscribeProfileAvatar(userId: string, onData: (value: string) => void) {
@@ -57,12 +89,21 @@ export function subscribeProfileAvatar(userId: string, onData: (value: string) =
     publish();
   };
   const handleCustom = () => publish();
+  let cancelled = false;
+  const loadRemote = async () => {
+    const value = await loadProfileAvatar(userId);
+    if (!cancelled) onData(value);
+  };
 
   publish();
+  void loadRemote();
+  const intervalId = window.setInterval(loadRemote, 15000);
   window.addEventListener("storage", handleStorage);
   window.addEventListener(PROFILE_AVATAR_EVENT, handleCustom);
 
   return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
     window.removeEventListener("storage", handleStorage);
     window.removeEventListener(PROFILE_AVATAR_EVENT, handleCustom);
   };

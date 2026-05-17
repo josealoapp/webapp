@@ -1,5 +1,8 @@
 "use client";
 
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+
 export type AccountType = "personal" | "business";
 
 export type BusinessProfile = {
@@ -29,6 +32,7 @@ export type AccountProfile = {
 };
 
 export const ACCOUNT_PROFILE_KEY = "account_profile";
+const ACCOUNT_PROFILE_EVENT = "josealo:account-profile-changed";
 
 export const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
   businessName: "",
@@ -86,10 +90,8 @@ export function readAccountProfile(): AccountProfile {
   }
 }
 
-export function writeAccountProfile(profile: AccountProfile) {
-  if (typeof window === "undefined") {
-    return;
-  }
+function cacheAccountProfile(profile: AccountProfile) {
+  if (typeof window === "undefined") return;
 
   window.localStorage.setItem(
     ACCOUNT_PROFILE_KEY,
@@ -98,6 +100,93 @@ export function writeAccountProfile(profile: AccountProfile) {
       updatedAt: Date.now(),
     })
   );
+  window.dispatchEvent(new CustomEvent(ACCOUNT_PROFILE_EVENT));
+}
+
+function normalizeAccountProfile(input: Partial<AccountProfile> | undefined): AccountProfile {
+  return {
+    ...getDefaultAccountProfile(),
+    ...(input || {}),
+    businessProfile: input?.businessProfile
+      ? { ...DEFAULT_BUSINESS_PROFILE, ...input.businessProfile }
+      : null,
+    interests: Array.isArray(input?.interests) ? input.interests : [],
+    specificInterests: Array.isArray(input?.specificInterests) ? input.specificInterests : [],
+    updatedAt: typeof input?.updatedAt === "number" ? input.updatedAt : Date.now(),
+  };
+}
+
+function getCurrentProfileRef() {
+  const user = auth.currentUser;
+  return user ? doc(db, "userPrivateProfiles", user.uid) : null;
+}
+
+export async function loadAccountProfileFromBackend(userId = auth.currentUser?.uid) {
+  if (!userId) return readAccountProfile();
+
+  try {
+    const snapshot = await getDoc(doc(db, "userPrivateProfiles", userId));
+    if (!snapshot.exists()) return readAccountProfile();
+    const profile = normalizeAccountProfile(snapshot.data() as Partial<AccountProfile>);
+    cacheAccountProfile(profile);
+    return profile;
+  } catch {
+    return readAccountProfile();
+  }
+}
+
+export function writeAccountProfile(profile: AccountProfile) {
+  const payload = {
+    ...profile,
+    updatedAt: Date.now(),
+  };
+
+  cacheAccountProfile(payload);
+
+  const profileRef = getCurrentProfileRef();
+  if (!profileRef) return;
+
+  void setDoc(
+    profileRef,
+    {
+      ...payload,
+      updatedAtServer: serverTimestamp(),
+    },
+    { merge: true }
+  ).catch(() => {
+    // Local cache remains available if the network is temporarily unavailable.
+  });
+}
+
+export function subscribeAccountProfile(onData: (profile: AccountProfile) => void) {
+  let cancelled = false;
+
+  const publishLocal = () => onData(readAccountProfile());
+  const load = async () => {
+    const profile = await loadAccountProfileFromBackend();
+    if (!cancelled) onData(profile);
+  };
+
+  publishLocal();
+  void load();
+
+  if (typeof window === "undefined") {
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  const intervalId = window.setInterval(load, 15000);
+  const handleChange = () => publishLocal();
+  window.addEventListener(ACCOUNT_PROFILE_EVENT, handleChange);
+  window.addEventListener("storage", handleChange);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+    window.removeEventListener(ACCOUNT_PROFILE_EVENT, handleChange);
+    window.removeEventListener("storage", handleChange);
+  };
 }
 
 export function getPostAuthDestination(nextPath: string) {

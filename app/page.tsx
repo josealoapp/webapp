@@ -17,9 +17,10 @@ import {
   Listing,
   subscribeListings,
 } from "@/lib/marketplace";
-import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
+import { getPostAuthDestination, loadAccountProfileFromBackend, readAccountProfile } from "@/lib/account-profile";
 import {
   getDefaultListingLocation,
+  loadStoredUserLocationFromBackend,
   normalizeLocationName,
   readStoredUserLocation,
   requestCurrentSupportedLocation,
@@ -43,6 +44,13 @@ export default function HomePage() {
       setCurrentUserName(user?.displayName?.trim() || user?.email?.trim() || "Usuario");
 
       if (user?.emailVerified) {
+        void loadAccountProfileFromBackend(user.uid).then((profile) => {
+          setPersonalInterests(
+            profile.accountType === "personal" && profile.interests.length > 0
+              ? profile.interests
+              : []
+          );
+        });
         const profile = readAccountProfile();
         setPersonalInterests(
           profile.accountType === "personal" && profile.interests.length > 0
@@ -77,6 +85,10 @@ export default function HomePage() {
           // Keep the saved/manual selection when geolocation is unavailable or denied.
         });
     }
+
+    void loadStoredUserLocationFromBackend().then((location) => {
+      if (location?.name) setSelectedLocation(location.name);
+    });
   }, []);
 
   useEffect(() => {

@@ -1,9 +1,12 @@
 "use client";
 
 import { Country, State } from "country-state-city";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { DEFAULT_BUSINESS_PROFILE, readAccountProfile } from "@/lib/account-profile";
+import { auth, db } from "@/lib/firebase";
 
 const USER_LOCATION_KEY = "josealo_user_location";
+const USER_LOCATION_EVENT = "josealo:user-location-changed";
 
 const DOMINICAN_GEO_FALLBACKS = [
   { name: "Santo Domingo", latitude: 18.4861, longitude: -69.9312 },
@@ -166,6 +169,50 @@ export function readStoredUserLocation() {
 export function writeStoredUserLocation(location: StoredUserLocation) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(location));
+  window.dispatchEvent(new CustomEvent(USER_LOCATION_EVENT));
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  void setDoc(
+    doc(db, "userPrivateProfiles", user.uid),
+    {
+      location,
+      updatedAt: Date.now(),
+      updatedAtServer: serverTimestamp(),
+    },
+    { merge: true }
+  ).catch(() => {
+    // Keep local cache if Firestore is unavailable.
+  });
+}
+
+export async function loadStoredUserLocationFromBackend(userId = auth.currentUser?.uid) {
+  if (!userId) return readStoredUserLocation();
+
+  try {
+    const snapshot = await getDoc(doc(db, "userPrivateProfiles", userId));
+    const location = snapshot.data()?.location as Partial<StoredUserLocation> | undefined;
+    if (!location?.name || typeof location.name !== "string") return readStoredUserLocation();
+
+    const payload: StoredUserLocation = {
+      name: location.name,
+      country: typeof location.country === "string" && location.country.trim() ? location.country : getSignedUpCountry(),
+      source: location.source === "manual" ? "manual" : "current",
+      latitude: typeof location.latitude === "number" ? location.latitude : null,
+      longitude: typeof location.longitude === "number" ? location.longitude : null,
+      updatedAt: typeof location.updatedAt === "number" ? location.updatedAt : Date.now(),
+    };
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(USER_LOCATION_KEY, JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent(USER_LOCATION_EVENT));
+    }
+
+    return payload;
+  } catch {
+    return readStoredUserLocation();
+  }
 }
 
 export function saveManualListingLocation(name: string) {

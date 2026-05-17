@@ -1,5 +1,8 @@
 "use client";
 
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export type StoredUserHandle = {
   uid: string;
   name: string;
@@ -42,6 +45,32 @@ function writeHandleRegistry(entries: StoredUserHandle[]) {
   }
 
   window.localStorage.setItem(USER_HANDLES_KEY, JSON.stringify(entries));
+}
+
+async function loadRemoteHandle(uid: string) {
+  if (!uid) return "";
+
+  try {
+    const snapshot = await getDoc(doc(db, "userProfiles", uid));
+    return typeof snapshot.data()?.handle === "string" ? snapshot.data()?.handle : "";
+  } catch {
+    return "";
+  }
+}
+
+function persistHandle(entry: StoredUserHandle) {
+  void setDoc(
+    doc(db, "userProfiles", entry.uid),
+    {
+      displayName: entry.name,
+      handle: entry.handle,
+      updatedAt: Date.now(),
+      updatedAtServer: serverTimestamp(),
+    },
+    { merge: true }
+  ).catch(() => {
+    // Local handle cache remains available if Firestore is offline.
+  });
 }
 
 function buildHandleBase(name: string) {
@@ -88,6 +117,7 @@ export function getOrCreateUserHandle(input: { uid: string; name: string }) {
       writeHandleRegistry(updated);
     }
 
+    persistHandle({ ...existing, name: input.name.trim(), updatedAt: Date.now() });
     return existing.handle;
   }
 
@@ -96,15 +126,35 @@ export function getOrCreateUserHandle(input: { uid: string; name: string }) {
     registry.filter((entry) => entry.handle.startsWith(`${base}-`)).length + 1;
   const handle = `${base}-${String(nextNumber).padStart(3, "0")}`;
 
+  const entry = {
+    uid: input.uid,
+    name: input.name.trim(),
+    handle,
+    updatedAt: Date.now(),
+  };
+
   writeHandleRegistry([
     ...registry,
-    {
-      uid: input.uid,
-      name: input.name.trim(),
-      handle,
-      updatedAt: Date.now(),
-    },
+    entry,
   ]);
+  persistHandle(entry);
 
   return handle;
+}
+
+export async function getOrCreateUserHandleFromBackend(input: { uid: string; name: string }) {
+  const remote = await loadRemoteHandle(input.uid);
+  if (remote) {
+    const registry = readHandleRegistry();
+    const entry = {
+      uid: input.uid,
+      name: input.name.trim(),
+      handle: remote,
+      updatedAt: Date.now(),
+    };
+    writeHandleRegistry([...registry.filter((row) => row.uid !== input.uid), entry]);
+    return remote;
+  }
+
+  return getOrCreateUserHandle(input);
 }

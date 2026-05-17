@@ -67,5 +67,42 @@ service cloud.firestore {
       allow create, update: if isSignedIn()
         && request.auth.uid == userId;
     }
+
+    match /userPrivateProfiles/{userId} {
+      allow read, create, update, delete: if isSignedIn()
+        && request.auth.uid == userId;
+    }
+
+    match /likes/{likeId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.actorId == request.auth.uid ||
+          resource.data.ownerId == request.auth.uid
+        );
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.ownerId is string
+        && request.resource.data.listingId is string
+        && request.resource.data.itemTitle is string
+        && request.resource.data.price is number;
+
+      allow delete: if isSignedIn()
+        && resource.data.actorId == request.auth.uid;
+    }
+
+    match /follows/{followId} {
+      allow read: if true;
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.followerId == request.auth.uid
+        && request.resource.data.followeeId is string
+        && request.resource.data.followeeId != request.auth.uid
+        && request.resource.data.followerName is string
+        && request.resource.data.followeeName is string;
+
+      allow delete: if isSignedIn()
+        && resource.data.followerId == request.auth.uid;
+    }
   }
 }

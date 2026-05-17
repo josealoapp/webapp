@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createOffer } from "@/lib/marketplace";
-import { getPostAuthDestination } from "@/lib/account-profile";
+import { getPostAuthDestination, loadAccountProfileFromBackend } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
 
 import {
@@ -91,6 +91,7 @@ function SignInContent() {
         return;
       }
 
+      await loadAccountProfileFromBackend(user.uid);
       const postAuthDestination = getPostAuthDestination(defaultPostAuthPath);
       const onboardingRequired = postAuthDestination.startsWith("/onboarding");
 

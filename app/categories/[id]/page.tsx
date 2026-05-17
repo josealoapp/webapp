@@ -1,29 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import { ArrowLeft, CalendarIcon, Search, SlidersHorizontal, X } from "lucide-react";
-import { appCategories, getCategoryInputKind } from "@/lib/categories";
+import { appCategories, getCategoryInputKind, normalizeCategoryName } from "@/lib/categories";
+import {
+  getActiveBazarItems,
+  isListingVisibleInMarketplace,
+  type Listing,
+  subscribeListings,
+} from "@/lib/marketplace";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-const sampleItems = Array.from({ length: 9 }, (_, i) => ({
-  id: `item-${i}`,
-  title: `Producto ${i + 1}`,
-  price: 1200 + i * 150,
-  image: `https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80&sat=-10&sig=${i}`,
-  createdAt: new Date(2026, 4, 9 - i).getTime(),
-  year: 2026 - i,
-  size: ["XS", "S", "M", "L", "XL"][i % 5],
-  shoeSize: 36 + (i % 8),
-}));
 
 type CategoryFilters = {
   minPrice: string;
   maxPrice: string;
   listedAfter: string;
+  location: string;
   year: string;
   size: string;
   shoeSize: string;
@@ -33,9 +29,24 @@ const emptyFilters: CategoryFilters = {
   minPrice: "",
   maxPrice: "",
   listedAfter: "",
+  location: "",
   year: "",
   size: "",
   shoeSize: "",
+};
+
+type CategoryResult = {
+  id: string;
+  href: string;
+  title: string;
+  price: number;
+  image: string;
+  location: string;
+  category: string;
+  createdAt: number;
+  vehicleYear?: number;
+  clothingSize?: string;
+  shoeSize?: string;
 };
 
 function hasActiveFilters(filters: CategoryFilters) {
@@ -66,36 +77,104 @@ function formatListedAfter(value: string) {
   }).format(date);
 }
 
+function listingMatchesCategory(listing: Listing, categoryName: string) {
+  const selected = normalizeCategoryName(categoryName);
+  return [listing.category, listing.bazarCategory].some((value) => normalizeCategoryName(value || "") === selected);
+}
+
+function flattenCategoryListings(listings: Listing[], categoryName: string): CategoryResult[] {
+  return listings.flatMap((listing) => {
+    if (!isListingVisibleInMarketplace(listing) || !listingMatchesCategory(listing, categoryName)) {
+      return [];
+    }
+
+    if ((listing.type || "article") === "bazar") {
+      return getActiveBazarItems(listing).map((item) => ({
+        id: `${listing.id}:${item.id}`,
+        href: `/item/${listing.id}?bazarItemId=${encodeURIComponent(item.id)}`,
+        title: item.title,
+        price: Number(item.price || 0),
+        image: item.image || listing.image || "",
+        location: listing.location,
+        category: listing.bazarCategory || listing.category,
+        createdAt: listing.createdAt,
+        vehicleYear: item.vehicleYear,
+        clothingSize: item.clothingSize,
+        shoeSize: item.shoeSize,
+      }));
+    }
+
+    return [
+      {
+        id: listing.id,
+        href: `/item/${listing.id}`,
+        title: listing.title,
+        price: Number(listing.price || 0),
+        image: listing.image || "",
+        location: listing.location,
+        category: listing.category,
+        createdAt: listing.createdAt,
+        vehicleYear: listing.vehicleYear,
+        clothingSize: listing.clothingSize,
+        shoeSize: listing.shoeSize,
+      },
+    ];
+  });
+}
+
 export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();
   const [q, setQ] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<CategoryFilters>(emptyFilters);
   const [draftFilters, setDraftFilters] = useState<CategoryFilters>(emptyFilters);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const category = useMemo(() => appCategories.find((c) => c.id === params?.id), [params?.id]);
   const filterKind = getCategoryInputKind(category?.name);
+  const categoryItems = useMemo(
+    () => (category ? flattenCategoryListings(listings, category.name) : []),
+    [category, listings]
+  );
+  const locationOptions = useMemo(() => {
+    return Array.from(new Set(categoryItems.map((item) => item.location).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "es")
+    );
+  }, [categoryItems]);
+
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeListings((rows) => {
+      setListings(rows);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const minPrice = Number(filters.minPrice);
     const maxPrice = Number(filters.maxPrice);
     const listedAfterTime = filters.listedAfter ? new Date(`${filters.listedAfter}T00:00:00`).getTime() : 0;
+    const location = normalizeCategoryName(filters.location);
     const year = Number(filters.year);
-    const shoeSize = Number(filters.shoeSize);
+    const shoeSize = filters.shoeSize.trim().toLowerCase();
     const size = filters.size.trim().toLowerCase();
 
-    return sampleItems.filter((item) => {
+    return categoryItems.filter((item) => {
       if (term && !item.title.toLowerCase().includes(term)) return false;
+      if (location && normalizeCategoryName(item.location) !== location) return false;
       if (minPrice && item.price < minPrice) return false;
       if (maxPrice && item.price > maxPrice) return false;
       if (listedAfterTime && item.createdAt < listedAfterTime) return false;
-      if (filterKind === "vehicle" && year && item.year !== year) return false;
-      if (filterKind === "clothing" && size && item.size.toLowerCase() !== size) return false;
-      if (filterKind === "shoes" && shoeSize && item.shoeSize !== shoeSize) return false;
+      if (filterKind === "vehicle" && year && item.vehicleYear !== year) return false;
+      if (filterKind === "clothing" && size && item.clothingSize?.toLowerCase() !== size) return false;
+      if (filterKind === "shoes" && shoeSize && item.shoeSize?.toLowerCase() !== shoeSize) return false;
       return true;
     });
-  }, [filterKind, filters, q]);
+  }, [categoryItems, filterKind, filters, q]);
 
   if (!category) return notFound();
 
@@ -145,7 +224,7 @@ export default function CategoryDetailPage() {
       <main className="mx-auto max-w-4xl px-4 pb-16 pt-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="text-sm text-neutral-400">
-            {filtered.length} resultados en {category.name}
+            {loading ? "Cargando publicaciones..." : `${filtered.length} resultados en ${category.name}`}
           </div>
           <button
             type="button"
@@ -159,20 +238,36 @@ export default function CategoryDetailPage() {
             <SlidersHorizontal className="h-5 w-5" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {filtered.map((item) => (
-            <div
+        {loading ? (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+            Cargando publicaciones reales...
+          </div>
+        ) : filtered.length ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {filtered.map((item) => (
+            <Link
               key={item.id}
+              href={item.href}
               className="rounded-2xl border border-neutral-800 bg-neutral-900 p-3 shadow-sm transition hover:border-orange-400"
             >
               <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
-                <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                {item.image ? (
+                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
+                )}
               </div>
               <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
               <div className="text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
-            </div>
-          ))}
-        </div>
+              <div className="mt-1 text-xs text-neutral-500">{item.location}</div>
+            </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+            No hay publicaciones activas para esta categoría con los filtros seleccionados.
+          </div>
+        )}
       </main>
 
       {isFilterOpen ? (
@@ -220,6 +315,22 @@ export default function CategoryDetailPage() {
                   />
                 </label>
               </div>
+
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold uppercase text-neutral-500">Ubicación</span>
+                <select
+                  value={draftFilters.location}
+                  onChange={(e) => updateDraftFilter("location", e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-orange-400"
+                >
+                  <option value="">Todas las ubicaciones</option>
+                  {locationOptions.map((location) => (
+                    <option key={location} value={location}>
+                      {location}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <div className="space-y-2">
                 <span className="text-xs font-semibold uppercase text-neutral-500">Publicado desde</span>

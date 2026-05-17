@@ -1,5 +1,8 @@
 "use client";
 
+import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 export type LikeRecord = {
   id: string;
   actorId: string;
@@ -46,6 +49,16 @@ function writeLikeRegistry(rows: LikeRecord[]) {
   window.dispatchEvent(new CustomEvent(LIKES_EVENT));
 }
 
+function likeRef(actorId: string, listingId: string, bazarItemId?: string) {
+  return doc(db, "likes", likeIdFor(actorId, listingId, bazarItemId));
+}
+
+function cacheRemoteRows(rows: LikeRecord[]) {
+  const current = readLikeRegistry();
+  const ids = new Set(rows.map((row) => row.id));
+  writeLikeRegistry([...current.filter((row) => !ids.has(row.id)), ...rows]);
+}
+
 function subscribeToRegistry(onChange: () => void) {
   if (typeof window === "undefined") return () => {};
 
@@ -74,14 +87,17 @@ export async function likeItem(input: Omit<LikeRecord, "id" | "createdAt">) {
       )
   );
 
-  writeLikeRegistry([
-    ...current,
-    {
-      ...input,
-      id: likeIdFor(input.actorId, input.listingId, input.bazarItemId),
-      createdAt: Date.now(),
-    },
-  ]);
+  const record = {
+    ...input,
+    id: likeIdFor(input.actorId, input.listingId, input.bazarItemId),
+    createdAt: Date.now(),
+  };
+
+  writeLikeRegistry([...current, record]);
+  await setDoc(likeRef(input.actorId, input.listingId, input.bazarItemId), {
+    ...record,
+    createdAtServer: serverTimestamp(),
+  });
 }
 
 export async function unlikeItem(actorId: string, listingId: string, bazarItemId?: string) {
@@ -95,18 +111,37 @@ export async function unlikeItem(actorId: string, listingId: string, bazarItemId
         )
     )
   );
+  await deleteDoc(likeRef(actorId, listingId, bazarItemId));
 }
 
 export function subscribeLikesForUser(userId: string, onData: (rows: LikeRecord[]) => void) {
-  const publish = () => {
+  let cancelled = false;
+  const publishLocal = () => {
     const rows = readLikeRegistry()
       .filter((entry) => entry.actorId === userId)
       .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     onData(rows);
   };
+  const loadRemote = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, "likes"), where("actorId", "==", userId)));
+      const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LikeRecord, "id">) }));
+      cacheRemoteRows(rows);
+      if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
+    } catch {
+      publishLocal();
+    }
+  };
 
-  publish();
-  return subscribeToRegistry(publish);
+  publishLocal();
+  void loadRemote();
+  const unsubscribeLocal = subscribeToRegistry(publishLocal);
+  const intervalId = typeof window !== "undefined" ? window.setInterval(loadRemote, 15000) : null;
+  return () => {
+    cancelled = true;
+    unsubscribeLocal();
+    if (intervalId) window.clearInterval(intervalId);
+  };
 }
 
 export function subscribeLikeIdsForUser(userId: string, onData: (ids: Set<string>) => void) {
@@ -116,13 +151,33 @@ export function subscribeLikeIdsForUser(userId: string, onData: (ids: Set<string
 }
 
 export function subscribeIncomingLikesForOwner(userId: string, onData: (rows: LikeRecord[]) => void) {
-  const publish = () => {
+  let cancelled = false;
+  const publishLocal = () => {
     const rows = readLikeRegistry()
       .filter((entry) => entry.ownerId === userId && entry.actorId !== userId)
       .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     onData(rows);
   };
+  const loadRemote = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, "likes"), where("ownerId", "==", userId)));
+      const rows = snap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LikeRecord, "id">) }))
+        .filter((entry) => entry.actorId !== userId);
+      cacheRemoteRows(rows);
+      if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
+    } catch {
+      publishLocal();
+    }
+  };
 
-  publish();
-  return subscribeToRegistry(publish);
+  publishLocal();
+  void loadRemote();
+  const unsubscribeLocal = subscribeToRegistry(publishLocal);
+  const intervalId = typeof window !== "undefined" ? window.setInterval(loadRemote, 15000) : null;
+  return () => {
+    cancelled = true;
+    unsubscribeLocal();
+    if (intervalId) window.clearInterval(intervalId);
+  };
 }

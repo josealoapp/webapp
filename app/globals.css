@@ -150,6 +150,30 @@ html[data-theme="light"] .text-neutral-400 { color: #334155 !important; }
 html[data-theme="light"] .border-neutral-800 { border-color: #e2e8f0 !important; }
 html[data-theme="light"] .shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important; }
 
+.stats-dark-scroll {
+  scrollbar-color: #3f3f46 #0a0a0a;
+  scrollbar-width: thin;
+}
+
+.stats-dark-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.stats-dark-scroll::-webkit-scrollbar-track {
+  background: #0a0a0a;
+  border-left: 1px solid #262626;
+}
+
+.stats-dark-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border: 2px solid #0a0a0a;
+  border-radius: 999px;
+}
+
+.stats-dark-scroll::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
 @keyframes follow-shake {
   0% { transform: translateX(0); }
   20% { transform: translateX(-3px) rotate(-1deg); }
