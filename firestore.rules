@@ -14,13 +14,74 @@ service cloud.firestore {
         );
     }
 
+    function isOwnDocument(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isReportParticipant(reportData) {
+      return isSignedIn()
+        && (
+          reportData.reporterId == request.auth.uid ||
+          reportData.sellerId == request.auth.uid ||
+          reportData.targetUserId == request.auth.uid
+        );
+    }
+
+    function isReviewRequestParticipant(requestData) {
+      return isSignedIn()
+        && (
+          requestData.buyerId == request.auth.uid ||
+          requestData.sellerId == request.auth.uid
+        );
+    }
+
+    function publicProfileKeys() {
+      return [
+        'displayName',
+        'handle',
+        'avatarUrl',
+        'instagramUsername',
+        'verified',
+        'verifiedAt',
+        'sellerRatingAvg',
+        'sellerRatingCount',
+        'sellerRatingSum',
+        'profileTags',
+        'updatedAt',
+        'updatedAtServer'
+      ];
+    }
+
+    function hasOnlyPublicProfileFields() {
+      return request.resource.data.keys().hasOnly(publicProfileKeys());
+    }
+
+    function serverManagedListingSaleFields() {
+      return [
+        'status',
+        'soldAt',
+        'soldAtServer',
+        'soldWithJosealo',
+        'saleSpeedRating',
+        'lastSoldAt',
+        'lastSoldAtServer',
+        'bazarItems',
+        'image',
+        'searchTokens'
+      ];
+    }
+
     match /listings/{listingId} {
       allow read: if true;
 
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid;
 
-      allow update, delete: if isSignedIn()
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverManagedListingSaleFields());
+
+      allow delete: if isSignedIn()
         && resource.data.ownerId == request.auth.uid;
     }
 
@@ -65,12 +126,26 @@ service cloud.firestore {
       allow read: if true;
 
       allow create, update: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && hasOnlyPublicProfileFields();
     }
 
     match /userPrivateProfiles/{userId} {
-      allow read, create, update, delete: if isSignedIn()
-        && request.auth.uid == userId;
+      allow read, create, update, delete: if isOwnDocument(userId);
+    }
+
+    match /userLocations/{userId} {
+      allow read, delete: if isOwnDocument(userId);
+
+      allow create, update: if isOwnDocument(userId)
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /businessProfiles/{userId} {
+      allow read, delete: if isOwnDocument(userId);
+
+      allow create, update: if isOwnDocument(userId)
+        && request.resource.data.userId == request.auth.uid;
     }
 
     match /likes/{likeId} {
@@ -84,6 +159,8 @@ service cloud.firestore {
         && request.resource.data.actorId == request.auth.uid
         && request.resource.data.ownerId is string
         && request.resource.data.listingId is string
+        && exists(/databases/$(database)/documents/listings/$(request.resource.data.listingId))
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId
         && request.resource.data.itemTitle is string
         && request.resource.data.price is number;
 
@@ -103,6 +180,82 @@ service cloud.firestore {
 
       allow delete: if isSignedIn()
         && resource.data.followerId == request.auth.uid;
+    }
+
+    match /searchEvents/{eventId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.query is string
+        && request.resource.data.normalizedQuery is string
+        && request.resource.data.category is string
+        && request.resource.data.location is string
+        && request.resource.data.source in ['search', 'category', 'home']
+        && request.resource.data.createdAt is number
+        && request.resource.data.keys().hasOnly([
+          'query',
+          'normalizedQuery',
+          'category',
+          'location',
+          'userId',
+          'source',
+          'createdAt',
+          'createdAtServer'
+        ]);
+
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+
+      allow update, delete: if false;
+    }
+
+    match /supportNotifications/{notificationId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'read',
+          'readAt',
+          'readAtServer'
+        ]);
+
+      allow create, delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isReportParticipant(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /listingViewEvents/{eventId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.viewerId == request.auth.uid
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /listingSoldEvents/{eventId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.soldToUserId == request.auth.uid
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /purchaseReviewRequests/{requestId} {
+      allow read: if isReviewRequestParticipant(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /userRatings/{ratingId} {
+      allow read: if true;
+      allow create, update, delete: if false;
     }
   }
 }

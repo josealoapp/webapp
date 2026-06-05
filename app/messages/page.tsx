@@ -8,7 +8,7 @@ import { ArrowLeft, MessageCircle, MoreVertical, Search } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
-import { ChatRecord, deleteChat, subscribeInboxChatsForUser } from "@/lib/marketplace";
+import { ChatRecord, deleteChat, listChatsForUser, subscribeChatsForUser } from "@/lib/marketplace";
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -22,6 +22,8 @@ export default function MessagesPage() {
   const [openMenuChatId, setOpenMenuChatId] = useState("");
   const [deletingChatId, setDeletingChatId] = useState("");
   const [screenError, setScreenError] = useState("");
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -58,28 +60,40 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    const unsub = subscribeInboxChatsForUser(
+    const role = activeTab === "comprando" ? "buyer" : "seller";
+    setLoadingChats(true);
+    setNextCursor(null);
+
+    const unsub = subscribeChatsForUser(
       currentUserId,
+      role,
       (rows) => {
         setScreenError("");
         setChats(rows);
+        setLoadingChats(false);
       },
       (code) => {
+        setChats([]);
+        setNextCursor(null);
+        setLoadingChats(false);
         if (code === "permission-denied") {
           setScreenError("No tienes permisos para ver estas negociaciones.");
+        } else if (code === "failed-precondition") {
+          setScreenError("Firestore necesita crear/desplegar el índice de chats para cargar negociaciones.");
+        } else {
+          setScreenError("No pudimos cargar tus negociaciones. Intenta de nuevo.");
         }
       }
     );
-    return () => unsub();
-  }, [currentUserId]);
+
+    return () => {
+      unsub();
+    };
+  }, [activeTab, currentUserId]);
 
   const visibleChats = useMemo(() => {
-    if (activeTab === "comprando") {
-      return chats.filter((chat) => chat.buyerId === currentUserId);
-    }
-
-    return chats.filter((chat) => chat.sellerId === currentUserId);
-  }, [activeTab, chats, currentUserId]);
+    return chats;
+  }, [chats]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -97,6 +111,32 @@ export default function MessagesPage() {
   const messageTabs = accountType === "business"
     ? (["vendiendo", "comprando"] as const)
     : (["comprando", "vendiendo"] as const);
+  const loadMoreChats = async () => {
+    if (!currentUserId || !nextCursor || loadingChats) return;
+
+    const role = activeTab === "comprando" ? "buyer" : "seller";
+    setLoadingChats(true);
+    try {
+      const result = await listChatsForUser(currentUserId, role, nextCursor, 25);
+      setChats((current) => [...current, ...result.chats]);
+      setNextCursor(result.nextCursor);
+    } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: string }).code)
+          : undefined;
+      const message = error instanceof Error ? error.message : "";
+      if (code === "failed-precondition" || message.toLowerCase().includes("index")) {
+        setScreenError("Firestore necesita crear/desplegar el índice de chats para cargar más negociaciones.");
+      } else if (code === "permission-denied") {
+        setScreenError("No tienes permisos para cargar más negociaciones.");
+      } else {
+        setScreenError("No pudimos cargar más negociaciones. Intenta de nuevo.");
+      }
+    } finally {
+      setLoadingChats(false);
+    }
+  };
 
   if (!authResolved || !currentUserId) {
     return <div className="min-h-screen bg-neutral-950 text-neutral-50" />;
@@ -162,18 +202,24 @@ export default function MessagesPage() {
             Tus negociaciones están siendo manejadas por WhatsApp.
           </div>
         ) : null}
-        {filtered.length === 0 ? (
+        {loadingChats && filtered.length === 0 ? (
+          <div className="rounded-3xl border border-neutral-800 bg-neutral-900/20 p-6 text-sm text-neutral-300">
+            Cargando negociaciones...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-3xl border border-neutral-800 bg-neutral-900/20 p-6 text-sm text-neutral-300">
             {activeTab === "comprando"
               ? "Aún no has enviado ofertas. Cuando ofertes un artículo, aparecerá aquí."
               : "Aún no has recibido ofertas en tus publicaciones. Cuando alguien te escriba, aparecerá aquí."}
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((chat) => {
+          <>
+            <div className="space-y-3">
+              {filtered.map((chat) => {
               const isSellingChat = chat.sellerId === currentUserId;
               const counterpartName = isSellingChat ? chat.buyerName : chat.sellerName;
               const roleLabel = isSellingChat ? "Oferta recibida" : "Oferta enviada";
+              const unreadCount = getUnreadCount(chat, currentUserId);
               const statusStyles =
                 "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
 
@@ -191,6 +237,11 @@ export default function MessagesPage() {
                           >
                             {roleLabel}
                           </span>
+                          {unreadCount > 0 ? (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-black">
+                              {unreadCount > 99 ? "+99" : unreadCount}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="truncate text-sm font-semibold">
                           {counterpartName}
@@ -247,12 +298,39 @@ export default function MessagesPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+            {nextCursor ? (
+              <button
+                type="button"
+                onClick={loadMoreChats}
+                disabled={loadingChats}
+                className="mt-4 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+              >
+                {loadingChats ? "Cargando..." : "Cargar más"}
+              </button>
+            ) : null}
+          </>
         )}
       </main>
 
       <AppBottomNav active="messages" />
     </div>
   );
+}
+
+function getUnreadCount(chat: ChatRecord, userId: string) {
+  if (!userId) return 0;
+  const unreadBy = chat.unreadBy || {};
+  const hasStoredUnread = Object.prototype.hasOwnProperty.call(unreadBy, userId);
+  const storedUnread = Math.max(0, Number(unreadBy[userId] || 0));
+  if (hasStoredUnread) return storedUnread;
+
+  const readAt = Number(chat.readBy?.[userId] || 0);
+  const lastMessageAt = Number(chat.updatedAt || 0);
+  if (chat.lastMessageSenderId && chat.lastMessageSenderId !== userId && lastMessageAt > readAt) {
+    return 1;
+  }
+
+  return 0;
 }

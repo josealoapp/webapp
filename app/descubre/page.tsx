@@ -10,11 +10,11 @@ import AppBottomNav from "@/components/AppBottomNav";
 import ItemCard from "@/components/ItemCard";
 import Navbar from "@/components/Navbar";
 import SellerAvatar from "@/components/SellerAvatar";
-import { readAccountProfile } from "@/lib/account-profile";
+import { subscribeAccountProfile } from "@/lib/account-profile";
 import { normalizeCategoryName } from "@/lib/categories";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser } from "@/lib/likes";
-import { getActiveBazarItems, Listing, subscribeListings } from "@/lib/marketplace";
+import { getActiveBazarItems, Listing, searchListings } from "@/lib/marketplace";
 
 type DiscoverItem = {
   id: string;
@@ -44,9 +44,47 @@ function textMatchesSpecificInterests(values: Array<string | undefined>, specifi
 }
 
 function categoryMatchesInterests(categoryNames: Array<string | undefined>, interestCategoryKeys: Set<string>) {
-  return categoryNames.some((categoryName) =>
-    interestCategoryKeys.has(normalizeCategoryName(categoryName || ""))
-  );
+  return categoryNames.some((categoryName) => {
+    const normalizedCategory = normalizeCategoryName(categoryName || "");
+    if (!normalizedCategory) return false;
+
+    return Array.from(interestCategoryKeys).some((interest) => {
+      const variants = getInterestCategoryVariants(interest);
+      return (
+        variants.has(normalizedCategory) ||
+        normalizedCategory.includes(interest) ||
+        interest.includes(normalizedCategory)
+      );
+    });
+  });
+}
+
+function getInterestCategoryVariants(interest: string) {
+  const variants = new Set([interest]);
+
+  if (
+    [
+      "celulares y smartphones",
+      "computadoras y laptops",
+      "tablets",
+      "televisores",
+      "camaras y fotografia",
+      "audio (bocinas, audifonos)",
+      "videojuegos y consolas",
+      "accesorios electronicos",
+      "electronicos",
+    ].includes(interest)
+  ) {
+    variants.add("electronicos");
+  }
+
+  if (interest.includes("ropa para hombres")) variants.add("hombre");
+  if (interest.includes("ropa para mujeres")) variants.add("mujer");
+  if (interest.includes("muebles") || interest.includes("cocina") || interest.includes("decoracion")) {
+    variants.add("hogar");
+  }
+
+  return variants;
 }
 
 export default function DiscoverPage() {
@@ -74,8 +112,24 @@ export default function DiscoverPage() {
   }, []);
 
   useEffect(() => {
-    const unsub = subscribeListings((rows) => setItems(rows));
-    return () => unsub();
+    let cancelled = false;
+
+    const load = async () => {
+      const result = await searchListings({ status: "active", limit: 160 });
+      if (!cancelled) setItems(result.items);
+    };
+
+    void load().catch(() => {
+      if (!cancelled) setItems([]);
+    });
+    const intervalId = window.setInterval(() => {
+      void load().catch(() => {});
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -86,8 +140,7 @@ export default function DiscoverPage() {
   }, [currentUserId]);
 
   useEffect(() => {
-    const loadInterests = () => {
-      const profile = readAccountProfile();
+    const unsub = subscribeAccountProfile((profile) => {
       setInterestCategoryKeys(
         new Set(profile.interests.slice(0, 8).map((interest) => normalizeCategoryName(interest)))
       );
@@ -95,16 +148,9 @@ export default function DiscoverPage() {
         new Set(profile.specificInterests.map((interest) => normalizeCategoryName(interest)).filter(Boolean))
       );
       setInterestsLoaded(true);
-    };
+    });
 
-    loadInterests();
-    window.addEventListener("focus", loadInterests);
-    window.addEventListener("storage", loadInterests);
-
-    return () => {
-      window.removeEventListener("focus", loadInterests);
-      window.removeEventListener("storage", loadInterests);
-    };
+    return () => unsub();
   }, []);
 
   const hasSelectedInterests = interestCategoryKeys.size > 0 || specificInterestKeys.size > 0;

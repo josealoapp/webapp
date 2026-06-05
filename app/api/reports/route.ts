@@ -24,31 +24,48 @@ export async function POST(request: NextRequest) {
     const decoded = await getAdminAuth().verifyIdToken(token);
     const body = (await request.json().catch(() => null)) as
       | {
+          reportType?: string;
           listingId?: string;
           bazarItemId?: string;
           sellerId?: string;
           itemTitle?: string;
+          targetUserId?: string;
+          targetUserName?: string;
           reason?: string;
           details?: string;
         }
       | null;
 
-    const listingId = body?.listingId?.trim();
+    const reportType = body?.reportType === "user" ? "user" : "item";
+    const listingId = body?.listingId?.trim() || "";
     const bazarItemId = body?.bazarItemId?.trim() || "";
-    const sellerId = body?.sellerId?.trim() || "";
-    const itemTitle = body?.itemTitle?.trim() || "";
+    const targetUserId = body?.targetUserId?.trim() || "";
+    const targetUserName = body?.targetUserName?.trim() || "";
+    const sellerId = reportType === "user" ? targetUserId : body?.sellerId?.trim() || "";
+    const itemTitle = reportType === "user" ? targetUserName || "Usuario reportado" : body?.itemTitle?.trim() || "";
     const reason = body?.reason?.trim();
     const details = body?.details?.trim() || "";
 
-    if (!listingId || !reason) {
+    if (reportType === "item" && (!listingId || !reason)) {
       return NextResponse.json({ error: "report/invalid-payload" }, { status: 400 });
     }
 
+    if (reportType === "user" && (!targetUserId || !reason)) {
+      return NextResponse.json({ error: "report/invalid-payload" }, { status: 400 });
+    }
+
+    if (targetUserId && targetUserId === decoded.uid) {
+      return NextResponse.json({ error: "report/self-report" }, { status: 400 });
+    }
+
     await getAdminDb().collection("reports").add({
+      reportType,
       listingId,
       bazarItemId,
       sellerId,
       itemTitle,
+      targetUserId,
+      targetUserName,
       reason,
       details,
       reporterId: decoded.uid,

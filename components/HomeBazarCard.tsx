@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
 import SellerAvatar from "@/components/SellerAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { followUser } from "@/lib/follows";
 import { getActiveBazarItems, Listing } from "@/lib/marketplace";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
+import { formatBazarTimeLeft } from "@/lib/bazar-duration";
 
 export default function HomeBazarCard({
   item,
@@ -25,13 +27,21 @@ export default function HomeBazarCard({
   const router = useRouter();
   const [isShakingFollow, setIsShakingFollow] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const visibleItems = getActiveBazarItems(item);
   const canFollow = Boolean(currentUserId && currentUserId !== item.ownerId && !isFollowing);
+  const timeLeftLabel = item.bazarEndsAt ? formatBazarTimeLeft(item.bazarEndsAt, now) : "En vivo";
 
   useEffect(() => {
     const unsub = subscribeVerifiedUser(item.ownerId, setIsVerified);
     return () => unsub();
   }, [item.ownerId]);
+
+  useEffect(() => {
+    if (!item.bazarEndsAt) return;
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, [item.bazarEndsAt]);
 
   return (
     <div className="overflow-hidden rounded-[26px] border border-neutral-800 bg-neutral-950/80 p-4 shadow-sm">
@@ -59,31 +69,34 @@ export default function HomeBazarCard({
           </div>
         </Link>
 
-        {canFollow ? (
-          <button
-            type="button"
-            onClick={async () => {
-              if (!currentUserId) return;
-              setIsShakingFollow(true);
-              await followUser({
-                followerId: currentUserId,
-                followerName: currentUserName,
-                followeeId: item.ownerId,
-                followeeName: item.ownerName,
-              });
-              window.setTimeout(() => {
-                setIsShakingFollow(false);
-                onFollowed?.(item.ownerId);
-              }, 420);
-            }}
-            className={[
-              "flex h-11 items-center rounded-xl border border-neutral-700 px-5 text-sm font-semibold text-neutral-100 transition-transform duration-200",
-              isShakingFollow ? "animate-[follow-shake_0.42s_ease-in-out]" : "",
-            ].join(" ")}
-          >
-            <span>Seguir</span>
-          </button>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="text-right text-xs font-semibold text-orange-400">{timeLeftLabel}</div>
+          {canFollow ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!currentUserId) return;
+                setIsShakingFollow(true);
+                await followUser({
+                  followerId: currentUserId,
+                  followerName: currentUserName,
+                  followeeId: item.ownerId,
+                  followeeName: item.ownerName,
+                });
+                window.setTimeout(() => {
+                  setIsShakingFollow(false);
+                  onFollowed?.(item.ownerId);
+                }, 420);
+              }}
+              className={[
+                "flex h-10 items-center rounded-xl border border-neutral-700 px-4 text-sm font-semibold text-neutral-100 transition-transform duration-200",
+                isShakingFollow ? "animate-[follow-shake_0.42s_ease-in-out]" : "",
+              ].join(" ")}
+            >
+              <span>Seguir</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-1">
@@ -105,6 +118,10 @@ export default function HomeBazarCard({
             </div>
             <div className="mt-1 text-sm font-semibold text-orange-400">
               RD${Number(bazarItem.price).toLocaleString()}
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{item.location || "Santo Domingo"}</span>
             </div>
           </button>
         ))}

@@ -11,6 +11,7 @@ import {
 type Props = {
   open: boolean;
   currentLocation: string;
+  allowAllLocations?: boolean;
   onClose: () => void;
   onSelect: (location: string) => void;
 };
@@ -18,6 +19,7 @@ type Props = {
 export default function LocationPickerModal({
   open,
   currentLocation,
+  allowAllLocations = false,
   onClose,
   onSelect,
 }: Props) {
@@ -35,7 +37,7 @@ export default function LocationPickerModal({
       (option) =>
         option.name.toLowerCase().includes(term) || option.detail.toLowerCase().includes(term)
     );
-  }, [query]);
+  }, [locationOptions, query]);
 
   if (!open) return null;
 
@@ -50,7 +52,7 @@ export default function LocationPickerModal({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h2 className="text-base font-semibold tracking-tight">Search Location</h2>
+          <h2 className="text-base font-semibold tracking-tight">Ubicaciones de búsqueda</h2>
         </header>
 
         <div className="mt-4 flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-3">
@@ -109,6 +111,31 @@ export default function LocationPickerModal({
           <div className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
             {countryName}
           </div>
+          {allowAllLocations && !query.trim() ? (
+            <button
+              type="button"
+              onClick={() => {
+                onSelect("");
+                onClose();
+              }}
+              className="flex w-full items-start gap-3 border-b border-neutral-800 py-3 text-left"
+            >
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+              <div className="min-w-0">
+                <div className="text-base font-semibold leading-tight text-neutral-50">
+                  Todas
+                </div>
+                <div className="mt-1 text-sm leading-tight text-neutral-400">
+                  Buscar en todas las ubicaciones y mostrar primero las más cercanas.
+                </div>
+                {!currentLocation && (
+                  <div className="mt-2 inline-flex rounded-full bg-orange-400 px-3 py-1 text-xs font-medium text-black">
+                    Actual
+                  </div>
+                )}
+              </div>
+            </button>
+          ) : null}
           {filteredLocations.map((location) => {
             const isCurrent = location.name === currentLocation;
 

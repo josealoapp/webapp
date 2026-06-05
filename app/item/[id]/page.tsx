@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Heart, MoreHorizontal, Share2, Star } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 
 import InterestModal from "@/components/InterestModal";
@@ -13,7 +13,15 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser, unlikeItem } from "@/lib/likes";
 import { createItemReport, REPORT_REASONS } from "@/lib/item-reports";
-import { getListingById, Listing, markBazarItemSold, markListingSold } from "@/lib/marketplace";
+import {
+  ChatRecord,
+  getListingById,
+  Listing,
+  markBazarItemSold,
+  markListingSold,
+  recordListingView,
+  subscribeChatsForUser,
+} from "@/lib/marketplace";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
@@ -31,9 +39,11 @@ export default function ItemDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("Usuario");
+  const [authResolved, setAuthResolved] = useState(false);
   const [openSoldModal, setOpenSoldModal] = useState(false);
   const [soldWithJosealo, setSoldWithJosealo] = useState<"si" | "no" | "">("");
   const [saleSpeedRating, setSaleSpeedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [soldToUserId, setSoldToUserId] = useState("");
   const [publishingSold, setPublishingSold] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [openBazarMenu, setOpenBazarMenu] = useState(false);
@@ -46,6 +56,7 @@ export default function ItemDetailsPage() {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [sellerVerified, setSellerVerified] = useState(false);
+  const [listingChats, setListingChats] = useState<ChatRecord[]>([]);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -74,6 +85,7 @@ export default function ItemDetailsPage() {
     const unsub = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid || "");
       setCurrentUserName(user?.displayName?.trim() || user?.email?.trim() || "Usuario");
+      setAuthResolved(true);
     });
 
     return () => unsub();
@@ -150,6 +162,7 @@ export default function ItemDetailsPage() {
 
   const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
   const isSold = listing?.status === "sold";
+  const isRemovedBySupport = listing?.status === "removed_by_support" || listing?.status === "account_deactivated";
   const isSelectedBazarItemSold = selectedBazarItem?.status === "sold";
   const isBazarRoot = item?.type === "bazar" && !selectedBazarItem;
   const estimatedBazarValue = useMemo(() => {
@@ -167,6 +180,27 @@ export default function ItemDetailsPage() {
     return getLikeRecordId(currentUserId, item.id, selectedBazarItem?.id);
   }, [currentUserId, item?.id, selectedBazarItem?.id]);
   const isLiked = likeRecordId ? likedIds.has(likeRecordId) : false;
+
+  useEffect(() => {
+    if (!authResolved || !listing?.id) return;
+    if (currentUserId && currentUserId === listing.ownerId) return;
+
+    void recordListingView(listing.id, selectedBazarItemId).catch(() => {});
+  }, [authResolved, currentUserId, listing?.id, listing?.ownerId, selectedBazarItemId]);
+
+  useEffect(() => {
+    if (!currentUserId || !listing?.id || listing.ownerId !== currentUserId) {
+      setListingChats([]);
+      return;
+    }
+
+    return subscribeChatsForUser(
+      currentUserId,
+      "seller",
+      (rows) => setListingChats(rows.filter((chat) => chat.listingId === listing.id)),
+      () => setListingChats([])
+    );
+  }, [currentUserId, listing?.id, listing?.ownerId]);
   const images = useMemo(() => {
     if (isSold) {
       return [] as string[];
@@ -336,7 +370,7 @@ export default function ItemDetailsPage() {
   };
 
   if (!item) {
-    if (loading) {
+  if (loading) {
       return <AppSkeleton variant="detail" />;
     }
 
@@ -347,6 +381,26 @@ export default function ItemDetailsPage() {
           <Button className="mt-4" onClick={() => router.push("/")}>
             Volver al home
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRemovedBySupport) {
+    return (
+      <div className="min-h-screen bg-neutral-950 px-4 py-10 text-neutral-50">
+        <div className="mx-auto max-w-md rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6 text-center">
+          <div className="text-lg font-semibold">Cuenta desactivada por soporte</div>
+          <div className="mt-3 text-sm leading-6 text-neutral-400">
+            Esta publicación no está disponible por una acción de soporte o moderación.
+          </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="mt-5 h-11 rounded-2xl border border-neutral-800 px-5 text-sm font-semibold text-neutral-100"
+          >
+            Volver
+          </button>
         </div>
       </div>
     );
@@ -434,13 +488,6 @@ export default function ItemDetailsPage() {
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       <span>{isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName || "Vendedor"}</span>
                       {sellerVerified ? <VerifiedBadge className="h-3.5 w-3.5" /> : null}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-neutral-300">
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      <Star className="h-3.5 w-3.5 text-neutral-500" />
                     </div>
                   </div>
                 </Link>
@@ -635,6 +682,54 @@ export default function ItemDetailsPage() {
             </button>
           ) : null}
 
+          {isOwnListing && listingChats.length > 0 ? (
+            <div className="mt-6 rounded-3xl border border-neutral-800 bg-neutral-900/60 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-base font-semibold text-neutral-100">
+                  <MessageCircle className="h-4 w-4 text-neutral-400" />
+                  <span>Negociaciones</span>
+                </div>
+                <Link href="/messages" className="text-xs font-semibold text-orange-400 hover:text-orange-200">
+                  Ver todas
+                </Link>
+              </div>
+
+              <div className="space-y-2">
+                {listingChats.slice(0, 5).map((chat) => {
+                  const unreadCount = Math.max(0, Number(chat.unreadBy?.[currentUserId] || 0));
+
+                  return (
+                    <Link
+                      key={chat.id}
+                      href={`/chat/${chat.id}`}
+                      className="flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-950/80 p-3 hover:border-orange-400/70"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-sm font-bold text-neutral-200">
+                        {(chat.buyerName || "C").trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="truncate text-sm font-semibold text-neutral-100">{chat.buyerName || "Comprador"}</div>
+                          {unreadCount > 0 ? (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold leading-none text-black">
+                              {unreadCount > 99 ? "+99" : unreadCount}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 line-clamp-1 text-xs text-neutral-400">
+                          {chat.lastMessage || "Nueva negociación iniciada"}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-[11px] text-neutral-500">
+                        {chat.updatedAt ? new Date(chat.updatedAt).toLocaleDateString() : ""}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {isSold ? (
             <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
               Esta publicación fue marcada como vendida.
@@ -664,26 +759,15 @@ export default function ItemDetailsPage() {
                   setPublishingSold(true);
                   setSoldError("");
                   markBazarItemSold(item.id, selectedBazarItem.id)
-                    .then(() => {
+                    .then((result) => {
                       setListing((current) =>
                         current
-                          ? (() => {
-                              const soldAt = Date.now();
-                              const nextItems = (current.bazarItems || []).map((entry) =>
-                                entry.id === selectedBazarItem.id
-                                  ? { ...entry, status: "sold" as const, soldAt }
-                                  : entry
-                              );
-                              const allItemsSold =
-                                nextItems.length > 0 && nextItems.every((entry) => entry.status === "sold");
-
-                              return {
-                                ...current,
-                                bazarItems: nextItems,
-                                status: allItemsSold ? "sold" : current.status,
-                                soldAt: allItemsSold ? soldAt : current.soldAt,
-                              };
-                            })()
+                          ? {
+                              ...current,
+                              bazarItems: result.bazarItems || current.bazarItems,
+                              status: result.status || current.status,
+                              soldAt: result.status === "sold" ? result.soldAt : current.soldAt,
+                            }
                           : current
                       );
                     })
@@ -790,6 +874,27 @@ export default function ItemDetailsPage() {
               </div>
             </div>
 
+            {listingChats.length > 0 ? (
+              <div className="mt-5">
+                <div className="text-sm font-medium text-neutral-200">¿A quién se lo vendiste?</div>
+                <select
+                  value={soldToUserId}
+                  onChange={(event) => setSoldToUserId(event.target.value)}
+                  className="mt-3 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 outline-none focus:border-orange-400"
+                >
+                  <option value="">Seleccionar comprador</option>
+                  {listingChats.map((chat) => (
+                    <option key={chat.buyerId} value={chat.buyerId}>
+                      {chat.buyerName || "Comprador"}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 text-xs text-neutral-500">
+                  Ordenado por la conversación más reciente.
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-5">
               <div className="text-sm font-medium text-neutral-200">
                 Del 1 al 5, ¿qué tanto te tomó venderlo siendo 1 mucho tiempo y 5 poco tiempo?
@@ -848,27 +953,35 @@ export default function ItemDetailsPage() {
                     setSoldError("Selecciona un valor del 1 al 5.");
                     return;
                   }
+                  if (listingChats.length > 0 && !soldToUserId) {
+                    setSoldError("Selecciona a quién se lo vendiste.");
+                    return;
+                  }
 
                   setPublishingSold(true);
                   setSoldError("");
 
                   try {
-                    await markListingSold(listing.id, {
+                    const soldToChat = listingChats.find((chat) => chat.buyerId === soldToUserId);
+                    const result = await markListingSold(listing.id, {
                       soldWithJosealo: soldWithJosealo === "si",
                       saleSpeedRating,
+                      soldToUserId: soldToChat?.buyerId,
+                      soldToUserName: soldToChat?.buyerName,
                     });
                     setListing((current) =>
                       current
                         ? {
                             ...current,
                             status: "sold",
-                            soldAt: Date.now(),
+                            soldAt: result.soldAt || Date.now(),
                             soldWithJosealo: soldWithJosealo === "si",
                             saleSpeedRating,
                           }
                         : current
                     );
                     setOpenSoldModal(false);
+                    setSoldToUserId("");
                   } catch {
                     setSoldError("No pudimos marcar la publicación como vendida. Intenta de nuevo.");
                   } finally {

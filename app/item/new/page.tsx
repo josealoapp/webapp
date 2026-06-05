@@ -16,6 +16,8 @@ import {
 } from "@/lib/categories";
 import { requestCurrentSupportedLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
+import { BAZAR_DURATION_OPTIONS } from "@/lib/bazar-duration";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const maxArticlePhotos = 10;
 const maxBazarItems = 20;
 
@@ -391,6 +393,7 @@ export default function NewListingPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const [bazarCategory, setBazarCategory] = useState("");
+  const [bazarDurationHours, setBazarDurationHours] = useState("");
   const [bazarTitle, setBazarTitle] = useState("");
   const [bazarDescription, setBazarDescription] = useState("");
   const [bazarTitleTouched, setBazarTitleTouched] = useState(false);
@@ -408,6 +411,7 @@ export default function NewListingPage() {
   const [bazarCategoryError, setBazarCategoryError] = useState<string | null>(null);
   const [publishingBazar, setPublishingBazar] = useState(false);
   const [editingListingId, setEditingListingId] = useState("");
+  const [republishingListing, setRepublishingListing] = useState(false);
 
   const currentUser = auth.currentUser;
   const currentUserName =
@@ -468,6 +472,7 @@ export default function NewListingPage() {
     const nextListingId = searchParams.get("listingId");
     if (nextListingId) {
       setEditingListingId(nextListingId);
+      setRepublishingListing(searchParams.get("republish") === "1");
     }
     if (
       nextPaymentMethod === "efectivo" ||
@@ -488,6 +493,7 @@ export default function NewListingPage() {
 
       setListingType("bazar");
       setBazarCategory(listing.bazarCategory || listing.category || "");
+      setBazarDurationHours(listing.bazarDurationHours ? String(listing.bazarDurationHours) : "");
       setBazarTitle(listing.title || "");
       setBazarDescription(listing.description || "");
       setBazarTitleTouched(true);
@@ -824,6 +830,10 @@ export default function NewListingPage() {
       setBazarError("Agrega un título para tu bazar.");
       return;
     }
+    if (!bazarDurationHours) {
+      setBazarError("Selecciona la duración del bazar.");
+      return;
+    }
     if (bazarItems.length === 0) {
       setBazarError("Agrega al menos un artículo a tu bazar.");
       return;
@@ -868,6 +878,7 @@ export default function NewListingPage() {
           price: lowestPrice,
           category: resolvedBazarCategory,
           bazarCategory: resolvedBazarCategory,
+          bazarDurationHours: Number(bazarDurationHours),
           description: bazarDescription.trim() || `${publishedItems.length} artículos en este bazar.`,
           tags: [],
           paymentMethod: "efectivo" as const,
@@ -1132,6 +1143,28 @@ export default function NewListingPage() {
             />
 
             <label className="flex flex-col gap-2">
+              <span className="text-xs text-neutral-400">Duración del bazar</span>
+              <Select
+                value={bazarDurationHours}
+                onValueChange={(value) => {
+                  setBazarDurationHours(value);
+                  setBazarError(null);
+                }}
+              >
+                <SelectTrigger className="h-12 rounded-2xl border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 shadow-none focus:ring-orange-400/20">
+                  <SelectValue placeholder="Selecciona la duración" />
+                </SelectTrigger>
+                <SelectContent className="border-neutral-800 bg-neutral-950 text-neutral-100">
+                  {BAZAR_DURATION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)} className="focus:bg-neutral-900 focus:text-white">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-2">
               <span className="text-xs text-neutral-400">Título de bazar</span>
               <input
                 type="text"
@@ -1303,7 +1336,15 @@ export default function NewListingPage() {
                 onClick={handlePublishBazar}
                 disabled={publishingBazar}
               >
-                {publishingBazar ? "Publicando bazar..." : editingListingId ? "Guardar cambios" : "Publicar bazar"}
+                {publishingBazar
+                  ? republishingListing
+                    ? "Publicando de nuevo..."
+                    : "Publicando bazar..."
+                  : republishingListing
+                    ? "Publicar de nuevo"
+                    : editingListingId
+                      ? "Guardar cambios"
+                      : "Publicar bazar"}
               </button>
             </div>
           </div>

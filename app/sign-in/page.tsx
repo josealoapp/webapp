@@ -2,10 +2,11 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import { createOffer } from "@/lib/marketplace";
 import { getPostAuthDestination, loadAccountProfileFromBackend } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
@@ -39,11 +40,16 @@ function AuthFallback() {
 
 function SignInContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const defaultPostAuthPath = useMemo(() => "/", []);
+  const isDeactivatedRedirect = searchParams.get("account") === "deactivated";
+  const deactivatedReason = isDeactivatedRedirect ? searchParams.get("reason") || "" : "";
 
   const [emailOrUser, setEmailOrUser] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    isDeactivatedRedirect ? getDeactivatedAccountMessage(deactivatedReason) : ""
+  );
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -70,6 +76,15 @@ function SignInContent() {
       // ✅ Firebase Auth real
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const user = cred.user;
+      const profileSnap = await getDoc(doc(db, "userProfiles", user.uid)).catch(() => null);
+      const supportStatus = profileSnap?.data()?.supportStatus;
+      if (supportStatus === "deactivated") {
+        const reason = String(profileSnap?.data()?.supportDeactivationReason || "");
+        await signOut(auth).catch(() => undefined);
+        setError(getDeactivatedAccountMessage(reason));
+        setLoading(false);
+        return;
+      }
 
       // ⚠️ Compat: tu app actual filtra chats por "auth_user" en localStorage.
       // Guardamos algo mínimo para que NO se rompa el flujo mientras migramos a Firebase.
@@ -240,4 +255,12 @@ function SignInContent() {
       </div>
     </div>
   );
+}
+
+function getDeactivatedAccountMessage(reason: string) {
+  if (!reason) return "";
+  if (reason === "Estafa" || reason === "Artículo robado") {
+    return "Lo sentimos, tu cuenta fue involucrada en una acción fraudulenta crítica y ha sido suspendida permanentemente. Contáctanos si no estás de acuerdo con esta decisión.";
+  }
+  return "Tu cuenta fue desactivada por soporte. Contáctanos si necesitas revisar esta decisión.";
 }

@@ -14,6 +14,8 @@ AWS_S3_BUCKET=your-bucket-name
 NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL=https://your-bucket-name.s3.us-east-1.amazonaws.com
 ```
 
+Use `.env.example` as the template for local or deployment variables. Do not commit `.env.local`, exported env dumps, service account private keys, or AWS credentials. If a secret has been exposed outside your password manager or deployment provider, rotate it before production.
+
 Notes:
 
 - The bucket must allow public reads for the uploaded listing images, or `NEXT_PUBLIC_AWS_S3_PUBLIC_BASE_URL` should point to a public CloudFront distribution in front of the bucket.

@@ -4,9 +4,14 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
+  limit as firestoreLimit,
+  onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -25,8 +30,10 @@ export type BazarItem = {
   vehicleYear?: number;
   clothingSize?: string;
   shoeSize?: string;
-  status?: "active" | "sold";
+  status?: "active" | "sold" | "removed_by_support" | "account_deactivated";
   soldAt?: number;
+  soldWithJosealo?: boolean;
+  saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
 };
 
 export type Listing = {
@@ -50,8 +57,10 @@ export type Listing = {
   clothingSize?: string;
   shoeSize?: string;
   bazarItems?: BazarItem[];
+  bazarDurationHours?: number;
+  bazarEndsAt?: number;
   createdAt: number;
-  status?: "active" | "sold";
+  status?: "active" | "sold" | "removed_by_support" | "account_deactivated";
   soldAt?: number;
   soldWithJosealo?: boolean;
   saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
@@ -60,20 +69,69 @@ export type Listing = {
 export type ListingSoldFeedback = {
   soldWithJosealo: boolean;
   saleSpeedRating: 1 | 2 | 3 | 4 | 5;
+  soldToUserId?: string;
+  soldToUserName?: string;
+};
+
+type SoldListingResponse = {
+  ok?: boolean;
+  error?: string;
+  status?: "active" | "sold" | "removed_by_support" | "account_deactivated";
+  soldAt?: number;
+  bazarItems?: BazarItem[];
+};
+
+export type ListingSearchInput = {
+  q?: string;
+  category?: string;
+  location?: string;
+  status?: "active" | "sold";
+  type?: ListingType;
+  ownerId?: string;
+  limit?: number;
+  cursor?: string | null;
+};
+
+export type ListingSearchResult = {
+  items: Listing[];
+  nextCursor: string | null;
+};
+
+export type ChatPageResult = {
+  chats: ChatRecord[];
+  nextCursor: number | null;
+};
+
+export type MessagePageResult = {
+  messages: MessageRecord[];
+  nextCursor: number | null;
 };
 
 export function getActiveBazarItems(listing: Listing) {
   return (listing.bazarItems || []).filter((item) => item.status !== "sold");
 }
 
+export function isBazarExpired(listing: Listing, now = Date.now()) {
+  return (listing.type || "article") === "bazar" && Boolean(listing.bazarEndsAt && listing.bazarEndsAt <= now);
+}
+
+export function getBazarSaleSummary(listing: Listing) {
+  const items = listing.bazarItems || [];
+  return {
+    sold: items.filter((item) => item.status === "sold").length,
+    total: items.length,
+  };
+}
+
 export function isListingVisibleInMarketplace(listing: Listing) {
-  if (listing.status === "sold") return false;
+  if (listing.status === "sold" || listing.status === "removed_by_support" || listing.status === "account_deactivated") return false;
   if ((listing.type || "article") !== "bazar") return true;
+  if (isBazarExpired(listing)) return false;
   return getActiveBazarItems(listing).length > 0;
 }
 
 export function isListingVisibleInOwnerProfile(listing: Listing) {
-  if (listing.status === "sold") return false;
+  if (listing.status === "sold" || listing.status === "removed_by_support" || listing.status === "account_deactivated") return false;
   if ((listing.type || "article") !== "bazar") return true;
   return getActiveBazarItems(listing).length > 0;
 }
@@ -81,12 +139,14 @@ export function isListingVisibleInOwnerProfile(listing: Listing) {
 export function isListingInHistory(listing: Listing) {
   if (listing.status === "sold") return true;
   if ((listing.type || "article") !== "bazar") return false;
+  if (isBazarExpired(listing)) return true;
   const bazarItems = listing.bazarItems || [];
   return bazarItems.length > 0 && bazarItems.every((item) => item.status === "sold");
 }
 
 export function getListingHistoryDate(listing: Listing) {
   if (listing.soldAt) return listing.soldAt;
+  if (isBazarExpired(listing) && listing.bazarEndsAt) return listing.bazarEndsAt;
   if ((listing.type || "article") !== "bazar") return 0;
   return Math.max(0, ...((listing.bazarItems || []).map((item) => item.soldAt ?? 0)));
 }
@@ -103,6 +163,9 @@ export type ChatRecord = {
   createdAt: number;
   updatedAt: number;
   lastMessage?: string;
+  lastMessageSenderId?: string;
+  unreadBy?: Record<string, number>;
+  readBy?: Record<string, number>;
 };
 
 export type MessageRecord = {
@@ -166,6 +229,35 @@ export async function updateListing(
   if (!response.ok) {
     throw new Error(payload?.error || "listing/update-failed");
   }
+}
+
+export async function searchListings(input: ListingSearchInput = {}): Promise<ListingSearchResult> {
+  const params = new URLSearchParams();
+
+  if (input.q?.trim()) params.set("q", input.q.trim());
+  if (input.category?.trim()) params.set("category", input.category.trim());
+  if (input.location?.trim()) params.set("location", input.location.trim());
+  if (input.status) params.set("status", input.status);
+  if (input.type) params.set("type", input.type);
+  if (input.ownerId?.trim()) params.set("ownerId", input.ownerId.trim());
+  if (input.cursor) params.set("cursor", input.cursor);
+  if (input.limit) params.set("limit", String(input.limit));
+
+  const response = await fetch(`/api/listings/search?${params.toString()}`, {
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { items?: Listing[]; nextCursor?: string | null; error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "listings/search-failed");
+  }
+
+  return {
+    items: payload?.items || [],
+    nextCursor: payload?.nextCursor || null,
+  };
 }
 
 export async function syncOwnerAvatarAcrossListings(ownerId: string, ownerAvatar: string) {
@@ -309,7 +401,7 @@ export async function deleteChat(chatId: string) {
 }
 
 export async function listListings() {
-  const snap = await getDocs(collection(db, "listings"));
+  const snap = await getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), firestoreLimit(120)));
   const rows = snap.docs
     .map((d) => {
       const data = d.data() as Omit<Listing, "id">;
@@ -339,7 +431,7 @@ function subscribeWithPolling(load: () => Promise<void>, intervalMs = 15000) {
 
 export function subscribeListings(onData: (listings: Listing[]) => void) {
   return subscribeWithPolling(async () => {
-    const snap = await getDocs(collection(db, "listings"));
+    const snap = await getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), firestoreLimit(120)));
     const rows = snap.docs
       .map((d) => {
         const data = d.data() as Omit<Listing, "id">;
@@ -358,50 +450,108 @@ export async function getListingById(id: string) {
   return { id: snap.id, ...data } as Listing;
 }
 
-export async function markListingSold(listingId: string, feedback: ListingSoldFeedback) {
-  const soldAt = Date.now();
-
-  await updateDoc(doc(db, "listings", listingId), {
-    status: "sold",
-    image: "",
-    soldAt,
-    soldWithJosealo: feedback.soldWithJosealo,
-    saleSpeedRating: feedback.saleSpeedRating,
-    soldAtServer: serverTimestamp(),
+export async function listOwnerListings(ownerId: string, cursor?: string | null, pageSize = 30): Promise<ListingSearchResult> {
+  return searchListings({
+    ownerId,
+    status: "active",
+    limit: pageSize,
+    cursor,
   });
+}
+
+export async function markListingSold(listingId: string, feedback: ListingSoldFeedback) {
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/listings/sold", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      listingId,
+      ...feedback,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as SoldListingResponse | null;
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "listing/sold-failed");
+  }
+
+  return payload;
 }
 
 export async function markBazarItemSold(listingId: string, bazarItemId: string) {
-  const listing = await getListingById(listingId);
-  if (!listing) {
-    throw new Error("listing/not-found");
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
   }
 
-  const soldAt = Date.now();
-
-  const nextItems = (listing.bazarItems || []).map((item) =>
-    item.id === bazarItemId
-      ? {
-          ...item,
-          status: "sold" as const,
-          soldAt,
-        }
-      : item
-  );
-
-  const allItemsSold = nextItems.length > 0 && nextItems.every((item) => item.status === "sold");
-
-  await updateDoc(doc(db, "listings", listingId), {
-    bazarItems: nextItems,
-    status: allItemsSold ? "sold" : "active",
-    soldAt: allItemsSold ? soldAt : null,
-    soldAtServer: allItemsSold ? serverTimestamp() : null,
-    updatedAt: Date.now(),
-    updatedAtServer: serverTimestamp(),
+  const response = await fetch("/api/listings/sold", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      listingId,
+      bazarItemId,
+    }),
   });
+
+  const payload = (await response.json().catch(() => null)) as SoldListingResponse | null;
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "listing/sold-failed");
+  }
+
+  return payload;
 }
 
-function chatIdFor(listingId: string, buyerId: string) {
+export async function recordListingView(listingId: string, bazarItemId?: string) {
+  const storageKey = `josealo_listing_view:${listingId}:${bazarItemId || "root"}`;
+  const now = Date.now();
+
+  if (typeof window !== "undefined") {
+    const lastTracked = Number(window.localStorage.getItem(storageKey) || 0);
+    if (lastTracked && now - lastTracked < 12 * 60 * 60 * 1000) {
+      return;
+    }
+    window.localStorage.setItem(storageKey, String(now));
+  }
+
+  const token = await auth.currentUser?.getIdToken();
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch("/api/listings/view", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      listingId,
+      bazarItemId,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || "listing/view-failed");
+  }
+}
+
+export function getOfferChatId(listingId: string, buyerId: string) {
   return `chat_${listingId}_${buyerId}`;
 }
 
@@ -414,7 +564,7 @@ export async function upsertChatFromOffer(input: {
   buyerId: string;
   buyerName: string;
 }) {
-  const id = chatIdFor(input.listingId, input.buyerId);
+  const id = getOfferChatId(input.listingId, input.buyerId);
   const now = Date.now();
   const chatRef = doc(db, "chats", id);
 
@@ -440,21 +590,33 @@ export async function addChatMessage(input: {
   text: string;
 }) {
   const createdAt = Date.now();
+  const chat = await getChatById(input.chatId);
+  const recipientId =
+    chat && input.senderId === chat.sellerId ? chat.buyerId : chat?.sellerId;
+
   await addDoc(collection(db, "messages"), {
     ...input,
     createdAt,
     createdAtServer: serverTimestamp(),
   });
 
-  await setDoc(
-    doc(db, "chats", input.chatId),
-    {
-      updatedAt: createdAt,
-      updatedAtServer: serverTimestamp(),
-      lastMessage: input.text,
-    },
-    { merge: true }
-  );
+  await updateDoc(doc(db, "chats", input.chatId), {
+    updatedAt: createdAt,
+    updatedAtServer: serverTimestamp(),
+    lastMessage: input.text,
+    lastMessageSenderId: input.senderId,
+    ...(recipientId ? { [`unreadBy.${recipientId}`]: increment(1) } : {}),
+  });
+}
+
+export async function markChatRead(chatId: string, userId: string) {
+  if (!chatId || !userId) return;
+
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unreadBy.${userId}`]: 0,
+    [`readBy.${userId}`]: Date.now(),
+    updatedAtServer: serverTimestamp(),
+  });
 }
 
 export async function getChatById(chatId: string) {
@@ -463,31 +625,30 @@ export async function getChatById(chatId: string) {
   return { id: snap.id, ...(snap.data() as Omit<ChatRecord, "id">) } as ChatRecord;
 }
 
+export async function getExistingOfferChat(listingId: string, buyerId: string) {
+  if (!listingId || !buyerId) return null;
+  return getChatById(getOfferChatId(listingId, buyerId));
+}
+
 export function subscribeChatById(
   chatId: string,
   onData: (chat: ChatRecord | null) => void,
   onError?: (code?: string) => void
 ) {
-  return subscribeWithPolling(
-    async () => {
-      try {
-        const snap = await getDoc(doc(db, "chats", chatId));
+  return onSnapshot(
+    doc(db, "chats", chatId),
+    (snap) => {
       if (!snap.exists()) {
         onData(null);
         return;
       }
 
       onData({ id: snap.id, ...(snap.data() as Omit<ChatRecord, "id">) } as ChatRecord);
-      } catch (error: unknown) {
-        const code =
-          typeof error === "object" && error !== null && "code" in error
-            ? String((error as { code?: string }).code)
-            : undefined;
-        onError?.(code);
-        onData(null);
-      }
     },
-    5000
+    (error) => {
+      onError?.(error.code);
+      onData(null);
+    }
   );
 }
 
@@ -498,49 +659,49 @@ export function subscribeMessagesForChat(
 ) {
   const q = query(collection(db, "messages"), where("chatId", "==", chatId));
 
-  return subscribeWithPolling(
-    async () => {
-      try {
-        const snap = await getDocs(q);
+  return onSnapshot(
+    q,
+    (snap) => {
       const rows = snap.docs
         .map((d) => ({
           id: d.id,
           ...(d.data() as Omit<MessageRecord, "id">),
         }))
-        .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+        .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+        .slice(-50);
 
       onData(rows as MessageRecord[]);
-      } catch (error: unknown) {
-        const code =
-          typeof error === "object" && error !== null && "code" in error
-            ? String((error as { code?: string }).code)
-            : undefined;
-        onError?.(code);
-      }
     },
-    5000
+    (error) => onError?.(error.code)
   );
 }
 
 export function subscribeChatsForUser(
   userId: string,
   role: "buyer" | "seller",
-  onData: (chats: ChatRecord[]) => void
+  onData: (chats: ChatRecord[]) => void,
+  onError?: (code?: string) => void
 ) {
   const field = role === "buyer" ? "buyerId" : "sellerId";
   const q = query(collection(db, "chats"), where(field, "==", userId));
 
-  return subscribeWithPolling(async () => {
-    const snap = await getDocs(q);
-    const rows = snap.docs
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
       .map((d) => ({
         id: d.id,
         ...(d.data() as Omit<ChatRecord, "id">),
       }))
       .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 
-    onData(rows as ChatRecord[]);
-  });
+      onData(rows as ChatRecord[]);
+    },
+    (error) => {
+      onError?.(error.code);
+      onData([]);
+    }
+  );
 }
 
 export function subscribeInboxChatsForUser(
@@ -548,47 +709,121 @@ export function subscribeInboxChatsForUser(
   onData: (chats: ChatRecord[]) => void,
   onError?: (code?: string) => void
 ) {
-  let cancelled = false;
+  let buyerChats: ChatRecord[] = [];
+  let sellerChats: ChatRecord[] = [];
 
-  const load = async () => {
-    try {
-      const [buyerSnap, sellerSnap] = await Promise.all([
-        getDocs(query(collection(db, "chats"), where("buyerId", "==", userId))),
-        getDocs(query(collection(db, "chats"), where("sellerId", "==", userId))),
-      ]);
-
-      if (cancelled) return;
-
-      const rows = new Map<string, ChatRecord>();
-
-      [...buyerSnap.docs, ...sellerSnap.docs].forEach((docSnap) => {
-        rows.set(docSnap.id, {
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<ChatRecord, "id">),
-        } as ChatRecord);
-      });
-
-      onData(
-        Array.from(rows.values()).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
-      );
-    } catch (error: unknown) {
-      const code =
-        typeof error === "object" && error !== null && "code" in error
-          ? String((error as { code?: string }).code)
-          : undefined;
-
-      if (!cancelled) {
-        onError?.(code);
-        onData([]);
-      }
-    }
+  const publish = () => {
+    const rows = new Map<string, ChatRecord>();
+    [...buyerChats, ...sellerChats].forEach((chat) => rows.set(chat.id, chat));
+    onData(Array.from(rows.values()).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
   };
 
-  void load();
-  const intervalId = window.setInterval(load, 15000);
+  const unsubBuyer = subscribeChatsForUser(
+    userId,
+    "buyer",
+    (rows) => {
+      buyerChats = rows;
+      publish();
+    },
+    onError
+  );
+  const unsubSeller = subscribeChatsForUser(
+    userId,
+    "seller",
+    (rows) => {
+      sellerChats = rows;
+      publish();
+    },
+    onError
+  );
 
   return () => {
-    cancelled = true;
-    window.clearInterval(intervalId);
+    unsubBuyer();
+    unsubSeller();
   };
+}
+
+export async function listMessagesForChat(
+  chatId: string,
+  cursor?: number | null,
+  pageSize = 50
+): Promise<MessagePageResult> {
+  const parts = [
+    collection(db, "messages"),
+    where("chatId", "==", chatId),
+    orderBy("createdAt", "desc"),
+    ...(cursor ? [startAfter(cursor)] : []),
+    firestoreLimit(pageSize),
+  ] as const;
+  let snap;
+  try {
+    snap = await getDocs(query(...parts));
+  } catch (error) {
+    if (!isMissingFirestoreIndexError(error)) throw error;
+
+    snap = await getDocs(
+      query(collection(db, "messages"), where("chatId", "==", chatId), firestoreLimit(pageSize))
+    );
+  }
+  const rows = snap.docs
+    .map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<MessageRecord, "id">),
+    }))
+    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)) as MessageRecord[];
+  const last = snap.docs[snap.docs.length - 1];
+
+  return {
+    messages: rows,
+    nextCursor: snap.docs.length === pageSize ? Number(last?.get("createdAt") || 0) : null,
+  };
+}
+
+export async function listChatsForUser(
+  userId: string,
+  role: "buyer" | "seller",
+  cursor?: number | null,
+  pageSize = 25
+): Promise<ChatPageResult> {
+  const field = role === "buyer" ? "buyerId" : "sellerId";
+  const parts = [
+    collection(db, "chats"),
+    where(field, "==", userId),
+    orderBy("updatedAt", "desc"),
+    ...(cursor ? [startAfter(cursor)] : []),
+    firestoreLimit(pageSize),
+  ] as const;
+  let snap;
+  let usedFallback = false;
+  try {
+    snap = await getDocs(query(...parts));
+  } catch (error) {
+    if (!isMissingFirestoreIndexError(error)) throw error;
+
+    usedFallback = true;
+    snap = await getDocs(query(collection(db, "chats"), where(field, "==", userId), firestoreLimit(100)));
+  }
+
+  const rows = snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<ChatRecord, "id">),
+  }))
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    .slice(0, pageSize) as ChatRecord[];
+  const last = snap.docs[snap.docs.length - 1];
+
+  return {
+    chats: rows,
+    nextCursor: !usedFallback && snap.docs.length === pageSize ? Number(last?.get("updatedAt") || 0) : null,
+  };
+}
+
+function isMissingFirestoreIndexError(error: unknown) {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  const message = error instanceof Error ? error.message : "";
+
+  return code === "failed-precondition" || message.toLowerCase().includes("index");
 }

@@ -44,7 +44,6 @@ export default function ItemCard({ item }: { item: Item }) {
           <div className="absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-end gap-3">
             <ActionIcon icon={Heart} />
             <SellerBadge
-              rating={4.5}
               sellerId={item.sellerId}
               sellerName={item.sellerName}
               sellerAvatar={item.sellerAvatar}
@@ -119,12 +118,10 @@ function ActionIcon({ icon: Icon }: { icon: React.ComponentType<{ className?: st
 }
 
 function SellerBadge({
-  rating,
   sellerId,
   sellerName,
   sellerAvatar,
 }: {
-  rating: number;
   sellerId?: string;
   sellerName?: string;
   sellerAvatar?: string;
@@ -140,9 +137,6 @@ function SellerBadge({
             initialsClassName="text-sm font-bold"
             imageClassName="object-cover"
           />
-          <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black px-2 py-[2px] text-xs font-bold text-white shadow">
-            {rating.toFixed(1)}
-          </div>
         </div>
       </div>
     );
@@ -163,9 +157,6 @@ function SellerBadge({
           initialsClassName="text-sm font-bold"
           imageClassName="object-cover"
         />
-        <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black px-2 py-[2px] text-xs font-bold text-white shadow">
-          {rating.toFixed(1)}
-        </div>
       </div>
     </Link>
   );

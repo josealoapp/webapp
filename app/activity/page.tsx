@@ -8,7 +8,7 @@ import { ArrowLeft, Bell, Heart, Search, Sparkles } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import SellerAvatar from "@/components/SellerAvatar";
 import { auth } from "@/lib/firebase";
-import { subscribeFollowing } from "@/lib/follows";
+import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
 import {
   ChatRecord,
   Listing,
@@ -21,6 +21,10 @@ import {
   subscribeLikesForUser,
   unlikeItem,
 } from "@/lib/likes";
+import {
+  SupportNotification,
+  subscribeSupportNotifications,
+} from "@/lib/support-notifications";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 
@@ -28,12 +32,13 @@ type ActivityEntry = {
   id: string;
   href: string;
   createdAt: number;
-  type: "like" | "listing" | "message";
+  type: "like" | "listing" | "message" | "support";
   title: string;
   subtitle: string;
   avatarUserId?: string;
   avatarName: string;
   avatarUrl?: string;
+  unread?: boolean;
 };
 
 export default function ActivityPage() {
@@ -49,8 +54,10 @@ export default function ActivityPage() {
   const [likes, setLikes] = useState<LikeRecord[]>([]);
   const [incomingLikes, setIncomingLikes] = useState<LikeRecord[]>([]);
   const [following, setFollowing] = useState<ReturnType<typeof subscribeFollowingRows>>([]);
+  const [followers, setFollowers] = useState<ReturnType<typeof subscribeFollowerRows>>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [chats, setChats] = useState<ChatRecord[]>([]);
+  const [supportNotifications, setSupportNotifications] = useState<SupportNotification[]>([]);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -89,23 +96,40 @@ export default function ActivityPage() {
     const unsubFollowing = subscribeFollowing(currentUserId, (rows) =>
       setFollowing(subscribeFollowingRows(rows))
     );
+    const unsubFollowers = subscribeFollowers(currentUserId, (rows) =>
+      setFollowers(subscribeFollowerRows(rows))
+    );
     const unsubListings = subscribeListings(setListings);
     const unsubChats = subscribeInboxChatsForUser(
       currentUserId,
       setChats,
       () => setChats([])
     );
+    const unsubSupport = subscribeSupportNotifications(currentUserId, setSupportNotifications);
 
     return () => {
       unsubLikes();
       unsubIncomingLikes();
       unsubFollowing();
+      unsubFollowers();
       unsubListings();
       unsubChats();
+      unsubSupport();
     };
   }, [currentUserId]);
 
   const activityEntries = useMemo(() => {
+    const supportEntries: ActivityEntry[] = supportNotifications.map((notification) => ({
+      id: `support:${notification.id}`,
+      href: "/activity",
+      createdAt: notification.createdAt ?? 0,
+      type: "support",
+      title: notification.title,
+      subtitle: notification.message,
+      avatarName: "Protección Josealo",
+      unread: !notification.read,
+    }));
+
     const likeEntries: ActivityEntry[] = incomingLikes.map((entry) => ({
       id: `like:${entry.id}`,
       href: entry.href,
@@ -152,10 +176,41 @@ export default function ActivityPage() {
       };
     });
 
-    return [...likeEntries, ...followedPostEntries, ...messageEntries].sort(
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const followersToday = followers.filter((entry) => (entry.createdAt || 0) >= todayStart.getTime());
+    const olderFollowers = followers.filter((entry) => (entry.createdAt || 0) < todayStart.getTime());
+    const followerEntries: ActivityEntry[] = [
+      ...(followersToday.length > 1
+        ? [
+            {
+              id: `followers-today:${currentUserId}`,
+              href: `/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`,
+              createdAt: Math.max(...followersToday.map((entry) => entry.createdAt || 0)),
+              type: "message" as const,
+              title: `${followersToday.length} usuarios te siguieron hoy`,
+              subtitle: "Toca para ver tu lista de seguidores",
+              avatarUserId: followersToday[0]?.followerId,
+              avatarName: followersToday[0]?.followerName || "Usuario",
+            },
+          ]
+        : followersToday.map((entry) => buildFollowerActivityEntry(entry, currentUserId, currentUserName))),
+      ...olderFollowers.map((entry) => buildFollowerActivityEntry(entry, currentUserId, currentUserName)),
+    ];
+
+    return [...supportEntries, ...followerEntries, ...likeEntries, ...followedPostEntries, ...messageEntries].sort(
       (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)
     );
-  }, [chats, currentUserId, following, incomingLikes, listings]);
+  }, [
+    chats,
+    currentUserId,
+    currentUserName,
+    followers,
+    following,
+    incomingLikes,
+    listings,
+    supportNotifications,
+  ]);
 
   const filteredActivity = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -242,7 +297,7 @@ export default function ActivityPage() {
             <EmptyState
               icon={Sparkles}
               title="Tu actividad aparecerá aquí"
-              description="Cuando alguien le dé like a una publicación tuya, te escriba, o una cuenta que sigues publique algo nuevo, lo verás aquí."
+              description="Cuando alguien te siga, le dé like a una publicación tuya, te escriba, o soporte actualice tu cuenta, lo verás aquí."
             />
           ) : (
             <div className="space-y-3">
@@ -260,7 +315,12 @@ export default function ActivityPage() {
                     imageClassName="object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-white">{entry.title}</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                      {entry.unread ? (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" aria-label="Nueva notificación" />
+                      ) : null}
+                      <span>{entry.title}</span>
+                    </div>
                     <div className="mt-1 truncate text-sm text-neutral-400">{entry.subtitle}</div>
                   </div>
                   <div className="shrink-0 text-xs text-neutral-500">
@@ -331,6 +391,39 @@ function subscribeFollowingRows(
     followeeName: row.followeeName,
     createdAt: row.createdAt,
   }));
+}
+
+function subscribeFollowerRows(
+  rows: Array<{
+    id: string;
+    followerId: string;
+    followerName: string;
+    createdAt: number;
+  }>
+) {
+  return rows.map((row) => ({
+    id: row.id,
+    followerId: row.followerId,
+    followerName: row.followerName,
+    createdAt: row.createdAt,
+  }));
+}
+
+function buildFollowerActivityEntry(
+  entry: ReturnType<typeof subscribeFollowerRows>[number],
+  currentUserId: string,
+  currentUserName: string
+): ActivityEntry {
+  return {
+    id: `follower:${entry.id}`,
+    href: `/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`,
+    createdAt: entry.createdAt,
+    type: "message",
+    title: `${entry.followerName} empezó a seguirte`,
+    subtitle: "Nuevo seguidor",
+    avatarUserId: entry.followerId,
+    avatarName: entry.followerName,
+  };
 }
 
 function EmptyState({

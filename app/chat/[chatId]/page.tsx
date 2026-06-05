@@ -9,6 +9,8 @@ import { auth } from "@/lib/firebase";
 import {
   addChatMessage,
   ChatRecord,
+  listMessagesForChat,
+  markChatRead,
   MessageRecord,
   subscribeChatById,
   subscribeMessagesForChat,
@@ -27,6 +29,8 @@ export default function ChatPage() {
   const [authResolved, setAuthResolved] = useState(false);
   const [screenError, setScreenError] = useState("");
   const [sending, setSending] = useState(false);
+  const [olderMessagesCursor, setOlderMessagesCursor] = useState<number | null>(null);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -79,7 +83,16 @@ export default function ChatPage() {
       chatId,
       (rows) => {
         setScreenError("");
-        setMessages(rows);
+        setMessages((current) => {
+          if (current.length === 0) {
+            setOlderMessagesCursor(rows.length >= 50 ? rows[0]?.createdAt || null : null);
+            return rows;
+          }
+
+          const merged = new Map<string, MessageRecord>();
+          [...current, ...rows].forEach((message) => merged.set(message.id, message));
+          return Array.from(merged.values()).sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+        });
       },
       (code) => {
         if (code === "permission-denied") {
@@ -93,6 +106,23 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  useEffect(() => {
+    if (!chatId || !currentUserId || !chat) return;
+    const unreadBy = chat.unreadBy || {};
+    const hasStoredUnread = Object.prototype.hasOwnProperty.call(unreadBy, currentUserId);
+    const storedUnread = Math.max(0, Number(unreadBy[currentUserId] || 0));
+    const readAt = Number(chat.readBy?.[currentUserId] || 0);
+    const fallbackUnread =
+      !hasStoredUnread &&
+      chat.lastMessageSenderId &&
+      chat.lastMessageSenderId !== currentUserId &&
+      Number(chat.updatedAt || 0) > readAt;
+
+    if (storedUnread <= 0 && !fallbackUnread) return;
+
+    void markChatRead(chatId, currentUserId).catch(() => {});
+  }, [chat, chatId, currentUserId]);
 
   const handleSend = async () => {
     const trimmed = text.trim();
@@ -128,6 +158,25 @@ export default function ChatPage() {
       }
     } finally {
       setSending(false);
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!chatId || !olderMessagesCursor || loadingOlderMessages) return;
+
+    setLoadingOlderMessages(true);
+    try {
+      const result = await listMessagesForChat(chatId, olderMessagesCursor, 50);
+      setMessages((current) => {
+        const existingIds = new Set(current.map((message) => message.id));
+        const olderRows = result.messages.filter((message) => !existingIds.has(message.id));
+        return [...olderRows, ...current];
+      });
+      setOlderMessagesCursor(result.nextCursor);
+    } catch {
+      setScreenError("No pudimos cargar mensajes anteriores. Intenta de nuevo.");
+    } finally {
+      setLoadingOlderMessages(false);
     }
   };
 
@@ -180,6 +229,16 @@ export default function ChatPage() {
           </div>
         ) : null}
         <div className="space-y-3">
+          {olderMessagesCursor ? (
+            <button
+              type="button"
+              onClick={loadOlderMessages}
+              disabled={loadingOlderMessages}
+              className="mx-auto mb-2 block rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-2 text-xs font-semibold text-neutral-200 disabled:text-neutral-500"
+            >
+              {loadingOlderMessages ? "Cargando..." : "Cargar mensajes anteriores"}
+            </button>
+          ) : null}
           {messages.map((m) => (
             <div
               key={m.id}

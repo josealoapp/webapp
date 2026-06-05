@@ -7,7 +7,14 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination } from "@/lib/account-profile";
-import { getListingHistoryDate, isListingInHistory, Listing, subscribeListings } from "@/lib/marketplace";
+import {
+  getBazarSaleSummary,
+  getListingHistoryDate,
+  isBazarExpired,
+  isListingInHistory,
+  Listing,
+  subscribeListings,
+} from "@/lib/marketplace";
 
 export default function HistoricPage() {
   const router = useRouter();
@@ -78,28 +85,46 @@ export default function HistoricPage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-24">
         {soldListings.length === 0 ? (
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-400">
-            Aún no tienes publicaciones vendidas en tu histórico.
+            Aún no tienes publicaciones en tu histórico.
           </div>
         ) : (
           soldListings.map((item) => {
-            const republishParams = new URLSearchParams({
-              title: item.title,
-              price: String(item.price),
-              category: item.category,
-              description: item.description,
-              tags: item.tags.join(", "),
-              paymentMethod: item.paymentMethod,
-              location: item.location,
-            });
+            const isBazar = (item.type || "article") === "bazar";
+            const bazarSummary = getBazarSaleSummary(item);
+            const historyDate = getListingHistoryDate(item);
+            const republishParams = isBazar
+              ? new URLSearchParams({ listingId: item.id, republish: "1" })
+              : new URLSearchParams({
+                  title: item.title,
+                  price: String(item.price),
+                  category: item.category,
+                  description: item.description,
+                  tags: item.tags.join(", "),
+                  paymentMethod: item.paymentMethod,
+                  location: item.location,
+                });
 
             return (
               <div key={item.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
                 <Link href={`/item/${item.id}`} className="block">
+                  <div className="relative mb-3 h-40 overflow-hidden rounded-2xl bg-neutral-800">
+                    {item.image ? (
+                      <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-neutral-800" />
+                    )}
+                    {isBazar ? (
+                      <div className="absolute left-3 top-3 rounded-full border border-neutral-700 bg-black/75 px-3 py-1 text-xs font-semibold text-neutral-100 shadow-sm">
+                        {bazarSummary.sold}/{bazarSummary.total} artículos vendidos
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
                   <div className="mt-1 text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
                   <div className="mt-2 text-xs text-neutral-400">{item.category} · {item.location}</div>
                   <div className="mt-1 text-xs text-neutral-500">
-                    Vendida {getListingHistoryDate(item) ? new Date(getListingHistoryDate(item)).toLocaleDateString() : ""}
+                    {isBazar && isBazarExpired(item) ? "Bazar finalizado" : "Vendida"}{" "}
+                    {historyDate ? new Date(historyDate).toLocaleDateString("es-DO") : ""}
                   </div>
                 </Link>
 

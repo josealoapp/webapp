@@ -56,7 +56,7 @@ export default function AdminUserRow({
                 }}
                 className="w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 hover:bg-neutral-900"
               >
-                Delete account
+                Desactivar cuenta
               </button>
             </div>
           ) : null}

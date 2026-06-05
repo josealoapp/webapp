@@ -104,9 +104,7 @@ function NewListingPreviewContent() {
             ? data.paymentMethod
             : "efectivo",
         location: data.location || getDefaultListingLocation(),
-        image:
-          data.imageUrl ||
-          "https://images.unsplash.com/photo-1512499617640-c2f999098c01?auto=format&fit=crop&w=1200&q=80",
+        image: data.imageUrl,
         ...(data.vehicleYear ? { vehicleYear: Number(data.vehicleYear) } : {}),
         ...(data.clothingSize ? { clothingSize: data.clothingSize } : {}),
         ...(data.shoeSize ? { shoeSize: data.shoeSize } : {}),

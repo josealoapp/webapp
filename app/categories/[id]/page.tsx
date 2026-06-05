@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { notFound, useParams } from "next/navigation";
-import { ArrowLeft, CalendarIcon, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeft, CalendarIcon, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { appCategories, getCategoryInputKind, normalizeCategoryName } from "@/lib/categories";
 import {
   getActiveBazarItems,
   isListingVisibleInMarketplace,
+  searchListings,
   type Listing,
-  subscribeListings,
 } from "@/lib/marketplace";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { recordSearchEvent } from "@/lib/search-analytics";
 
 type CategoryFilters = {
   minPrice: string;
@@ -130,6 +131,8 @@ export default function CategoryDetailPage() {
   const [draftFilters, setDraftFilters] = useState<CategoryFilters>(emptyFilters);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   const category = useMemo(() => appCategories.find((c) => c.id === params?.id), [params?.id]);
   const filterKind = getCategoryInputKind(category?.name);
@@ -144,14 +147,52 @@ export default function CategoryDetailPage() {
   }, [categoryItems]);
 
   useEffect(() => {
-    setLoading(true);
-    const unsubscribe = subscribeListings((rows) => {
-      setListings(rows);
-      setLoading(false);
-    });
+    if (!category) return;
 
-    return () => unsubscribe();
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    searchListings({
+      category: category.name,
+      status: "active",
+      limit: 60,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setListings(result.items);
+        setNextCursor(result.nextCursor);
+        void recordSearchEvent({
+          query: q,
+          category: category.name,
+          source: "category",
+        }).catch(() => {});
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setListings([]);
+        setNextCursor(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [category]);
+
+  useEffect(() => {
+    if (!category || !q.trim()) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void recordSearchEvent({
+        query: q,
+        category: category.name,
+        source: "category",
+      }).catch(() => {});
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [category, q]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -196,6 +237,24 @@ export default function CategoryDetailPage() {
     setDraftFilters(emptyFilters);
     setFilters(emptyFilters);
     setIsFilterOpen(false);
+  };
+
+  const loadMore = async () => {
+    if (!category || !nextCursor || loadingMore) return;
+
+    setLoadingMore(true);
+    try {
+      const result = await searchListings({
+        category: category.name,
+        status: "active",
+        limit: 60,
+        cursor: nextCursor,
+      });
+      setListings((current) => [...current, ...result.items]);
+      setNextCursor(result.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -243,26 +302,41 @@ export default function CategoryDetailPage() {
             Cargando publicaciones reales...
           </div>
         ) : filtered.length ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {filtered.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className="rounded-2xl border border-neutral-800 bg-neutral-900 p-3 shadow-sm transition hover:border-orange-400"
-            >
-              <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
-                {item.image ? (
-                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
-                )}
-              </div>
-              <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
-              <div className="text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-neutral-500">{item.location}</div>
-            </Link>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {filtered.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="rounded-2xl border border-neutral-800 bg-neutral-900 p-3 shadow-sm transition hover:border-orange-400"
+              >
+                <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
+                  )}
+                </div>
+                <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
+                <div className="text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
+                <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{item.location || "Santo Domingo"}</span>
+                </div>
+              </Link>
+              ))}
+            </div>
+            {nextCursor ? (
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="mt-4 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+              >
+                {loadingMore ? "Cargando..." : "Cargar más"}
+              </button>
+            ) : null}
+          </>
         ) : (
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
             No hay publicaciones activas para esta categoría con los filtros seleccionados.

@@ -27,6 +27,14 @@ type RawListing = {
   soldAt?: number;
 };
 
+type RawSearchEvent = {
+  query?: string;
+  normalizedQuery?: string;
+  category?: string;
+  location?: string;
+  userId?: string;
+};
+
 export type AdminSoldItem = {
   id: string;
   listingId: string;
@@ -47,6 +55,8 @@ export type AdminSoldItem = {
   views: number;
   interactions: number;
   interactionUsers: string[];
+  searchCount: number;
+  searchUsers: string[];
 };
 
 export type AdminStatsGroup = {
@@ -274,11 +284,18 @@ function getTopName(items: AdminSoldItem[], keyFor: (item: AdminSoldItem) => str
 }
 
 async function getInteractionMap() {
-  const snap = await getAdminDb().collection("chats").get();
+  const [chatSnap, messageSnap] = await Promise.all([
+    getAdminDb().collection("chats").get(),
+    getAdminDb().collection("messages").limit(3000).get(),
+  ]);
   const map = new Map<string, { interactions: number; interactionUsers: string[] }>();
+  const chats = new Map<
+    string,
+    { listingId: string; buyerId: string; buyerName: string; sellerId: string }
+  >();
 
-  snap.docs.forEach((docSnap) => {
-    const data = docSnap.data() as { listingId?: string; buyerId?: string; buyerName?: string };
+  chatSnap.docs.forEach((docSnap) => {
+    const data = docSnap.data() as { listingId?: string; buyerId?: string; buyerName?: string; sellerId?: string };
     const listingId = data.listingId?.trim();
     if (!listingId) return;
 
@@ -292,6 +309,31 @@ async function getInteractionMap() {
     }
 
     map.set(listingId, current);
+    chats.set(docSnap.id, {
+      listingId,
+      buyerId: data.buyerId || "",
+      buyerName: data.buyerName || "Comprador",
+      sellerId: data.sellerId || "",
+    });
+  });
+
+  const messageCounts = new Map<string, number>();
+  messageSnap.docs.forEach((docSnap) => {
+    const data = docSnap.data() as { chatId?: string; senderId?: string; senderRole?: string };
+    const chat = data.chatId ? chats.get(data.chatId) : null;
+    if (!chat) return;
+
+    const isBuyerMessage = data.senderRole === "buyer" || data.senderId === chat.buyerId;
+    if (!isBuyerMessage) return;
+
+    messageCounts.set(chat.listingId, (messageCounts.get(chat.listingId) || 0) + 1);
+  });
+
+  messageCounts.forEach((count, listingId) => {
+    const current = map.get(listingId);
+    if (!current) return;
+    current.interactions = Math.max(current.interactions, count);
+    map.set(listingId, current);
   });
 
   return map;
@@ -304,6 +346,46 @@ function applyInteractions(items: AdminSoldItem[], interactionMap: Map<string, {
       ...item,
       interactions: interaction?.interactions || 0,
       interactionUsers: interaction?.interactionUsers || [],
+    };
+  });
+}
+
+async function getSearchEvents() {
+  const snap = await getAdminDb()
+    .collection("searchEvents")
+    .orderBy("createdAt", "desc")
+    .limit(1500)
+    .get();
+
+  return snap.docs.map((docSnap) => docSnap.data() as RawSearchEvent);
+}
+
+function searchEventMatchesItem(event: RawSearchEvent, item: AdminSoldItem) {
+  const eventLocation = normalize(event.location || "");
+  const itemLocation = normalize(item.location);
+  const eventCategory = normalize(event.category || "");
+  const itemCategory = normalize(item.category);
+  const query = normalize(event.normalizedQuery || event.query || "");
+
+  if (eventLocation && eventLocation !== itemLocation) return false;
+  if (eventCategory && eventCategory !== itemCategory) return false;
+  if (!query) return Boolean(eventCategory);
+
+  const productText = normalize(`${item.title} ${item.category} ${item.brand} ${item.model}`);
+  return productText.includes(query) || query.includes(normalize(item.title));
+}
+
+function applySearchInterest(items: AdminSoldItem[], searchEvents: RawSearchEvent[]) {
+  return items.map((item) => {
+    const matches = searchEvents.filter((event) => searchEventMatchesItem(event, item));
+    const searchUsers = Array.from(
+      new Set(matches.map((event) => event.userId || "anon").filter(Boolean))
+    );
+
+    return {
+      ...item,
+      searchCount: matches.length,
+      searchUsers,
     };
   });
 }
@@ -344,6 +426,8 @@ function flattenSoldListing(snapshotId: string, listing: RawListing) {
         views,
         interactions: 0,
         interactionUsers: [],
+        searchCount: 0,
+        searchUsers: [],
       });
     });
     return rows;
@@ -375,6 +459,8 @@ function flattenSoldListing(snapshotId: string, listing: RawListing) {
     views: getListingViews(listing),
     interactions: 0,
     interactionUsers: [],
+    searchCount: 0,
+    searchUsers: [],
   });
 
   return rows;
@@ -415,6 +501,8 @@ function flattenActiveListing(snapshotId: string, listing: RawListing) {
         views,
         interactions: 0,
         interactionUsers: [],
+        searchCount: 0,
+        searchUsers: [],
       });
     });
     return rows;
@@ -445,28 +533,31 @@ function flattenActiveListing(snapshotId: string, listing: RawListing) {
     views: getListingViews(listing),
     interactions: 0,
     interactionUsers: [],
+    searchCount: 0,
+    searchUsers: [],
   });
 
   return rows;
 }
 
 export async function getAdminMarketplaceStats(): Promise<AdminMarketplaceStats> {
-  const [snapshot, interactionMap] = await Promise.all([
+  const [snapshot, interactionMap, searchEvents] = await Promise.all([
     getAdminDb().collection("listings").get(),
     getInteractionMap(),
+    getSearchEvents(),
   ]);
-  const items = applyInteractions(
+  const items = applySearchInterest(applyInteractions(
     snapshot.docs
     .flatMap((docSnap) => flattenSoldListing(docSnap.id, docSnap.data() as RawListing))
       .sort((a, b) => b.soldAt - a.soldAt),
     interactionMap
-  );
-  const activeItems = applyInteractions(
+  ), searchEvents);
+  const activeItems = applySearchInterest(applyInteractions(
     snapshot.docs
     .flatMap((docSnap) => flattenActiveListing(docSnap.id, docSnap.data() as RawListing))
       .sort((a, b) => b.createdAt - a.createdAt),
     interactionMap
-  );
+  ), searchEvents);
 
   const locations = Array.from(
     items.reduce((map, item) => {

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Home, ShieldUser, Users } from "lucide-react";
+import { BarChart3, Home, Megaphone, ShieldUser, Users } from "lucide-react";
 
-export default function AdminBottomNav({ active }: { active: "home" | "users" | "stats" | "profile" }) {
+export default function AdminBottomNav({ active }: { active: "home" | "users" | "stats" | "ads" | "profile" }) {
   const items = [
     { id: "home", label: "Home", href: "/admin", icon: Home },
     { id: "users", label: "Users", href: "/admin/users", icon: Users },
     { id: "stats", label: "Stats", href: "/admin/stats", icon: BarChart3 },
+    { id: "ads", label: "Ads", href: "/admin/ads", icon: Megaphone },
     { id: "profile", label: "Profile", href: "/admin/profile", icon: ShieldUser },
   ] as const;
 

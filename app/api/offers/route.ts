@@ -77,6 +77,11 @@ export async function POST(request: NextRequest) {
           createdAtServer: FieldValue.serverTimestamp(),
           updatedAtServer: FieldValue.serverTimestamp(),
           lastMessage: message,
+          lastMessageSenderId: decoded.uid,
+          unreadBy: {
+            [decoded.uid]: 0,
+            [sellerId]: FieldValue.increment(1),
+          },
         },
         { merge: true }
       );

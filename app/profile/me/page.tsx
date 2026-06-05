@@ -3,17 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Instagram, ChevronDown, Settings } from "lucide-react";
+import { ArrowLeft, ChevronDown, Instagram, Settings, Star, X } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
+import AppBottomNav from "@/components/AppBottomNav";
 import CategoryStories from "@/components/CategoryStories";
 import ProfileAvatar from "@/components/ProfileAvatar";
+import ProfileTags from "@/components/ProfileTags";
 import { auth } from "@/lib/firebase";
-import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
+import { subscribeFollowers } from "@/lib/follows";
 import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import {
   isListingVisibleInOwnerProfile,
+  listOwnerListings,
   Listing,
-  subscribeListings,
   syncOwnerAvatarAcrossListings,
   uploadListingImages,
 } from "@/lib/marketplace";
@@ -22,6 +24,16 @@ import { subscribeProfileAvatar, writeProfileAvatar } from "@/lib/profile-avatar
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { ProfileTag, subscribeProfileTags } from "@/lib/profile-tags";
+import { getAccountAgeLabel } from "@/lib/profile-account-age";
+
+type SellerReview = {
+  id: string;
+  buyerName?: string;
+  rating: number;
+  comment?: string;
+  createdAt: number;
+};
 
 export default function MyProfilePage() {
   const router = useRouter();
@@ -31,11 +43,17 @@ export default function MyProfilePage() {
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
+  const [listingsCursor, setListingsCursor] = useState<string | null>(null);
+  const [loadingListings, setLoadingListings] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+  const [salesCount, setSalesCount] = useState(0);
+  const [accountCreatedAt, setAccountCreatedAt] = useState(0);
   const [authResolved, setAuthResolved] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [profileTags, setProfileTags] = useState<ProfileTag[]>([]);
+  const [reviews, setReviews] = useState<SellerReview[]>([]);
+  const [openReviewModal, setOpenReviewModal] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -53,26 +71,77 @@ export default function MyProfilePage() {
   }, [router]);
 
   useEffect(() => {
-    const unsub = subscribeListings((rows) => setListings(rows));
-    return () => unsub();
-  }, []);
+    if (!currentUserId) {
+      setListings([]);
+      setListingsCursor(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingListings(true);
+    listOwnerListings(currentUserId, null, 30)
+      .then((result) => {
+        if (cancelled) return;
+        setListings(result.items.filter(isListingVisibleInOwnerProfile));
+        setListingsCursor(result.nextCursor);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setListings([]);
+        setListingsCursor(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingListings(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId) {
       setFollowersCount(0);
-      setFollowingCount(0);
       return;
     }
 
     const unsubFollowers = subscribeFollowers(currentUserId, (rows) => setFollowersCount(rows.length));
-    const unsubFollowing = subscribeFollowing(currentUserId, (rows) => setFollowingCount(rows.length));
     const unsubLikes = subscribeIncomingLikesForOwner(currentUserId, (rows) => setLikesCount(rows.length));
 
     return () => {
       unsubFollowers();
-      unsubFollowing();
       unsubLikes();
     };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setSalesCount(0);
+      return;
+    }
+
+    fetch(`/api/profile/sales?userId=${encodeURIComponent(currentUserId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("profile/sales-count-failed");
+        const payload = (await response.json()) as { salesCount?: number };
+        setSalesCount(Number(payload.salesCount || 0));
+      })
+      .catch(() => setSalesCount(0));
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setAccountCreatedAt(0);
+      return;
+    }
+
+    fetch(`/api/profile/account?userId=${encodeURIComponent(currentUserId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("profile/account-load-failed");
+        const payload = (await response.json()) as { createdAt?: number };
+        setAccountCreatedAt(Number(payload.createdAt || 0));
+      })
+      .catch(() => setAccountCreatedAt(0));
   }, [currentUserId]);
 
   useEffect(() => {
@@ -95,9 +164,32 @@ export default function MyProfilePage() {
     return () => unsub();
   }, [currentUserId]);
 
-  const myListings = listings.filter(
-    (item) => item.ownerId === currentUserId && isListingVisibleInOwnerProfile(item)
-  );
+  useEffect(() => {
+    if (!currentUserId) {
+      setProfileTags([]);
+      return;
+    }
+
+    const unsub = subscribeProfileTags(currentUserId, setProfileTags);
+    return () => unsub();
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setReviews([]);
+      return;
+    }
+
+    fetch(`/api/reviews?sellerId=${encodeURIComponent(currentUserId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("reviews/load-failed");
+        const payload = (await response.json()) as { reviews?: SellerReview[] };
+        setReviews(payload.reviews || []);
+      })
+      .catch(() => setReviews([]));
+  }, [currentUserId]);
+
+  const myListings = listings;
   const userHandle = useMemo(() => {
     if (!currentUserId) {
       return "user-001";
@@ -108,6 +200,12 @@ export default function MyProfilePage() {
       name: currentUserName,
     });
   }, [currentUserId, currentUserName]);
+  const accountAgeLabel = useMemo(() => getAccountAgeLabel(accountCreatedAt), [accountCreatedAt]);
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return 0;
+    const total = reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0);
+    return Math.round((total / reviews.length) * 10) / 10;
+  }, [reviews]);
   const storyCategories = useMemo(() => {
     const categories = new Map<string, { id: string; name: string; image: string }>();
 
@@ -144,6 +242,18 @@ export default function MyProfilePage() {
     ? myListings.filter((item) => (item.category?.trim() || "General").toLowerCase() === activeCategoryId)
     : myListings;
   const isSignedIn = Boolean(currentUserId);
+  const loadMoreListings = async () => {
+    if (!currentUserId || !listingsCursor || loadingListings) return;
+
+    setLoadingListings(true);
+    try {
+      const result = await listOwnerListings(currentUserId, listingsCursor, 30);
+      setListings((current) => [...current, ...result.items.filter(isListingVisibleInOwnerProfile)]);
+      setListingsCursor(result.nextCursor);
+    } finally {
+      setLoadingListings(false);
+    }
+  };
 
   useEffect(() => {
     if (authResolved && !currentUserId) {
@@ -167,7 +277,7 @@ export default function MyProfilePage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div className="text-sm font-semibold">Tu perfil</div>
+        <div className="text-sm font-semibold">@{userHandle}</div>
         <Link
           href="/settings"
           className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white"
@@ -220,13 +330,32 @@ export default function MyProfilePage() {
           <span>{currentUserName}</span>
           {isVerified ? <VerifiedBadge /> : null}
         </div>
-        <div className="mt-1 text-sm text-neutral-300">@{userHandle}</div>
+        <div className="mt-1 flex flex-col items-center gap-1">
+          <span className={accountAgeLabel.isNew ? "text-sm font-semibold text-sky-400" : "text-sm text-neutral-500"}>
+            {accountAgeLabel.text}
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpenReviewModal(true)}
+            className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-orange-300 hover:bg-neutral-900"
+            aria-label="Ver reseñas"
+          >
+            {[1, 2, 3, 4, 5].map((value) => (
+              <Star
+                key={value}
+                className={value <= Math.round(averageRating) ? "h-3.5 w-3.5 fill-orange-400 text-orange-400" : "h-3.5 w-3.5 text-neutral-600"}
+              />
+            ))}
+            <span className="ml-1">{averageRating.toFixed(1)}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
+          </button>
+        </div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">
-          <Link href={`/profile/${currentUserId}/connections?tab=following&name=${encodeURIComponent(currentUserName)}`}>
-            <div className="text-base font-semibold text-neutral-50">{followingCount}</div>
-            <div className="text-xs text-neutral-400">Siguiendo</div>
-          </Link>
+          <div>
+            <div className="text-base font-semibold text-neutral-50">{salesCount}</div>
+            <div className="text-xs text-neutral-400">Ventas</div>
+          </div>
           <Link href={`/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`}>
             <div className="text-base font-semibold text-neutral-50">{followersCount}</div>
             <div className="text-xs text-neutral-400">Seguidores</div>
@@ -248,19 +377,81 @@ export default function MyProfilePage() {
           >
             <Instagram className="h-4 w-4" />
           </Link>
-          <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-200 hover:text-white">
-            <ChevronDown className="h-4 w-4" />
-          </button>
         </div>
+
+        <ProfileTags userId={currentUserId || ""} tags={profileTags} editable />
       </main>
 
-      <div className="mt-4 w-full pb-12">
+      {openReviewModal ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+          <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-base font-semibold">Reseñas</div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
+                  <span>{currentUserName}</span>
+                  <span className="flex items-center gap-1 text-orange-300">
+                    <Star className="h-3.5 w-3.5 fill-orange-400 text-orange-400" />
+                    {averageRating.toFixed(1)}
+                  </span>
+                  <span>{reviews.length} reseñas</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenReviewModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-neutral-300 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <div className="text-sm font-semibold text-neutral-100">Todas las reseñas</div>
+              {reviews.length ? (
+                <div className="mt-3 space-y-3">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-neutral-100">
+                            {review.buyerName || "Usuario"}
+                          </div>
+                          <div className="mt-1 text-xs text-neutral-500">
+                            {formatReviewDate(review.createdAt)}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1 text-sm font-semibold text-orange-300">
+                          <Star className="h-4 w-4 fill-orange-400 text-orange-400" />
+                          {review.rating}
+                        </div>
+                      </div>
+                      {review.comment ? (
+                        <div className="mt-3 text-sm leading-6 text-neutral-300">{review.comment}</div>
+                      ) : (
+                        <div className="mt-3 text-sm leading-6 text-neutral-500">Sin comentario.</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-4 py-5 text-sm text-neutral-400">
+                  Aún no hay reseñas.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 w-full pb-24">
         {storyCategories.length > 0 ? (
           <div className="sticky top-0 z-20 bg-neutral-950 pb-3">
             <CategoryStories categories={storyCategories} activeId={activeCategoryId} onSelect={setActiveCategoryId} />
           </div>
         ) : null}
-        <div className="grid w-full grid-cols-3 gap-px">
+	        <div className="grid w-full grid-cols-3 gap-px">
           {visibleListings.length === 0 ? (
             <div className="col-span-3 flex justify-center px-4 py-8">
               <div className="max-w-sm rounded-2xl border border-neutral-800 bg-neutral-900/50 px-5 py-4 text-center text-sm text-neutral-400">
@@ -277,9 +468,31 @@ export default function MyProfilePage() {
                 )}
               </Link>
             ))
-          )}
-        </div>
-      </div>
+	          )}
+	        </div>
+	        {listingsCursor ? (
+	          <div className="px-4 py-5">
+	            <button
+	              type="button"
+	              onClick={loadMoreListings}
+	              disabled={loadingListings}
+	              className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+	            >
+	              {loadingListings ? "Cargando..." : "Cargar más"}
+	            </button>
+	          </div>
+	        ) : null}
+	      </div>
+      <AppBottomNav active="profile" />
     </div>
   );
+}
+
+function formatReviewDate(value: number) {
+  if (!value) return "Fecha no disponible";
+  return new Intl.DateTimeFormat("es-DO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }

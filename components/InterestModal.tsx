@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { auth } from "@/lib/firebase";
-import { createOffer } from "@/lib/marketplace";
+import { createOffer, getExistingOfferChat } from "@/lib/marketplace";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 
 type Method = "cash" | "trade" | "cash_trade";
@@ -32,14 +32,53 @@ export default function InterestModal({
   const [cashOffer, setCashOffer] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [checkingExistingChat, setCheckingExistingChat] = useState(false);
 
   const minAccepted = useMemo(() => {
     const min = item.price * (1 - item.sellerMaxDiscountPercent / 100);
     return Math.ceil(min);
   }, [item.price, item.sellerMaxDiscountPercent]);
+  const offerChips = useMemo(() => {
+    const price = Math.max(0, Number(item.price || 0));
+    return [
+      { label: `RD$${price.toLocaleString()}`, value: price },
+      { label: `RD$${Math.round(price * 0.95).toLocaleString()}`, value: Math.round(price * 0.95) },
+      { label: `RD$${Math.round(price * 0.9).toLocaleString()}`, value: Math.round(price * 0.9) },
+    ].filter((chip, index, rows) => chip.value > 0 && rows.findIndex((row) => row.value === chip.value) === index);
+  }, [item.price]);
   const usesWhatsapp = Boolean(item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim());
 
+  useEffect(() => {
+    if (!open) return;
+
+    const user = auth.currentUser;
+    if (!user?.uid || !item.sellerId || item.sellerId === user.uid) {
+      setCheckingExistingChat(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingExistingChat(true);
+    getExistingOfferChat(item.id, user.uid)
+      .then((chat) => {
+        if (cancelled || !chat) return;
+        onClose();
+        router.push(`/chat/${chat.id}`);
+      })
+      .catch(() => {
+        // If the lookup fails, keep the normal offer flow available.
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingExistingChat(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id, item.sellerId, onClose, open, router]);
+
   if (!open) return null;
+  if (checkingExistingChat) return null;
 
   const openWhatsapp = () => {
     setError("");
@@ -174,8 +213,7 @@ export default function InterestModal({
         return;
       }
 
-      const msg = `Hola, estoy interesado en tu ${item.title}. Te ofrezco RD$${offer.toLocaleString()} en efectivo. Me gustaría saber más detalles del producto.`;
-      await startChat(msg);
+      await startChat(buildOfferMessage(item.title, offer));
       return;
     }
 
@@ -259,6 +297,27 @@ export default function InterestModal({
                 placeholder="Ej: 28000"
                 className="mt-2 w-full rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm outline-none focus:border-neutral-600"
               />
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {offerChips.map((chip) => {
+                  const isActive = cashOffer === String(chip.value);
+
+                  return (
+                    <button
+                      key={chip.value}
+                      type="button"
+                      onClick={() => setCashOffer(String(chip.value))}
+                      className={[
+                        "shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition",
+                        isActive
+                          ? "border-orange-400 bg-orange-400 text-black"
+                          : "border-neutral-700 bg-neutral-950 text-neutral-200 hover:border-neutral-500",
+                      ].join(" ")}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -292,9 +351,14 @@ export default function InterestModal({
           <div className="mt-5 flex gap-2">
             <button
               type="button"
-              onClick={() =>
-                startChat(`Hola, estoy interesado en tu ${item.title}. ¿Sigue disponible?`)
-              }
+              onClick={() => {
+                const offer = Number(cashOffer);
+                const message =
+                  offer && Number.isFinite(offer)
+                    ? buildOfferMessage(item.title, offer)
+                    : buildInterestMessage(item.title);
+                void startChat(message);
+              }}
               disabled={submitting}
               className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-sm hover:bg-neutral-900"
             >
@@ -313,6 +377,14 @@ export default function InterestModal({
       </div>
     </div>
   );
+}
+
+function buildInterestMessage(itemTitle: string) {
+  return `Hola, estoy interesado en tu ${itemTitle}. ¿Sigue disponible?`;
+}
+
+function buildOfferMessage(itemTitle: string, offer: number) {
+  return `Hola, estoy interesado en tu ${itemTitle}. Te ofrezco RD$${offer.toLocaleString()} en efectivo. Me gustaría saber más detalles del producto.`;
 }
 
 function Option({

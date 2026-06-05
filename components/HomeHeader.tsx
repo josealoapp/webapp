@@ -4,9 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import { Heart, MapPin, Menu, Search } from "lucide-react";
 import LocationPickerModal from "./LocationPickerModal";
-import { Listing } from "@/lib/marketplace";
+import { auth } from "@/lib/firebase";
+import { ChatRecord, Listing, searchListings, subscribeInboxChatsForUser } from "@/lib/marketplace";
+import { normalizeLocationName } from "@/lib/location";
+import { SupportNotification, subscribeSupportNotifications } from "@/lib/support-notifications";
 import logoIcon from "@/app/logo.svg";
 
 const categories = [
@@ -21,14 +25,14 @@ const categories = [
 
 export default function HomeHeader({
   selectedLocation,
+  preferredLocation,
   onLocationChange,
-  listings,
   activeCategory,
   onCategoryChange,
 }: {
   selectedLocation: string;
+  preferredLocation?: string;
   onLocationChange: (location: string) => void;
-  listings: Listing[];
   activeCategory: string;
   onCategoryChange: (category: string) => void;
 }) {
@@ -37,6 +41,11 @@ export default function HomeHeader({
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<Listing[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [chats, setChats] = useState<ChatRecord[]>([]);
+  const [supportNotifications, setSupportNotifications] = useState<SupportNotification[]>([]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -45,22 +54,76 @@ export default function HomeHeader({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid || "");
+      if (!user?.uid) {
+        setChats([]);
+        setSupportNotifications([]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const unsubChats = subscribeInboxChatsForUser(currentUserId, setChats, () => setChats([]));
+    const unsubSupport = subscribeSupportNotifications(currentUserId, setSupportNotifications);
+
+    return () => {
+      unsubChats();
+      unsubSupport();
+    };
+  }, [currentUserId]);
+
   const trimmedQuery = query.trim();
-  const suggestions = useMemo(() => {
-    if (!trimmedQuery) {
-      return [] as Listing[];
+  const hasUnreadActivity = useMemo(() => {
+    if (!currentUserId) return false;
+    const unreadMessages = chats.some((chat) => getUnreadCount(chat, currentUserId) > 0);
+    const unreadSupport = supportNotifications.some((notification) => !notification.read);
+    return unreadMessages || unreadSupport;
+  }, [chats, currentUserId, supportNotifications]);
+
+  useEffect(() => {
+    if (!trimmedQuery || !showSuggestions) {
+      setSuggestions([]);
+      return;
     }
 
-    const normalizedQuery = trimmedQuery.toLowerCase();
-    return listings
-      .filter((item) => item.title.toLowerCase().includes(normalizedQuery))
-      .slice(0, 3);
-  }, [listings, trimmedQuery]);
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setLoadingSuggestions(true);
+      searchListings({
+        q: trimmedQuery,
+        location: selectedLocation || undefined,
+        status: "active",
+        limit: 8,
+      })
+        .then((result) => {
+          if (!cancelled) {
+            setSuggestions(prioritizeByLocation(result.items, selectedLocation || preferredLocation).slice(0, 3));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingSuggestions(false);
+        });
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [preferredLocation, selectedLocation, showSuggestions, trimmedQuery]);
 
   const openResults = () => {
     if (!trimmedQuery) return;
     setShowSuggestions(false);
-    router.push(`/search?q=${encodeURIComponent(trimmedQuery)}&location=${encodeURIComponent(selectedLocation)}`);
+    const params = new URLSearchParams({ q: trimmedQuery });
+    if (selectedLocation) params.set("location", selectedLocation);
+    router.push(`/search?${params.toString()}`);
   };
 
   return (
@@ -101,17 +164,24 @@ export default function HomeHeader({
           <div className="flex items-center gap-3">
             <Link
               href="/activity"
-              className="flex h-10 w-10 items-center justify-center text-white drop-shadow"
+              className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow"
               aria-label="Actividad"
             >
               <Heart className="h-6 w-6" />
+              {hasUnreadActivity ? (
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-neutral-950" />
+              ) : null}
             </Link>
           </div>
         </div>
 
         {showSuggestions && trimmedQuery ? (
           <div className="mt-3 rounded-3xl border border-white/10 bg-neutral-950/95 p-3 shadow-2xl backdrop-blur">
-            {suggestions.length > 0 ? (
+            {loadingSuggestions ? (
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-4 text-sm text-neutral-300">
+                Buscando publicaciones...
+              </div>
+            ) : suggestions.length > 0 ? (
               <>
                 <div className="space-y-2">
                   {suggestions.map((item) => (
@@ -176,8 +246,8 @@ export default function HomeHeader({
                     onClick={() => onCategoryChange(cat.value)}
                     className={`whitespace-nowrap rounded-3xl px-4 py-2 text-sm font-semibold transition  ${
                       isActive
-                        ? "border border-orange-400 text-orange-400 shadow-[0_0_0_1px_rgba(255,184,79,0.25)]"
-                        : "border border-transparent bg-black/20 text-white hover:text-orange-200"
+                        ? "border border-neutral-500 bg-neutral-900/70 text-white shadow-[0_0_0_1px_rgba(115,115,115,0.25)]"
+                        : "border border-transparent bg-black/20 text-white hover:text-neutral-300"
                     }`}
                   >
                     {cat.label}
@@ -188,7 +258,7 @@ export default function HomeHeader({
 
             <Link
               href="/categories"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl  bg-black/30 text-white backdrop-blur hover:text-orange-200"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl  bg-black/30 text-white backdrop-blur hover:text-neutral-300"
               aria-label="Categorías"
             >
               <Menu className="h-5 w-5" />
@@ -199,12 +269,12 @@ export default function HomeHeader({
           <button
             type="button"
             onClick={() => setLocationModalOpen(true)}
-            className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left backdrop-blur hover:border-orange-400/50"
+            className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left backdrop-blur hover:border-neutral-500"
           >
-            <span className="text-sm text-white/90">Listing Locations</span>
-            <span className="flex items-center gap-2 text-sm font-semibold text-orange-400">
+            <span className="text-sm text-white/90">Ubicaciones de búsqueda</span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-neutral-300">
               <MapPin className="h-4 w-4" />
-              {selectedLocation || "Detectando ubicación"}
+              {selectedLocation || "Todas"}
             </span>
           </button>
         </div>
@@ -213,9 +283,42 @@ export default function HomeHeader({
       <LocationPickerModal
         open={locationModalOpen}
         currentLocation={selectedLocation}
+        allowAllLocations
         onClose={() => setLocationModalOpen(false)}
         onSelect={onLocationChange}
       />
     </header>
   );
+}
+
+function getUnreadCount(chat: ChatRecord, userId: string) {
+  if (!userId) return 0;
+  const unreadBy = chat.unreadBy || {};
+  const hasStoredUnread = Object.prototype.hasOwnProperty.call(unreadBy, userId);
+  const storedUnread = Math.max(0, Number(unreadBy[userId] || 0));
+  if (hasStoredUnread) return storedUnread;
+
+  const readAt = Number(chat.readBy?.[userId] || 0);
+  const lastMessageAt = Number(chat.updatedAt || 0);
+  if (chat.lastMessageSenderId && chat.lastMessageSenderId !== userId && lastMessageAt > readAt) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function prioritizeByLocation(items: Listing[], preferredLocation?: string) {
+  if (!preferredLocation) return items;
+  const target = normalizeLocation(preferredLocation);
+
+  return [...items].sort((a, b) => {
+    const aNear = normalizeLocation(a.location) === target ? 1 : 0;
+    const bNear = normalizeLocation(b.location) === target ? 1 : 0;
+    if (aNear !== bNear) return bNear - aNear;
+    return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+  });
+}
+
+function normalizeLocation(location: string) {
+  return normalizeLocationName(location);
 }

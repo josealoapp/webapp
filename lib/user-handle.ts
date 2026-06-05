@@ -59,6 +59,10 @@ async function loadRemoteHandle(uid: string) {
 }
 
 function persistHandle(entry: StoredUserHandle) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   void setDoc(
     doc(db, "userProfiles", entry.uid),
     {

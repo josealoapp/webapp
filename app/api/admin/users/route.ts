@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertAdminRequest } from "@/lib/admin-session";
-import { deleteUserAccount, listAdminUsers } from "@/lib/admin-data";
+import { deleteUserAccount, listAdminUsers, markReportHandled, reactivateUserAccount } from "@/lib/admin-data";
 
 export const runtime = "nodejs";
 
@@ -27,17 +27,42 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json().catch(() => null)) as { userId?: string } | null;
+    const body = (await request.json().catch(() => null)) as { userId?: string; reason?: string; reportId?: string } | null;
     const userId = body?.userId?.trim() || "";
+    const reason = body?.reason?.trim() || "";
+    const reportId = body?.reportId?.trim() || "";
 
-    if (!userId) {
+    if (!userId || !reason) {
       return NextResponse.json({ error: "admin/user-id-required" }, { status: 400 });
     }
 
-    await deleteUserAccount(userId);
+    await deleteUserAccount(userId, reason);
+    await markReportHandled(reportId, { action: "delete_user", reason });
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "admin/delete-user-failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const session = assertAdminRequest(request);
+  if (!session) {
+    return NextResponse.json({ error: "admin/unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = (await request.json().catch(() => null)) as { userId?: string; action?: string } | null;
+    const userId = body?.userId?.trim() || "";
+
+    if (!userId || body?.action !== "reactivate") {
+      return NextResponse.json({ error: "admin/invalid-reactivation" }, { status: 400 });
+    }
+
+    await reactivateUserAccount(userId);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "admin/reactivate-user-failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

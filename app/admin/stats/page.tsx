@@ -242,10 +242,21 @@ function buildCalculatorEstimates(items: CalculatorItem[], location: string, sol
       const dpv = days.length ? Math.round(days.reduce((sum, value) => sum + value, 0) / days.length) : null;
       const quantity = Math.max(1, item.quantity || 1);
       const sampleUsers = fallbackMatches.reduce(
-        (sum, row) => sum + Math.max(row.views || 0, row.interactions || 0, row.interactionUsers.length || 0),
+        (sum, row) =>
+          sum +
+          Math.max(
+            row.views || 0,
+            row.interactions || 0,
+            row.interactionUsers.length || 0,
+            row.searchCount || 0,
+            row.searchUsers?.length || 0
+          ),
         0
       );
-      const buyerInterest = fallbackMatches.reduce((sum, row) => sum + (row.views || 0) + row.interactions * 5, 0);
+      const buyerInterest = fallbackMatches.reduce(
+        (sum, row) => sum + (row.views || 0) + (row.searchCount || 0) * 3 + row.interactions * 5,
+        0
+      );
 
       return {
         id: item.id,
@@ -356,17 +367,35 @@ export default function AdminStatsPage() {
   }, [router]);
 
   useEffect(() => {
-    setLoading(true);
-    fetch("/api/admin/stats", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("admin/stats-failed");
-        const payload = (await response.json()) as AdminMarketplaceStats;
-        setStats(payload);
-        setSelectedLocation(payload.locations[0]?.name || "");
-        setCalculatorLocation(payload.locations[0]?.name || "Santo Domingo");
-      })
-      .catch(() => setError("No pudimos cargar las estadísticas del marketplace."))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const loadStats = (showLoading: boolean) => {
+      if (showLoading) setLoading(true);
+      fetch("/api/admin/stats", { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("admin/stats-failed");
+          const payload = (await response.json()) as AdminMarketplaceStats;
+          if (cancelled) return;
+          setStats(payload);
+          setSelectedLocation((current) => current || payload.locations[0]?.name || "");
+          setCalculatorLocation((current) => current || payload.locations[0]?.name || "Santo Domingo");
+          setError("");
+        })
+        .catch(() => {
+          if (!cancelled) setError("No pudimos cargar las estadísticas del marketplace.");
+        })
+        .finally(() => {
+          if (!cancelled && showLoading) setLoading(false);
+        });
+    };
+
+    loadStats(true);
+    const intervalId = window.setInterval(() => loadStats(false), 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const categoryOptions = useMemo(() => {
@@ -1317,7 +1346,7 @@ function ItemEngagementChart({ item }: { item: AdminSoldItem }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-neutral-100">Views vs interacciones</div>
-          <div className="mt-1 text-xs text-neutral-500">X = views · Y = chats iniciados</div>
+          <div className="mt-1 text-xs text-neutral-500">X = views · Y = mensajes de compradores</div>
         </div>
         <div className="text-right text-xs text-neutral-400">
           <div>{views} views</div>
@@ -1356,7 +1385,7 @@ function ItemEngagementChart({ item }: { item: AdminSoldItem }) {
       </div>
       {!views ? (
         <div className="mt-2 text-xs text-neutral-500">
-          Este gráfico usará views reales cuando la publicación tenga `views`, `viewCount` o `impressions` guardados.
+          Este gráfico se actualizará cuando compradores abran la publicación. Las vistas del dueño no se cuentan.
         </div>
       ) : null}
     </div>
