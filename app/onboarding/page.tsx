@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { Check, ChevronDown, ChevronUp, Circle, CircleCheck, Search, Store } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Circle, CircleCheck, Search, Store, X } from "lucide-react";
 import { Country, State } from "country-state-city";
 import { auth } from "@/lib/firebase";
 import { appCategories } from "@/lib/categories";
@@ -23,6 +23,17 @@ import { AppSkeleton } from "@/components/AppSkeleton";
 
 const BUSINESS_VERIFICATION_MESSAGE =
   "Te estaremos contactando en los proximos 7 a 14 dias laborales para verificar tu cuenta y colocarte la marca de perfil verificado.";
+const MAX_PERSONAL_INTERESTS = 8;
+const SUGGESTED_PERSONAL_INTERESTS = [
+  "Autos",
+  "Celulares",
+  "Ropa para hombres",
+  "Ropa para niños",
+  "Electrónicos",
+  "Libros",
+  "Hogar",
+  "Cocina",
+];
 
 type Step = "accountType" | "personalInterests" | "businessDetails" | "businessVerification";
 
@@ -54,6 +65,8 @@ function OnboardingContent() {
   const [interests, setInterests] = useState<string[]>([]);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(DEFAULT_BUSINESS_PROFILE);
   const [error, setError] = useState("");
+  const [interestQuery, setInterestQuery] = useState("");
+  const [interestSuggestionsOpen, setInterestSuggestionsOpen] = useState(false);
   const [businessCategoryOpen, setBusinessCategoryOpen] = useState(false);
   const [businessCategoryQuery, setBusinessCategoryQuery] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
@@ -62,6 +75,7 @@ function OnboardingContent() {
   const businessCategoryRef = useRef<HTMLDivElement | null>(null);
   const countryRef = useRef<HTMLDivElement | null>(null);
   const provinceRef = useRef<HTMLDivElement | null>(null);
+  const personalInterestRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -113,6 +127,10 @@ function OnboardingContent() {
       if (provinceRef.current && !provinceRef.current.contains(target)) {
         setProvinceOpen(false);
       }
+
+      if (personalInterestRef.current && !personalInterestRef.current.contains(target)) {
+        setInterestSuggestionsOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -156,6 +174,42 @@ function OnboardingContent() {
   const filteredCountries = countryOptions.filter((country) =>
     normalizeText(country.name).includes(normalizeText(countryQuery.trim()))
   );
+  const filteredPersonalInterests = useMemo(() => {
+    const query = normalizeText(interestQuery);
+    const selected = new Set(interests.map(normalizeText));
+    const options = appCategories
+      .map((category) => category.name)
+      .filter((name) => !selected.has(normalizeText(name)));
+
+    if (!query) return options.slice(0, 8);
+
+    return options
+      .filter((name) => normalizeText(name).includes(query))
+      .sort((a, b) => {
+        const aStarts = normalizeText(a).startsWith(query) ? 0 : 1;
+        const bStarts = normalizeText(b).startsWith(query) ? 0 : 1;
+        return aStarts - bStarts || a.localeCompare(b, "es");
+      })
+      .slice(0, 8);
+  }, [interestQuery, interests]);
+
+  const addPersonalInterest = (value: string) => {
+    const cleanValue = value.trim();
+    if (!cleanValue) return;
+
+    setInterests((current) => {
+      if (current.length >= MAX_PERSONAL_INTERESTS) return current;
+      if (current.some((item) => normalizeText(item) === normalizeText(cleanValue))) return current;
+      return [...current, cleanValue];
+    });
+    setInterestQuery("");
+    setInterestSuggestionsOpen(false);
+    setError("");
+  };
+
+  const removePersonalInterest = (value: string) => {
+    setInterests((current) => current.filter((item) => normalizeText(item) !== normalizeText(value)));
+  };
 
   const finishPersonalOnboarding = () => {
     const currentProfile = readAccountProfile();
@@ -301,37 +355,125 @@ function OnboardingContent() {
           {step === "personalInterests" ? (
             <>
               <CardHeader>
-                <CardTitle className="text-2xl leading-tight sm:text-3xl lg:text-4xl">Cuales son tus intereses?</CardTitle>
-                <CardDescription className="text-sm text-neutral-400 sm:text-base">
-                  Selecciona las categorias que mas te interesan.
-                </CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <CardTitle className="text-2xl leading-tight sm:text-3xl lg:text-4xl">Cuales son tus intereses?</CardTitle>
+                    <CardDescription className="text-sm text-neutral-400 sm:text-base">
+                      Agrega de 1 a 8 categorias para personalizar tu inicio.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="shrink-0 px-2 text-orange-400 hover:bg-transparent hover:text-orange-300"
+                    onClick={finishPersonalOnboarding}
+                  >
+                    Saltar
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="flex flex-wrap gap-3">
-                  {appCategories.map((category) => {
-                    const selected = interests.includes(category.name);
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() =>
-                          setInterests((current) =>
-                            current.includes(category.name)
-                              ? current.filter((item) => item !== category.name)
-                              : [...current, category.name]
-                          )
-                        }
-                        className={[
-                          "rounded-full border px-4 py-2 text-sm font-medium transition",
-                          selected
-                            ? "border-orange-400 bg-orange-400 text-black"
-                            : "border-neutral-800 bg-neutral-900 text-neutral-200 hover:border-neutral-600",
-                        ].join(" ")}
-                      >
-                        {category.name}
-                      </button>
-                    );
-                  })}
+                <div ref={personalInterestRef} className="space-y-2">
+                  <Label htmlFor="personalInterests">Intereses</Label>
+                  <div
+                    className={cn(
+                      "relative min-h-14 rounded-2xl border border-neutral-800 bg-neutral-950 px-3 py-2 transition",
+                      interestSuggestionsOpen && "border-orange-400 ring-2 ring-orange-400/20"
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      {interests.map((interest) => (
+                        <span
+                          key={interest}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm font-medium text-neutral-100"
+                        >
+                          <span className="max-w-[180px] truncate">{interest}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Quitar ${interest}`}
+                            className="h-5 w-5 rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+                            onClick={() => removePersonalInterest(interest)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </span>
+                      ))}
+                      <Input
+                        id="personalInterests"
+                        value={interestQuery}
+                        disabled={interests.length >= MAX_PERSONAL_INTERESTS}
+                        onFocus={() => setInterestSuggestionsOpen(true)}
+                        onChange={(e) => {
+                          setInterestQuery(e.target.value);
+                          setInterestSuggestionsOpen(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addPersonalInterest(filteredPersonalInterests[0] || interestQuery);
+                          }
+
+                          if (e.key === "Backspace" && !interestQuery && interests.length > 0) {
+                            removePersonalInterest(interests[interests.length - 1]);
+                          }
+                        }}
+                        placeholder={interests.length ? "Escribe otra categoria" : "Escribe una categoria"}
+                        className="h-9 min-w-[160px] flex-1 border-0 bg-transparent px-0 text-sm text-neutral-100 shadow-none outline-none placeholder:text-neutral-500 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                    </div>
+
+                    {interestSuggestionsOpen && interests.length < MAX_PERSONAL_INTERESTS ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-30 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/30">
+                        <div className="max-h-64 overflow-y-auto py-2">
+                          {filteredPersonalInterests.length === 0 ? (
+                            <div className="px-4 py-6 text-sm text-neutral-400">No encontramos categorias.</div>
+                          ) : (
+                            filteredPersonalInterests.map((interest) => (
+                              <Button
+                                key={interest}
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-4 py-3 text-left text-sm font-normal text-neutral-100 hover:bg-neutral-800/70"
+                                onClick={() => addPersonalInterest(interest)}
+                              >
+                                {interest}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
+                    <span>{interests.length === MAX_PERSONAL_INTERESTS ? "Llegaste al maximo de intereses." : "Puedes agregar hasta 8 intereses."}</span>
+                    <span>{interests.length}/{MAX_PERSONAL_INTERESTS}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Intereses sugeridos</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGESTED_PERSONAL_INTERESTS.map((interest) => {
+                      const selected = interests.some((item) => normalizeText(item) === normalizeText(interest));
+                      return (
+                        <Button
+                          key={interest}
+                          type="button"
+                          variant="outline"
+                          disabled={selected || interests.length >= MAX_PERSONAL_INTERESTS}
+                          className={cn(
+                            "h-10 rounded-full border-neutral-800 bg-neutral-950 px-4 text-sm font-medium text-neutral-100 hover:bg-neutral-900 hover:text-neutral-100 disabled:opacity-50",
+                            selected && "border-orange-400 bg-orange-400/10 text-orange-300"
+                          )}
+                          onClick={() => addPersonalInterest(interest)}
+                        >
+                          {interest}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {error ? <InlineError message={error} /> : null}
