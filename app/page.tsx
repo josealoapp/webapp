@@ -20,7 +20,7 @@ import {
   isListingVisibleInOwnerProfile,
   Listing,
   searchListings,
-  subscribeChatsForUser,
+  subscribeInboxChatsForUser,
 } from "@/lib/marketplace";
 import { getPostAuthDestination, loadAccountProfileFromBackend, readAccountProfile } from "@/lib/account-profile";
 import {
@@ -186,9 +186,8 @@ export default function HomePage() {
       return;
     }
 
-    return subscribeChatsForUser(
+    return subscribeInboxChatsForUser(
       currentUserId,
-      "buyer",
       (rows) => setRecentChats(rows.slice(0, 5)),
       () => setRecentChats([])
     );
