@@ -20,6 +20,7 @@ export default function NearbyDiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
+  const createHref = currentUserId ? "/item/new" : `/sign-in?next=${encodeURIComponent("/item/new")}`;
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
@@ -95,7 +96,7 @@ export default function NearbyDiscoverPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs text-neutral-400">
           <NavIcon icon={Home} label="Inicio" href="/" />
           <NavIcon icon={Navigation} label="Descubre" href="/descubre" active />
-          <NavIcon icon={PlusSquare} label="Crear" href="/item/new" />
+          <NavIcon icon={PlusSquare} label="Crear" href={createHref} />
           <NavIcon icon={MessageCircle} label="Negociacion" href="/messages" />
           <NavIcon icon={User} label="Perfil" href="/profile/me" />
         </div>

@@ -3,6 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -10,6 +11,7 @@ import { auth, db } from "@/lib/firebase";
 import { createOffer } from "@/lib/marketplace";
 import { getPostAuthDestination, loadAccountProfileFromBackend } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import LogoLoadAnimation from "@/components/LogoLoadAnimation";
 
 import {
   Card,
@@ -24,6 +26,12 @@ import { Button } from "@/components/ui/button";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function waitForMinimumLoaderTime(startedAt: number) {
+  const remaining = 2000 - (Date.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => window.setTimeout(resolve, remaining));
 }
 
 export default function SignInPage() {
@@ -41,7 +49,7 @@ function AuthFallback() {
 function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const defaultPostAuthPath = useMemo(() => "/", []);
+  const defaultPostAuthPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
   const isDeactivatedRedirect = searchParams.get("account") === "deactivated";
   const deactivatedReason = isDeactivatedRedirect ? searchParams.get("reason") || "" : "";
 
@@ -56,6 +64,7 @@ function SignInContent() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    const loaderStartedAt = Date.now();
 
     const email = emailOrUser.trim();
     const pass = password.trim();
@@ -102,6 +111,7 @@ function SignInContent() {
       }
 
       if (!user.emailVerified) {
+        await waitForMinimumLoaderTime(loaderStartedAt);
         router.replace(`/verify-email?next=${encodeURIComponent(defaultPostAuthPath)}`);
         return;
       }
@@ -111,6 +121,7 @@ function SignInContent() {
       const onboardingRequired = postAuthDestination.startsWith("/onboarding");
 
       if (onboardingRequired) {
+        await waitForMinimumLoaderTime(loaderStartedAt);
         router.replace(postAuthDestination);
         return;
       }
@@ -150,6 +161,7 @@ function SignInContent() {
           });
 
           sessionStorage.removeItem("pending_interest");
+          await waitForMinimumLoaderTime(loaderStartedAt);
           router.replace(`/chat/${chatId}`);
           return;
         }
@@ -157,6 +169,7 @@ function SignInContent() {
         // si falla, seguimos normal
       }
 
+      await waitForMinimumLoaderTime(loaderStartedAt);
       router.replace(postAuthDestination);
     } catch (err: unknown) {
       const code =
@@ -180,7 +193,27 @@ function SignInContent() {
 
   return (
     <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
+      {loading ? <LogoLoadAnimation fullscreen /> : null}
+
       <div className="mx-auto w-full max-w-md">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Atrás"
+          className="mb-5 h-11 w-11 rounded-full border border-neutral-800 bg-neutral-950 text-neutral-200 hover:bg-neutral-900 hover:text-white"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+              return;
+            }
+
+            router.push("/");
+          }}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+
         <Card className="border-neutral-800 bg-neutral-950">
           <CardHeader>
             <CardTitle className="text-xl">Iniciar sesión</CardTitle>

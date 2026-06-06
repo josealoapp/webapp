@@ -280,6 +280,19 @@ export default function HomePage() {
   const marketplaceListings = useMemo(() => {
     const normalizedInterests = personalInterests.map(normalizeCategory);
     const normalizedActiveCategory = normalizeCategory(activeCategory);
+    const targetLocation = normalizeLocation(selectedLocation || preferredLocation || "");
+    const getInterestMatch = (item: Listing) => {
+      if (normalizedInterests.length === 0) return 0;
+      const category = normalizeCategory(item.category?.trim() || "General");
+      const bazarCategory = normalizeCategory(item.bazarCategory?.trim() || "");
+      return normalizedInterests.includes(category) || (bazarCategory ? normalizedInterests.includes(bazarCategory) : false)
+        ? 1
+        : 0;
+    };
+    const getLocationMatch = (item: Listing) => {
+      if (!targetLocation) return 0;
+      return normalizeLocation(item.location) === targetLocation ? 1 : 0;
+    };
 
     return listings
       .filter((item) => {
@@ -303,20 +316,20 @@ export default function HomePage() {
           return hasVisibleBazarItems;
         }
 
-        if (normalizedInterests.length === 0) return true;
-        return normalizedInterests.includes(normalizeCategory(item.category?.trim() || "General"));
+        return true;
       })
       .sort((a, b) => {
         const aFollowed = followingIds.has(a.ownerId) ? 1 : 0;
         const bFollowed = followingIds.has(b.ownerId) ? 1 : 0;
         if (aFollowed !== bFollowed) return bFollowed - aFollowed;
 
-        if (!selectedLocation && preferredLocation) {
-          const target = normalizeLocation(preferredLocation);
-          const aNear = normalizeLocation(a.location) === target ? 1 : 0;
-          const bNear = normalizeLocation(b.location) === target ? 1 : 0;
-          if (aNear !== bNear) return bNear - aNear;
-        }
+        const aNear = getLocationMatch(a);
+        const bNear = getLocationMatch(b);
+        if (aNear !== bNear) return bNear - aNear;
+
+        const aInterested = getInterestMatch(a);
+        const bInterested = getInterestMatch(b);
+        if (aInterested !== bInterested) return bInterested - aInterested;
 
         return (b.createdAt ?? 0) - (a.createdAt ?? 0);
       });
@@ -566,9 +579,7 @@ export default function HomePage() {
         ) : listingsByCategory.length === 0 && !showBazarSectionInTodo ? (
           <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
             <div className="text-sm text-neutral-400">
-              {personalInterests.length > 0
-                ? `No hay publicaciones disponibles en ${selectedLocation || "todas las ubicaciones"} para tus intereses seleccionados.`
-                : `No hay publicaciones disponibles en ${selectedLocation || "todas las ubicaciones"}.`}
+              No hay publicaciones disponibles en {selectedLocation || "todas las ubicaciones"}.
             </div>
           </section>
         ) : (

@@ -12,6 +12,7 @@ type AppBottomNavTab = "home" | "discover" | "create" | "messages" | "profile";
 export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
   const [currentUserId, setCurrentUserId] = useState("");
   const [chats, setChats] = useState<ChatRecord[]>([]);
+  const createHref = currentUserId ? "/item/new" : `/sign-in?next=${encodeURIComponent("/item/new")}`;
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -35,7 +36,7 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
       <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs text-neutral-400">
         <NavIcon icon={Home} label="Inicio" href="/" active={active === "home"} />
         <NavIcon icon={Navigation} label="Descubre" href="/descubre" active={active === "discover"} />
-        <NavIcon icon={PlusSquare} label="Crear" href="/item/new" active={active === "create"} />
+        <NavIcon icon={PlusSquare} label="Crear" href={createHref} active={active === "create"} />
         <NavIcon
           icon={MessageCircle}
           label="Negociacion"
