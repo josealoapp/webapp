@@ -5,6 +5,7 @@ import AppBottomNav from "@/components/AppBottomNav";
 import HomeHeader from "@/components/HomeHeader";
 import HomeHero from "@/components/HomeHero";
 import HomeBazarCard from "@/components/HomeBazarCard";
+import HomeSplashScreen from "@/components/HomeSplashScreen";
 import { MapPin, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -357,6 +358,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
+      <HomeSplashScreen />
       <HomeHeader
         selectedLocation={selectedLocation}
         preferredLocation={preferredLocation}
