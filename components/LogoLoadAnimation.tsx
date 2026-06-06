@@ -5,7 +5,7 @@ export default function LogoLoadAnimation({ fullscreen = false }: { fullscreen?:
     <div
       className={
         fullscreen
-          ? "fixed inset-0 z-[9999] flex items-center justify-center bg-neutral-950"
+          ? "fixed inset-0 z-[9999] flex items-center justify-center bg-black"
           : "flex items-center justify-center"
       }
     >
