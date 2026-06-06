@@ -231,6 +231,28 @@ export async function updateListing(
   }
 }
 
+export async function deleteListing(listingId: string) {
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/listings", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ id: listingId }),
+  });
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "listing/delete-failed");
+  }
+}
+
 export async function searchListings(input: ListingSearchInput = {}): Promise<ListingSearchResult> {
   const params = new URLSearchParams();
 

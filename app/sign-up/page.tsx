@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
@@ -31,7 +31,12 @@ function AuthFallback() {
 
 function SignUpContent() {
   const router = useRouter();
-  const postSignUpPath = useMemo(() => "/", []);
+  const searchParams = useSearchParams();
+  const postSignUpPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
+  const signInHref = useMemo(
+    () => `/sign-in?next=${encodeURIComponent(postSignUpPath)}`,
+    [postSignUpPath]
+  );
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -233,7 +238,7 @@ function SignUpContent() {
               </Button>
 
               <div className="flex items-center justify-between text-sm">
-                <Link href="/sign-in" className="text-neutral-300 hover:text-white underline underline-offset-4">
+                <Link href={signInHref} className="text-neutral-300 hover:text-white underline underline-offset-4">
                   ¿Ya tienes cuenta? Sign in
                 </Link>
               </div>

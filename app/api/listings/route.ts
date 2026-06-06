@@ -296,3 +296,47 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = getBearerToken(request);
+    if (!token) {
+      return NextResponse.json({ error: "auth/missing-token" }, { status: 401 });
+    }
+
+    const decoded = await getAdminAuth().verifyIdToken(token);
+    const body = (await request.json()) as Record<string, unknown>;
+    const listingId = typeof body.id === "string" ? body.id.trim() : "";
+
+    if (!listingId) {
+      return NextResponse.json({ error: "listing/missing-id" }, { status: 400 });
+    }
+
+    const ownerId = await getVerifiedListingOwner(listingId);
+    if (!ownerId) {
+      return NextResponse.json({ error: "listing/not-found" }, { status: 404 });
+    }
+
+    if (ownerId !== decoded.uid) {
+      return NextResponse.json({ error: "listing/owner-mismatch" }, { status: 403 });
+    }
+
+    if (await isAccountDeactivated(decoded.uid)) {
+      return NextResponse.json({ error: "user/account-deactivated" }, { status: 403 });
+    }
+
+    await getAdminDb().collection("listings").doc(listingId).update({
+      status: "removed_by_support",
+      removedByOwnerAt: Date.now(),
+      removedByOwnerAtServer: FieldValue.serverTimestamp(),
+      updatedAt: Date.now(),
+      updatedAtServer: FieldValue.serverTimestamp(),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "listing/delete-failed";
+    const status = message.startsWith("listing/") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}

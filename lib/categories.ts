@@ -44,6 +44,8 @@ export const appCategories: AppCategory[] = [
   buildCategory("Bolsos y carteras", categoryImage("photo-1584917865442-de89df76afd3")),
   buildCategory("Joyas y relojes", categoryImage("photo-1523170335258-f5ed11844a49")),
   buildCategory("Accesorios", categoryImage("photo-1523275335684-37898b6baf30")),
+  buildCategory("Maquillaje", categoryImage("photo-1522335789203-aabd1fc54bc9")),
+  buildCategory("Belleza", categoryImage("photo-1560750588-73207b1ef5b8")),
   buildCategory("Celulares y smartphones", categoryImage("photo-1511707171634-5f897ff02aa9")),
   buildCategory("Computadoras y laptops", categoryImage("photo-1496181133206-80ce9b88a853")),
   buildCategory("Tablets", categoryImage("photo-1544244015-0df4b3ffc6b0")),

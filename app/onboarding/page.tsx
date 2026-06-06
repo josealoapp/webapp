@@ -29,6 +29,8 @@ const SUGGESTED_PERSONAL_INTERESTS = [
   "Celulares",
   "Ropa para hombres",
   "Ropa para niños",
+  "Maquillaje",
+  "Belleza",
   "Electrónicos",
   "Libros",
   "Hogar",

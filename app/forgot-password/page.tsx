@@ -36,6 +36,8 @@ function ForgotPasswordContent() {
 
   const mode = sp.get("mode");
   const oobCode = sp.get("oobCode") || "";
+  const nextPath = sp.get("next") || "/";
+  const signInHref = `/sign-in?next=${encodeURIComponent(nextPath)}`;
 
   const [stage, setStage] = useState<Stage>(mode === "resetPassword" && oobCode ? "reset" : "request");
   const [email, setEmail] = useState("");
@@ -162,7 +164,7 @@ function ForgotPasswordContent() {
               </button>
 
               <Link
-                href="/sign-in"
+                href={signInHref}
                 className="mt-4 inline-flex items-center justify-center gap-2 text-sm text-neutral-300 hover:text-white"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -205,7 +207,7 @@ function ForgotPasswordContent() {
               </button>
 
               <button
-                onClick={() => router.push("/sign-in")}
+                onClick={() => router.push(signInHref)}
                 className="mt-3 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 text-sm font-medium text-neutral-100 hover:border-orange-400"
               >
                 Cancel
@@ -222,7 +224,7 @@ function ForgotPasswordContent() {
               <p className="mt-2 text-sm text-neutral-400">You can now sign in with your new password.</p>
 
               <button
-                onClick={() => router.push("/sign-in")}
+                onClick={() => router.push(signInHref)}
                 className="mt-6 h-12 w-full rounded-2xl bg-orange-400 text-sm font-semibold text-black hover:bg-orange-300"
               >
                 Go to Sign In

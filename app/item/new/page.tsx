@@ -389,6 +389,8 @@ export default function NewListingPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [existingArticleImageUrl, setExistingArticleImageUrl] = useState("");
+  const [existingArticleLocation, setExistingArticleLocation] = useState("");
   const [uploadingArticle, setUploadingArticle] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -489,7 +491,26 @@ export default function NewListingPage() {
     let mounted = true;
 
     getListingById(editingListingId).then((listing) => {
-      if (!mounted || !listing || listing.type !== "bazar") return;
+      if (!mounted || !listing) return;
+
+      if ((listing.type || "article") === "article") {
+        setListingType("article");
+        setTitle(listing.title || "");
+        setPrice(String(listing.price || ""));
+        setCategory(listing.category || "");
+        setDescription(listing.description || "");
+        setTags((listing.tags || []).join(", "));
+        setPaymentMethod(listing.paymentMethod || "efectivo");
+        setVehicleYear(listing.vehicleYear ? String(listing.vehicleYear) : "");
+        setClothingSize(listing.clothingSize || "");
+        setShoeSize(listing.shoeSize || "");
+        setExistingArticleImageUrl(listing.image || "");
+        setExistingArticleLocation(listing.location || "");
+        categoryWasManuallyChangedRef.current = true;
+        return;
+      }
+
+      if (listing.type !== "bazar") return;
 
       setListingType("bazar");
       setBazarCategory(listing.bazarCategory || listing.category || "");
@@ -578,6 +599,7 @@ export default function NewListingPage() {
     const remaining = Math.max(0, maxArticlePhotos - current);
     const next = incoming.slice(0, remaining);
     setSelectedFiles((prev) => [...prev, ...next]);
+    if (next.length > 0) setExistingArticleImageUrl("");
     setPhotoError(null);
     e.currentTarget.value = "";
   };
@@ -767,7 +789,7 @@ export default function NewListingPage() {
       setCategoryError("Selecciona una categoría válida de la lista.");
       return;
     }
-    if (selectedFiles.length === 0) {
+    if (selectedFiles.length === 0 && !existingArticleImageUrl) {
       setPhotoError("Agrega al menos una foto para publicar.");
       return;
     }
@@ -781,8 +803,38 @@ export default function NewListingPage() {
     setPhotoError(null);
     setLocationError(null);
     try {
-      const currentLocation = await requestCurrentSupportedLocation();
-      const urls = await uploadListingImages(selectedFiles);
+      const currentLocation = editingListingId && existingArticleLocation
+        ? { name: existingArticleLocation }
+        : await requestCurrentSupportedLocation();
+      const urls = selectedFiles.length ? await uploadListingImages(selectedFiles) : [];
+      const imageUrl = urls[0] || existingArticleImageUrl;
+      if (editingListingId) {
+        const whatsappContact = getWhatsappContactSettings();
+        await updateListing(editingListingId, {
+          ownerId: user.uid,
+          ownerName: user.displayName || user.email || "Vendedor",
+          ownerAvatar: readProfileAvatar(user.uid),
+          sellerWhatsappNumber: whatsappContact.phone,
+          sellerUsesWhatsapp: whatsappContact.enabled,
+          type: "article",
+          title: title.trim(),
+          price: numericPrice,
+          category: resolvedCategory,
+          description: description.trim(),
+          tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+          paymentMethod,
+          location: currentLocation.name,
+          image: imageUrl,
+          ...getCategoryMetadataPayload(articleCategoryKind, {
+            vehicleYear,
+            clothingSize,
+            shoeSize,
+          }),
+          bazarItems: [],
+        });
+        router.replace(`/item/${editingListingId}`);
+        return;
+      }
       const params = new URLSearchParams({
         title: title.trim(),
         price: numericPrice.toString(),
@@ -790,7 +842,7 @@ export default function NewListingPage() {
         description: description.trim(),
         tags: tags.trim(),
         paymentMethod,
-        imageUrl: urls[0] || "",
+        imageUrl,
         location: currentLocation.name,
       });
       const metadata = getCategoryMetadataPayload(articleCategoryKind, {
@@ -897,7 +949,11 @@ export default function NewListingPage() {
         return;
       }
 
-      router.push(editingListingId ? `/item/${editingListingId}` : "/");
+      if (editingListingId) {
+        router.replace(`/item/${editingListingId}`);
+      } else {
+        router.push("/");
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "";
       if (message === "location/not-supported") {
@@ -975,6 +1031,22 @@ export default function NewListingPage() {
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-[13px] text-neutral-300">
               Fotos: {selectedFiles.length}/{maxArticlePhotos} · Solo fotos. Las convertimos a WebP y reducimos tamano automaticamente.
             </div>
+
+            {existingArticleImageUrl ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-neutral-800">
+                  <img src={existingArticleImageUrl} alt="Foto actual" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setExistingArticleImageUrl("")}
+                    className="absolute right-1 top-1 rounded-full bg-black/70 px-1.5 text-xs text-white"
+                    aria-label="Eliminar foto actual"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {previewUrls.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -1115,7 +1187,7 @@ export default function NewListingPage() {
                 onClick={handleArticleContinue}
                 disabled={uploadingArticle}
               >
-                {uploadingArticle ? "Subiendo fotos..." : "Siguiente"}
+                {uploadingArticle ? "Guardando..." : editingListingId ? "Guardar cambios" : "Siguiente"}
               </button>
             </div>
           </div>

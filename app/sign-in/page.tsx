@@ -8,7 +8,6 @@ import { ArrowLeft } from "lucide-react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { createOffer } from "@/lib/marketplace";
 import { getPostAuthDestination, loadAccountProfileFromBackend } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import LogoLoadAnimation from "@/components/LogoLoadAnimation";
@@ -50,6 +49,14 @@ function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultPostAuthPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
+  const signUpHref = useMemo(
+    () => `/sign-up?next=${encodeURIComponent(defaultPostAuthPath)}`,
+    [defaultPostAuthPath]
+  );
+  const forgotPasswordHref = useMemo(
+    () => `/forgot-password?next=${encodeURIComponent(defaultPostAuthPath)}`,
+    [defaultPostAuthPath]
+  );
   const isDeactivatedRedirect = searchParams.get("account") === "deactivated";
   const deactivatedReason = isDeactivatedRedirect ? searchParams.get("reason") || "" : "";
 
@@ -124,49 +131,6 @@ function SignInContent() {
         await waitForMinimumLoaderTime(loaderStartedAt);
         router.replace(postAuthDestination);
         return;
-      }
-
-      // Si venimos del modal "Me interesa", completamos el chat ahora (local storage MVP)
-      try {
-        const raw = sessionStorage.getItem("pending_interest");
-        if (raw) {
-          const pending = JSON.parse(raw) as {
-            item: {
-              id: string;
-              title: string;
-              price: number;
-              sellerId?: string;
-              sellerName?: string;
-              sellerMaxDiscountPercent: number;
-            };
-            method: "cash" | "trade" | "cash_trade";
-            cashOffer: number;
-            minAccepted: number;
-            message: string;
-            sellerId?: string;
-            sellerName?: string;
-            createdAt: number;
-          };
-
-          const sellerName = pending.sellerName || pending.item.sellerName || "Vendedor";
-          const sellerId = pending.sellerId || pending.item.sellerId || "seller";
-
-          const chatId = await createOffer({
-            listingId: pending.item.id,
-            listingTitle: pending.item.title,
-            listingPrice: pending.item.price,
-            sellerId,
-            sellerName,
-            message: pending.message,
-          });
-
-          sessionStorage.removeItem("pending_interest");
-          await waitForMinimumLoaderTime(loaderStartedAt);
-          router.replace(`/chat/${chatId}`);
-          return;
-        }
-      } catch {
-        // si falla, seguimos normal
       }
 
       await waitForMinimumLoaderTime(loaderStartedAt);
@@ -266,13 +230,13 @@ function SignInContent() {
 
               <div className="flex items-center justify-between text-sm">
                 <Link
-                  href="/forgot-password"
+                  href={forgotPasswordHref}
                   className="text-neutral-300 hover:text-white underline underline-offset-4"
                 >
                   Forgot password
                 </Link>
                 <Link
-                  href="/sign-up"
+                  href={signUpHref}
                   className="text-neutral-300 hover:text-white underline underline-offset-4"
                 >
                   Sign up

@@ -7,6 +7,7 @@ import Image from "next/image";
 import { ArrowLeft, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 
+import AppBottomNav from "@/components/AppBottomNav";
 import InterestModal from "@/components/InterestModal";
 import SellerAvatar from "@/components/SellerAvatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { getLikeRecordId, likeItem, subscribeLikeIdsForUser, unlikeItem } from "
 import { createItemReport, REPORT_REASONS } from "@/lib/item-reports";
 import {
   ChatRecord,
+  deleteListing,
   getListingById,
   Listing,
   markBazarItemSold,
@@ -24,6 +26,7 @@ import {
 } from "@/lib/marketplace";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { clearPendingAuthAction, readPendingAuthAction } from "@/lib/pending-auth-action";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import VerifiedBadge from "@/components/VerifiedBadge";
 
@@ -47,6 +50,9 @@ export default function ItemDetailsPage() {
   const [publishingSold, setPublishingSold] = useState(false);
   const [soldError, setSoldError] = useState("");
   const [openBazarMenu, setOpenBazarMenu] = useState(false);
+  const [openOwnerActions, setOpenOwnerActions] = useState(false);
+  const [deletingListing, setDeletingListing] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [openReportMenu, setOpenReportMenu] = useState(false);
   const [openReportModal, setOpenReportModal] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -201,6 +207,20 @@ export default function ItemDetailsPage() {
       () => setListingChats([])
     );
   }, [currentUserId, listing?.id, listing?.ownerId]);
+
+  useEffect(() => {
+    if (!authResolved || !currentUserId || !item?.id || isOwnListing) return;
+
+    const pending = readPendingAuthAction();
+    if (!pending || pending.type !== "interest" || pending.listingId !== item.id) return;
+
+    const currentPath = `${window.location.pathname}${window.location.search}`;
+    if (pending.returnTo !== currentPath) return;
+
+    clearPendingAuthAction();
+    window.sessionStorage.removeItem("pending_interest");
+    setOpenInterest(true);
+  }, [authResolved, currentUserId, isOwnListing, item?.id]);
   const images = useMemo(() => {
     if (isSold) {
       return [] as string[];
@@ -335,6 +355,28 @@ export default function ItemDetailsPage() {
       setReportError("No pudimos enviar el reporte. Intenta de nuevo.");
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const handleEditListing = () => {
+    if (!item?.id) return;
+    setOpenOwnerActions(false);
+    router.push(`/item/new?listingId=${encodeURIComponent(item.id)}`);
+  };
+
+  const handleDeleteListing = async () => {
+    if (!item?.id || deletingListing) return;
+
+    setDeletingListing(true);
+    setDeleteError("");
+    try {
+      await deleteListing(item.id);
+      setOpenOwnerActions(false);
+      router.replace("/profile/me");
+    } catch {
+      setDeleteError("No pudimos eliminar este artículo. Intenta de nuevo.");
+    } finally {
+      setDeletingListing(false);
     }
   };
 
@@ -558,7 +600,19 @@ export default function ItemDetailsPage() {
                 {displayTitle}
               </div>
             </div>
-            {!isOwnListing ? (
+            {isOwnListing ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError("");
+                  setOpenOwnerActions(true);
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-neutral-200"
+                aria-label="Acciones del artículo"
+              >
+                <MoreHorizontal className="h-6 w-6" />
+              </button>
+            ) : (
               <div ref={reportMenuRef} className="relative shrink-0">
                 <button
                   type="button"
@@ -581,7 +635,7 @@ export default function ItemDetailsPage() {
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            )}
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
@@ -739,7 +793,7 @@ export default function ItemDetailsPage() {
       </div>
 
       {/* FIXED BOTTOM BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
+      <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <div className="text-xs text-neutral-500">
@@ -815,6 +869,8 @@ export default function ItemDetailsPage() {
         </div>
       </div>
 
+      <AppBottomNav active="home" />
+
       <InterestModal
         open={openInterest}
         onClose={() => setOpenInterest(false)}
@@ -829,6 +885,44 @@ export default function ItemDetailsPage() {
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
         }}
       />
+
+      {openOwnerActions ? (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4">
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => setOpenOwnerActions(false)}
+            aria-label="Cerrar acciones"
+          />
+          <div className="relative w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-4 shadow-2xl">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-neutral-800" />
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-2xl border-neutral-800 bg-neutral-900 text-neutral-100 hover:bg-neutral-800 hover:text-white"
+                onClick={handleEditListing}
+              >
+                Editar artículo
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full rounded-2xl border-red-900/60 bg-red-950/20 text-red-200 hover:bg-red-950/40 hover:text-red-100"
+                onClick={handleDeleteListing}
+                disabled={deletingListing}
+              >
+                {deletingListing ? "Eliminando..." : "Eliminar artículo"}
+              </Button>
+            </div>
+            {deleteError ? (
+              <div className="mt-3 rounded-2xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+                {deleteError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {soldError && item.type === "bazar" && selectedBazarItem ? (
         <div className="fixed bottom-24 left-4 right-4 z-40 mx-auto max-w-md rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">

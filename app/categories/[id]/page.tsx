@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CalendarIcon, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { appCategories, getCategoryInputKind, normalizeCategoryName } from "@/lib/categories";
 import {
@@ -15,12 +15,18 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { recordSearchEvent } from "@/lib/search-analytics";
+import LocationPickerModal from "@/components/LocationPickerModal";
+import {
+  getDefaultListingLocation,
+  normalizeLocationName,
+  readStoredUserLocation,
+  saveManualListingLocation,
+} from "@/lib/location";
 
 type CategoryFilters = {
   minPrice: string;
   maxPrice: string;
   listedAfter: string;
-  location: string;
   year: string;
   size: string;
   shoeSize: string;
@@ -30,7 +36,6 @@ const emptyFilters: CategoryFilters = {
   minPrice: "",
   maxPrice: "",
   listedAfter: "",
-  location: "",
   year: "",
   size: "",
   shoeSize: "",
@@ -125,8 +130,13 @@ function flattenCategoryListings(listings: Listing[], categoryName: string): Cat
 
 export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [preferredLocation, setPreferredLocation] = useState("");
   const [filters, setFilters] = useState<CategoryFilters>(emptyFilters);
   const [draftFilters, setDraftFilters] = useState<CategoryFilters>(emptyFilters);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -140,11 +150,23 @@ export default function CategoryDetailPage() {
     () => (category ? flattenCategoryListings(listings, category.name) : []),
     [category, listings]
   );
-  const locationOptions = useMemo(() => {
-    return Array.from(new Set(categoryItems.map((item) => item.location).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b, "es")
-    );
-  }, [categoryItems]);
+
+  useEffect(() => {
+    const queryLocation = searchParams.get("location");
+    if (queryLocation) {
+      setSelectedLocation(queryLocation);
+      setPreferredLocation(queryLocation);
+      return;
+    }
+
+    setSelectedLocation("");
+    setPreferredLocation(getDefaultListingLocation());
+
+    const storedLocation = readStoredUserLocation();
+    if (storedLocation?.name) {
+      setPreferredLocation(storedLocation.name);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!category) return;
@@ -153,6 +175,7 @@ export default function CategoryDetailPage() {
     setLoading(true);
     searchListings({
       category: category.name,
+      location: selectedLocation || undefined,
       status: "active",
       limit: 60,
     })
@@ -163,6 +186,7 @@ export default function CategoryDetailPage() {
         void recordSearchEvent({
           query: q,
           category: category.name,
+          location: selectedLocation || preferredLocation,
           source: "category",
         }).catch(() => {});
       })
@@ -178,7 +202,7 @@ export default function CategoryDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [category]);
+  }, [category, preferredLocation, selectedLocation]);
 
   useEffect(() => {
     if (!category || !q.trim()) return;
@@ -187,26 +211,27 @@ export default function CategoryDetailPage() {
       void recordSearchEvent({
         query: q,
         category: category.name,
+        location: selectedLocation || preferredLocation,
         source: "category",
       }).catch(() => {});
     }, 500);
 
     return () => window.clearTimeout(timeoutId);
-  }, [category, q]);
+  }, [category, preferredLocation, q, selectedLocation]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const minPrice = Number(filters.minPrice);
     const maxPrice = Number(filters.maxPrice);
     const listedAfterTime = filters.listedAfter ? new Date(`${filters.listedAfter}T00:00:00`).getTime() : 0;
-    const location = normalizeCategoryName(filters.location);
+    const location = normalizeLocation(selectedLocation);
     const year = Number(filters.year);
     const shoeSize = filters.shoeSize.trim().toLowerCase();
     const size = filters.size.trim().toLowerCase();
 
     return categoryItems.filter((item) => {
       if (term && !item.title.toLowerCase().includes(term)) return false;
-      if (location && normalizeCategoryName(item.location) !== location) return false;
+      if (location && normalizeLocation(item.location) !== location) return false;
       if (minPrice && item.price < minPrice) return false;
       if (maxPrice && item.price > maxPrice) return false;
       if (listedAfterTime && item.createdAt < listedAfterTime) return false;
@@ -214,8 +239,15 @@ export default function CategoryDetailPage() {
       if (filterKind === "clothing" && size && item.clothingSize?.toLowerCase() !== size) return false;
       if (filterKind === "shoes" && shoeSize && item.shoeSize?.toLowerCase() !== shoeSize) return false;
       return true;
+    }).sort((a, b) => {
+      if (selectedLocation || !preferredLocation) return 0;
+      const targetLocation = normalizeLocation(preferredLocation);
+      const aNear = normalizeLocation(a.location) === targetLocation ? 1 : 0;
+      const bNear = normalizeLocation(b.location) === targetLocation ? 1 : 0;
+      if (aNear !== bNear) return bNear - aNear;
+      return b.createdAt - a.createdAt;
     });
-  }, [categoryItems, filterKind, filters, q]);
+  }, [categoryItems, filterKind, filters, preferredLocation, q, selectedLocation]);
 
   if (!category) return notFound();
 
@@ -246,6 +278,7 @@ export default function CategoryDetailPage() {
     try {
       const result = await searchListings({
         category: category.name,
+        location: selectedLocation || undefined,
         status: "active",
         limit: 60,
         cursor: nextCursor,
@@ -255,6 +288,25 @@ export default function CategoryDetailPage() {
     } finally {
       setLoadingMore(false);
     }
+  };
+
+  const handleLocationSelect = (location: string) => {
+    setSelectedLocation(location);
+    if (location) {
+      setPreferredLocation(location);
+      saveManualListingLocation(location);
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (location) {
+      nextParams.set("location", location);
+    } else {
+      nextParams.delete("location");
+    }
+    const nextUrl = nextParams.toString()
+      ? `/categories/${category.id}?${nextParams.toString()}`
+      : `/categories/${category.id}`;
+    router.replace(nextUrl, { scroll: false });
   };
 
   return (
@@ -281,6 +333,18 @@ export default function CategoryDetailPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 pb-16 pt-6">
+        <button
+          type="button"
+          onClick={() => setLocationModalOpen(true)}
+          className="mb-4 flex w-full items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-left hover:border-neutral-600"
+        >
+          <span className="text-sm text-neutral-300">Ubicaciones de búsqueda</span>
+          <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-orange-400">
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span className="truncate">{selectedLocation || "Todas"}</span>
+          </span>
+        </button>
+
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="text-sm text-neutral-400">
             {loading ? "Cargando publicaciones..." : `${filtered.length} resultados en ${category.name}`}
@@ -389,22 +453,6 @@ export default function CategoryDetailPage() {
                   />
                 </label>
               </div>
-
-              <label className="block space-y-2">
-                <span className="text-xs font-semibold uppercase text-neutral-500">Ubicación</span>
-                <select
-                  value={draftFilters.location}
-                  onChange={(e) => updateDraftFilter("location", e.target.value)}
-                  className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-orange-400"
-                >
-                  <option value="">Todas las ubicaciones</option>
-                  {locationOptions.map((location) => (
-                    <option key={location} value={location}>
-                      {location}
-                    </option>
-                  ))}
-                </select>
-              </label>
 
               <div className="space-y-2">
                 <span className="text-xs font-semibold uppercase text-neutral-500">Publicado desde</span>
@@ -522,6 +570,18 @@ export default function CategoryDetailPage() {
           </div>
         </div>
       ) : null}
+
+      <LocationPickerModal
+        open={locationModalOpen}
+        currentLocation={selectedLocation}
+        allowAllLocations
+        onClose={() => setLocationModalOpen(false)}
+        onSelect={handleLocationSelect}
+      />
     </div>
   );
+}
+
+function normalizeLocation(location: string) {
+  return normalizeLocationName(location);
 }

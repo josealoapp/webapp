@@ -92,6 +92,7 @@ export default function DiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
+  const [authResolved, setAuthResolved] = useState(false);
   const [interestCategoryKeys, setInterestCategoryKeys] = useState<Set<string>>(new Set());
   const [specificInterestKeys, setSpecificInterestKeys] = useState<Set<string>>(new Set());
   const [interestsLoaded, setInterestsLoaded] = useState(false);
@@ -108,6 +109,7 @@ export default function DiscoverPage() {
     return onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid ?? null);
       setCurrentUserName(user?.displayName?.trim() || user?.email?.trim() || "Usuario");
+      setAuthResolved(true);
     });
   }, []);
 
@@ -353,7 +355,7 @@ export default function DiscoverPage() {
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       <Navbar
         rightAction={
-          interestsLoaded && hasSelectedInterests ? (
+          authResolved && currentUserId && interestsLoaded && hasSelectedInterests ? (
             <button
               type="button"
               onClick={toggleSwipeMode}
@@ -371,7 +373,9 @@ export default function DiscoverPage() {
       />
 
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-24">
-        {!interestsLoaded ? null : !hasSelectedInterests ? (
+        {!authResolved || !interestsLoaded ? null : !currentUserId ? (
+          <SignedOutDiscoverEmptyState />
+        ) : !hasSelectedInterests ? (
           <ConfigureInterestsEmptyState />
         ) : (
             <>
@@ -490,6 +494,23 @@ function ConfigureInterestsEmptyState() {
         className="mt-6 rounded-2xl bg-orange-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-300"
       >
         Configurar intereses
+      </Link>
+    </div>
+  );
+}
+
+function SignedOutDiscoverEmptyState() {
+  return (
+    <div className="mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
+      <div className="text-lg font-semibold text-neutral-50">No has iniciado sesión aún</div>
+      <p className="mt-3 text-sm leading-6 text-neutral-400">
+        Haz click en acceder para entrar o crear tu cuenta.
+      </p>
+      <Link
+        href={`/sign-in?next=${encodeURIComponent("/descubre")}`}
+        className="mt-6 rounded-2xl bg-orange-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-300"
+      >
+        Acceder
       </Link>
     </div>
   );

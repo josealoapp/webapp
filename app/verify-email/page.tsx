@@ -34,7 +34,7 @@ function VerifyEmailContent() {
     let cancelled = false;
     const user = auth.currentUser;
     if (!user) {
-      router.replace("/sign-in");
+      router.replace(`/sign-in?next=${encodeURIComponent(nextPath)}`);
       return;
     }
 
@@ -82,7 +82,7 @@ function VerifyEmailContent() {
   const resend = async () => {
     const user = auth.currentUser;
     if (!user) {
-      router.replace("/sign-in");
+      router.replace(`/sign-in?next=${encodeURIComponent(nextPath)}`);
       return;
     }
     setStatus("sending");
@@ -100,7 +100,7 @@ function VerifyEmailContent() {
   const checkVerified = async () => {
     const user = auth.currentUser;
     if (!user) {
-      router.replace("/sign-in");
+      router.replace(`/sign-in?next=${encodeURIComponent(nextPath)}`);
       return;
     }
     await user.reload();

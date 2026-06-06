@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createOffer, getExistingOfferChat } from "@/lib/marketplace";
+import { savePendingAuthAction } from "@/lib/pending-auth-action";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 
 type Method = "cash" | "trade" | "cash_trade";
@@ -111,7 +112,7 @@ export default function InterestModal({
     onClose();
   };
 
-  const startChat = async (message: string, nextOnSignedOut = "/messages") => {
+  const startChat = async (message: string, nextOnSignedOut?: string) => {
     setError("");
 
     if (!item.sellerId || !item.sellerName) {
@@ -170,7 +171,19 @@ export default function InterestModal({
       }
     }
 
+    const returnTo =
+      nextOnSignedOut ||
+      (typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : `/item/${item.id}`);
+
     try {
+      savePendingAuthAction({
+        type: "interest",
+        returnTo,
+        listingId: item.id,
+        createdAt: Date.now(),
+      });
       sessionStorage.setItem(
         "pending_interest",
         JSON.stringify({
@@ -189,7 +202,7 @@ export default function InterestModal({
     }
 
     onClose();
-    router.push(`/sign-in?next=${encodeURIComponent(nextOnSignedOut)}`);
+    router.push(`/sign-in?next=${encodeURIComponent(returnTo)}`);
   };
 
   const handleContinue = async () => {
