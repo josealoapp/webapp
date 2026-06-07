@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
+import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
 
 export default function PasswordPage() {
   const router = useRouter();
@@ -46,16 +47,13 @@ export default function PasswordPage() {
 
           <label className="flex flex-col gap-2">
             <span className="text-xs text-neutral-400">Nueva contraseña</span>
-            <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 focus-within:border-orange-400">
-              <Lock className="h-4 w-4 text-neutral-500" />
-              <input
-                type="password"
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                placeholder="Crea una nueva contraseña"
-                className="h-12 flex-1 bg-transparent text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
-              />
-            </div>
+            <PasswordStrengthInput
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              placeholder="Crea una nueva contraseña"
+              autoComplete="new-password"
+              className="bg-neutral-900"
+            />
           </label>
 
           <label className="flex flex-col gap-2">

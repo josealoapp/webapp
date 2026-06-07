@@ -3,15 +3,30 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  getAdditionalUserInfo,
+  GoogleAuthProvider,
+  sendEmailVerification,
+  signInWithPopup,
+  updateProfile,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import { readAccountProfile, writeAccountProfile } from "@/lib/account-profile";
+import {
+  assertAccountIsActive,
+  cacheAuthUser,
+  getAuthErrorMessage,
+  preparePostAuthDestination,
+} from "@/lib/auth-flow";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
+import { getPasswordValidationMessage, isPasswordValid } from "@/lib/password-criteria";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -45,6 +60,7 @@ function SignUpContent() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +84,8 @@ function SignUpContent() {
       return;
     }
 
-    if (trimmedPass.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+    if (!isPasswordValid(trimmedPass)) {
+      setError(getPasswordValidationMessage());
       setLoading(false);
       return;
     }
@@ -91,7 +107,7 @@ function SignUpContent() {
       if (code === "auth/email-already-in-use") {
         setError("Ese email ya está en uso. Intenta iniciar sesión.");
       } else if (code === "auth/weak-password") {
-        setError("La contraseña es muy débil. Usa 6+ caracteres.");
+        setError(getPasswordValidationMessage());
       } else {
         setError("No pudimos crear la cuenta. Intenta de nuevo.");
       }
@@ -115,19 +131,7 @@ function SignUpContent() {
       // Do not block account creation if Firebase rejects or delays the verification email.
     }
 
-    try {
-      localStorage.setItem(
-        "auth_user",
-        JSON.stringify({
-          uid: cred.user?.uid,
-          email: cred.user?.email,
-          name: cred.user?.displayName || trimmedName,
-          signedInAt: Date.now(),
-        })
-      );
-    } catch {
-      // ignore
-    }
+    cacheAuthUser(cred.user, trimmedName);
 
     try {
       const currentProfile = readAccountProfile();
@@ -147,6 +151,28 @@ function SignUpContent() {
     router.replace(
       `/verify-email?next=${encodeURIComponent(postSignUpPath)}&email=${verificationEmailStatus}`
     );
+  };
+
+  const signUpWithGoogle = async () => {
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      const cred = await signInWithPopup(auth, provider);
+      const user = cred.user;
+      await assertAccountIsActive(user);
+      cacheAuthUser(user);
+      const postAuthDestination = await preparePostAuthDestination(user, postSignUpPath, {
+        forceOnboarding: Boolean(getAdditionalUserInfo(cred)?.isNewUser),
+      });
+      router.replace(postAuthDestination);
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err, "No se pudo continuar con Google. Intenta de nuevo."));
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -203,13 +229,11 @@ function SignUpContent() {
 
               <div className="space-y-2">
                 <Label htmlFor="pass">Contraseña</Label>
-                <Input
+                <PasswordStrengthInput
                   id="pass"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="border-neutral-800 bg-neutral-950"
                   autoComplete="new-password"
                 />
               </div>
@@ -236,9 +260,28 @@ function SignUpContent() {
               <Button
                 type="submit"
                 className="w-full bg-orange-400 text-black hover:bg-orange-300"
-                disabled={loading}
+                disabled={loading || googleLoading}
               >
                 {loading ? "Creando..." : "Crear cuenta"}
+              </Button>
+
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <div className="h-px flex-1 bg-neutral-800" />
+                <span>o</span>
+                <div className="h-px flex-1 bg-neutral-800" />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={signUpWithGoogle}
+                className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                disabled={loading || googleLoading}
+              >
+                <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
+                  G
+                </span>
+                {googleLoading ? "Conectando..." : "Continuar con Google"}
               </Button>
 
               <div className="flex items-center justify-between text-sm">

@@ -5,12 +5,18 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
-import { getPostAuthDestination, loadAccountProfileFromBackend } from "@/lib/account-profile";
+import { getAdditionalUserInfo, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import LogoLoadAnimation from "@/components/LogoLoadAnimation";
+import {
+  assertAccountIsActive,
+  cacheAuthUser,
+  getAuthErrorMessage,
+  getDeactivatedAccountMessage,
+  preparePostAuthDestination,
+  waitForMinimumLoaderTime,
+} from "@/lib/auth-flow";
 
 import {
   Card,
@@ -25,12 +31,6 @@ import { Button } from "@/components/ui/button";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function waitForMinimumLoaderTime(startedAt: number) {
-  const remaining = 2000 - (Date.now() - startedAt);
-  if (remaining <= 0) return Promise.resolve();
-  return new Promise((resolve) => window.setTimeout(resolve, remaining));
 }
 
 export default function SignInPage() {
@@ -66,6 +66,7 @@ function SignInContent() {
     isDeactivatedRedirect ? getDeactivatedAccountMessage(deactivatedReason) : ""
   );
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,33 +90,10 @@ function SignInContent() {
     }
 
     try {
-      // ✅ Firebase Auth real
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const user = cred.user;
-      const profileSnap = await getDoc(doc(db, "userProfiles", user.uid)).catch(() => null);
-      const supportStatus = profileSnap?.data()?.supportStatus;
-      if (supportStatus === "deactivated") {
-        const reason = String(profileSnap?.data()?.supportDeactivationReason || "");
-        await signOut(auth).catch(() => undefined);
-        setError(getDeactivatedAccountMessage(reason));
-        setLoading(false);
-        return;
-      }
-
-      // ⚠️ Compat: tu app actual filtra chats por "auth_user" en localStorage.
-      // Guardamos algo mínimo para que NO se rompa el flujo mientras migramos a Firebase.
-      try {
-        localStorage.setItem(
-          "auth_user",
-          JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            signedInAt: Date.now(),
-          })
-        );
-      } catch {
-        // ignore
-      }
+      await assertAccountIsActive(user);
+      cacheAuthUser(user);
 
       if (!user.emailVerified) {
         await waitForMinimumLoaderTime(loaderStartedAt);
@@ -123,16 +101,7 @@ function SignInContent() {
         return;
       }
 
-      await loadAccountProfileFromBackend(user.uid);
-      const postAuthDestination = getPostAuthDestination(defaultPostAuthPath);
-      const onboardingRequired = postAuthDestination.startsWith("/onboarding");
-
-      if (onboardingRequired) {
-        await waitForMinimumLoaderTime(loaderStartedAt);
-        router.replace(postAuthDestination);
-        return;
-      }
-
+      const postAuthDestination = await preparePostAuthDestination(user, defaultPostAuthPath);
       await waitForMinimumLoaderTime(loaderStartedAt);
       router.replace(postAuthDestination);
     } catch (err: unknown) {
@@ -141,7 +110,9 @@ function SignInContent() {
           ? String((err as { code?: string }).code)
           : undefined;
 
-      if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+      if (err instanceof Error && err.message.startsWith("account/deactivated")) {
+        setError(getAuthErrorMessage(err, "No se pudo iniciar sesión. Intenta de nuevo."));
+      } else if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
         setError("Credenciales incorrectas. Revisa tu email y contraseña.");
       } else if (code === "auth/user-not-found") {
         setError("No existe una cuenta con ese email. Ve a 'Sign up'.");
@@ -155,9 +126,34 @@ function SignInContent() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setError("");
+    setGoogleLoading(true);
+    const loaderStartedAt = Date.now();
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      const cred = await signInWithPopup(auth, provider);
+      const user = cred.user;
+      await assertAccountIsActive(user);
+      cacheAuthUser(user);
+      const postAuthDestination = await preparePostAuthDestination(user, defaultPostAuthPath, {
+        forceOnboarding: Boolean(getAdditionalUserInfo(cred)?.isNewUser),
+      });
+      await waitForMinimumLoaderTime(loaderStartedAt);
+      router.replace(postAuthDestination);
+    } catch (err: unknown) {
+      setError(getAuthErrorMessage(err, "No se pudo iniciar sesión con Google. Intenta de nuevo."));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
       {loading ? <LogoLoadAnimation fullscreen /> : null}
+      {googleLoading ? <LogoLoadAnimation fullscreen /> : null}
 
       <div className="mx-auto w-full max-w-md">
         <Button
@@ -223,9 +219,28 @@ function SignInContent() {
               <Button
                 type="submit"
                 className="w-full bg-orange-400 text-black hover:bg-orange-300"
-                disabled={loading}
+                disabled={loading || googleLoading}
               >
                 {loading ? "Ingresando..." : "Sign in"}
+              </Button>
+
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <div className="h-px flex-1 bg-neutral-800" />
+                <span>o</span>
+                <div className="h-px flex-1 bg-neutral-800" />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={signInWithGoogle}
+                className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                disabled={loading || googleLoading}
+              >
+                <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
+                  G
+                </span>
+                {googleLoading ? "Conectando..." : "Continuar con Google"}
               </Button>
 
               <div className="flex items-center justify-between text-sm">
@@ -252,12 +267,4 @@ function SignInContent() {
       </div>
     </div>
   );
-}
-
-function getDeactivatedAccountMessage(reason: string) {
-  if (!reason) return "";
-  if (reason === "Estafa" || reason === "Artículo robado") {
-    return "Lo sentimos, tu cuenta fue involucrada en una acción fraudulenta crítica y ha sido suspendida permanentemente. Contáctanos si no estás de acuerdo con esta decisión.";
-  }
-  return "Tu cuenta fue desactivada por soporte. Contáctanos si necesitas revisar esta decisión.";
 }

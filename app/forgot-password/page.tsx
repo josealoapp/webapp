@@ -11,6 +11,8 @@ import {
 import { ArrowLeft, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
+import { getPasswordValidationMessage, isPasswordValid } from "@/lib/password-criteria";
 
 type Stage = "request" | "reset" | "done";
 
@@ -95,8 +97,8 @@ function ForgotPasswordContent() {
     setError("");
     setNotice("");
 
-    if (newPass.trim().length < 6) {
-      setError("La nueva contraseña debe tener al menos 6 caracteres.");
+    if (!isPasswordValid(newPass.trim())) {
+      setError(getPasswordValidationMessage());
       return;
     }
 
@@ -182,12 +184,11 @@ function ForgotPasswordContent() {
               <p className="mt-2 text-sm text-neutral-400">Set your new password to continue.</p>
 
               <div className="mt-6 space-y-3">
-                <input
-                  type="password"
+                <PasswordStrengthInput
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
                   placeholder="Enter your new password"
-                  className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-sm outline-none placeholder:text-neutral-500 focus:border-orange-400"
+                  autoComplete="new-password"
                 />
                 <input
                   type="password"
