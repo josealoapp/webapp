@@ -65,6 +65,9 @@ export type AdminUserRow = {
   displayName: string;
   createdAt: number;
   isVerified: boolean;
+  accountType?: "personal" | "business";
+  businessName?: string;
+  businessVerificationStatus?: "pending" | "verified" | "";
 };
 
 async function listAllAuthUsers() {
@@ -104,23 +107,50 @@ export async function listAdminUsers(query = "") {
   const profileRefs = users.map((user) => getAdminDb().collection("userProfiles").doc(user.uid));
   const profileSnaps = profileRefs.length ? await getAdminDb().getAll(...profileRefs) : [];
   const profileMap = new Map(profileSnaps.map((snap) => [snap.id, snap.data() as { supportStatus?: "active" | "deactivated"; supportDeactivationReason?: string } | undefined]));
+  const privateProfileRefs = users.map((user) => getAdminDb().collection("userPrivateProfiles").doc(user.uid));
+  const privateProfileSnaps = privateProfileRefs.length ? await getAdminDb().getAll(...privateProfileRefs) : [];
+  const privateProfileMap = new Map(
+    privateProfileSnaps.map((snap) => [
+      snap.id,
+      snap.data() as
+        | {
+            accountType?: "personal" | "business";
+            businessProfile?: { businessName?: string };
+            businessVerificationPending?: boolean;
+          }
+        | undefined,
+    ])
+  );
   const normalizedQuery = query.trim().toLowerCase();
 
   return users
-    .map((user) => ({
-      uid: user.uid,
-      email: user.email || "",
-      displayName: user.displayName || user.email || "Usuario",
-      createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).getTime() : 0,
-      isVerified: verifiedMap.get(user.uid) || false,
-      supportStatus: profileMap.get(user.uid)?.supportStatus || "active",
-      supportDeactivationReason: profileMap.get(user.uid)?.supportDeactivationReason || "",
-    }))
+    .map((user) => {
+      const privateProfile = privateProfileMap.get(user.uid);
+      const isVerified = verifiedMap.get(user.uid) || false;
+      const accountType = privateProfile?.accountType === "business" ? "business" : "personal";
+      const businessName = privateProfile?.businessProfile?.businessName?.trim() || "";
+      const businessVerificationStatus =
+        accountType === "business" ? (isVerified ? "verified" : privateProfile?.businessVerificationPending ? "pending" : "pending") : "";
+
+      return {
+        uid: user.uid,
+        email: user.email || "",
+        displayName: user.displayName || user.email || "Usuario",
+        createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).getTime() : 0,
+        isVerified,
+        accountType,
+        businessName,
+        businessVerificationStatus,
+        supportStatus: profileMap.get(user.uid)?.supportStatus || "active",
+        supportDeactivationReason: profileMap.get(user.uid)?.supportDeactivationReason || "",
+      };
+    })
     .filter((user) => {
       if (!normalizedQuery) return true;
       return (
         user.displayName.toLowerCase().includes(normalizedQuery) ||
         user.email.toLowerCase().includes(normalizedQuery) ||
+        user.businessName?.toLowerCase().includes(normalizedQuery) ||
         user.uid.toLowerCase().includes(normalizedQuery)
       );
     })
@@ -333,7 +363,10 @@ export async function getAdminAppSalesSummary(timeframe = "all_time") {
 }
 
 export async function setUserVerified(userId: string, verified: boolean) {
-  await getAdminDb().collection("userProfiles").doc(userId).set(
+  const db = getAdminDb();
+  const privateProfileSnap = await db.collection("userPrivateProfiles").doc(userId).get();
+  const privateProfile = privateProfileSnap.data() as { accountType?: string } | undefined;
+  await db.collection("userProfiles").doc(userId).set(
     {
       isVerified: verified,
       verifiedAt: verified ? Date.now() : null,
@@ -343,9 +376,21 @@ export async function setUserVerified(userId: string, verified: boolean) {
     { merge: true }
   );
 
-  const listingsSnap = await getAdminDb().collection("listings").where("ownerId", "==", userId).get();
+  if (privateProfile?.accountType === "business") {
+    await db.collection("userPrivateProfiles").doc(userId).set(
+      {
+        businessVerificationPending: !verified,
+        businessVerificationMessage: verified ? null : "Verificación removida por soporte.",
+        updatedAt: Date.now(),
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  const listingsSnap = await db.collection("listings").where("ownerId", "==", userId).get();
   if (!listingsSnap.empty) {
-    const batch = getAdminDb().batch();
+    const batch = db.batch();
     listingsSnap.docs.forEach((docSnap) => {
       batch.update(docSnap.ref, {
         ownerVerified: verified,
@@ -493,24 +538,54 @@ export async function reactivateUserAccount(userId: string) {
 export async function hardDeleteUserAccount(userId: string) {
   const db = getAdminDb();
 
+  const deleteQuerySnapshot = async (query: FirebaseFirestore.Query) => {
+    const snap = await query.get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    await batch.commit();
+  };
+
+  const chatIds = new Set<string>();
+  const sellerChatsSnap = await db.collection("chats").where("sellerId", "==", userId).get();
+  const buyerChatsSnap = await db.collection("chats").where("buyerId", "==", userId).get();
+  sellerChatsSnap.docs.forEach((docSnap) => chatIds.add(docSnap.id));
+  buyerChatsSnap.docs.forEach((docSnap) => chatIds.add(docSnap.id));
+
+  for (const chatId of chatIds) {
+    await deleteQuerySnapshot(db.collection("messages").where("chatId", "==", chatId));
+  }
+
   const collectionsToDelete = [
     db.collection("listings").where("ownerId", "==", userId),
     db.collection("reports").where("sellerId", "==", userId),
     db.collection("reports").where("reporterId", "==", userId),
     db.collection("chats").where("sellerId", "==", userId),
     db.collection("chats").where("buyerId", "==", userId),
+    db.collection("likes").where("actorId", "==", userId),
+    db.collection("likes").where("ownerId", "==", userId),
+    db.collection("follows").where("followerId", "==", userId),
+    db.collection("follows").where("followeeId", "==", userId),
+    db.collection("supportNotifications").where("userId", "==", userId),
+    db.collection("messages").where("senderId", "==", userId),
+    db.collection("soldEvents").where("sellerId", "==", userId),
+    db.collection("soldEvents").where("buyerId", "==", userId),
+    db.collection("purchaseReviewRequests").where("sellerId", "==", userId),
+    db.collection("purchaseReviewRequests").where("buyerId", "==", userId),
+    db.collection("userRatings").where("reviewerId", "==", userId),
+    db.collection("userRatings").where("revieweeId", "==", userId),
   ];
 
   for (const query of collectionsToDelete) {
-    const snap = await query.get();
-    if (snap.empty) continue;
-    const batch = db.batch();
-    snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-    await batch.commit();
+    await deleteQuerySnapshot(query);
   }
 
   await db.collection("userProfiles").doc(userId).delete().catch(() => undefined);
-  await getAdminAuth().deleteUser(userId);
+  await db.collection("userPrivateProfiles").doc(userId).delete().catch(() => undefined);
+  await getAdminAuth().deleteUser(userId).catch((error) => {
+    if (error?.code === "auth/user-not-found") return;
+    throw error;
+  });
 }
 
 export async function listAdminReports() {

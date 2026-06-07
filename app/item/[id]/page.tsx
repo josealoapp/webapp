@@ -529,12 +529,10 @@ export default function ItemDetailsPage() {
                 data-index={i}
                   className="relative h-full w-full flex-shrink-0 snap-start"
               >
-                <Image
+                <img
                   src={src}
                   alt={`${item.title} ${i + 1}`}
-                  fill
-                  priority={i === 0}
-                  className="object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-black/25" />
               </div>

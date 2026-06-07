@@ -4,6 +4,9 @@ export type AdminUserRow = {
   displayName: string;
   createdAt: number;
   isVerified: boolean;
+  accountType?: "personal" | "business";
+  businessName?: string;
+  businessVerificationStatus?: "pending" | "verified" | "";
   supportStatus?: "active" | "deactivated";
   supportDeactivationReason?: string;
 };

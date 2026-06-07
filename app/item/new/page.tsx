@@ -3,7 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { ArrowLeft, ImagePlus, Info, Plus, Search } from "lucide-react";
+import { ArrowLeft, Car, Download, Footprints, ImagePlus, Info, Package, Plus, Search, Shirt, Upload, X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages, type ListingCurrency } from "@/lib/marketplace";
 import { getPostAuthDestination, getWhatsappContactSettings, readAccountProfile } from "@/lib/account-profile";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/categories";
 import { requestCurrentSupportedLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
 import { BAZAR_DURATION_OPTIONS } from "@/lib/bazar-duration";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const maxArticlePhotos = 10;
@@ -45,6 +46,44 @@ const paymentOptions: Array<{ id: "efectivo" | "intercambio" | "ambos"; label: s
   { id: "intercambio", label: "Intercambio" },
   { id: "ambos", label: "Ambos" },
 ];
+
+type CsvImportType = "normal" | "clothing" | "vehicle" | "shoes";
+type CsvImportStatus = "idle" | "publishing" | "published" | "error";
+
+type CsvImportRow = {
+  key: string;
+  rowNumber: number;
+  title: string;
+  price: number;
+  currency: ListingCurrency;
+  category: string;
+  description: string;
+  paymentMethod: "efectivo" | "intercambio" | "ambos";
+  imageUrls: string[];
+  tags: string[];
+  vehicleYear: string;
+  clothingSize: string;
+  shoeSize: string;
+  errors: string[];
+  status: CsvImportStatus;
+  listingId?: string;
+  publishError?: string;
+};
+
+const csvImportTypes: Array<{ id: CsvImportType; label: string; description: string }> = [
+  { id: "normal", label: "Artículo normal", description: "Libros, electrónicos, celulares y artículos generales." },
+  { id: "clothing", label: "Ropa", description: "Ropa de niños, damas u hombres. Requiere talla." },
+  { id: "vehicle", label: "Vehículos", description: "Autos, motos, camiones y botes. Requiere año." },
+  { id: "shoes", label: "Zapatos", description: "Calzado. Requiere talla de zapato." },
+];
+
+function CsvImportTypeIcon({ type }: { type: CsvImportType }) {
+  const className = "h-5 w-5";
+  if (type === "clothing") return <Shirt className={className} />;
+  if (type === "vehicle") return <Car className={className} />;
+  if (type === "shoes") return <Footprints className={className} />;
+  return <Package className={className} />;
+}
 
 const normalizedCategoryMap = new Map(
   appCategories.map((category) => [normalizeCategoryName(category.name), category.name] as const)
@@ -366,6 +405,159 @@ function getCategoryMetadataPayload(kind: CategoryInputKind, values: {
   return {};
 }
 
+function csvEscape(value: string | number) {
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let field = "";
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      row.push(field.trim());
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") index += 1;
+      row.push(field.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+
+  row.push(field.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function normalizeCsvHeader(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function splitCsvList(value: string) {
+  return value
+    .split(/[;|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeImportPaymentMethod(value: string): "efectivo" | "intercambio" | "ambos" {
+  const normalized = normalizeCategoryName(value);
+  if (normalized === "intercambio") return "intercambio";
+  if (normalized === "ambos" || normalized === "ambas" || normalized === "transferencia") return "ambos";
+  return "efectivo";
+}
+
+function getExpectedImportKind(categoryName: string): CsvImportType {
+  const kind = getCategoryInputKind(categoryName);
+  if (kind === "vehicle") return "vehicle";
+  if (kind === "clothing") return "clothing";
+  if (kind === "shoes") return "shoes";
+  return "normal";
+}
+
+function buildCsvTemplate(importType: CsvImportType) {
+  const baseHeaders = ["title", "price", "currency", "category", "description", "paymentMethod", "imageUrls", "tags"];
+  const headers =
+    importType === "vehicle"
+      ? [...baseHeaders, "vehicleYear"]
+      : importType === "clothing"
+        ? [...baseHeaders, "clothingSize"]
+        : importType === "shoes"
+          ? [...baseHeaders, "shoeSize"]
+          : baseHeaders;
+  const category =
+    importType === "vehicle"
+      ? "Vehículos"
+      : importType === "clothing"
+        ? "Ropa para mujeres"
+        : importType === "shoes"
+          ? "Zapatos"
+          : "Celulares y smartphones";
+  const example =
+    importType === "vehicle"
+      ? ["Honda Civic 2020", 650000, "DOP", category, "Sedán en buen estado", "efectivo", "https://example.com/foto1.jpg;https://example.com/foto2.jpg", "honda,civic", 2020]
+      : importType === "clothing"
+        ? ["Vestido floral", 1200, "DOP", category, "Vestido talla M", "ambos", "https://example.com/foto1.jpg", "vestido,nuevo", "M"]
+        : importType === "shoes"
+          ? ["Tenis Nike", 2500, "DOP", category, "Tenis originales", "efectivo", "https://example.com/foto1.jpg", "nike,tenis", 40]
+          : ["iPhone 13", 35000, "DOP", category, "128GB en buen estado", "ambos", "https://example.com/foto1.jpg;https://example.com/foto2.jpg", "iphone,celular"];
+
+  return `${headers.join(",")}\n${example.map(csvEscape).join(",")}\n`;
+}
+
+function buildCsvImportRows(text: string, importType: CsvImportType): CsvImportRow[] {
+  const parsed = parseCsv(text);
+  if (parsed.length < 2) return [];
+
+  const headers = parsed[0].map(normalizeCsvHeader);
+  const getValue = (row: string[], keys: string[]) => {
+    const index = keys.map(normalizeCsvHeader).map((key) => headers.indexOf(key)).find((idx) => idx >= 0);
+    return index === undefined || index < 0 ? "" : row[index] || "";
+  };
+
+  return parsed.slice(1).map((row, index) => {
+    const title = getValue(row, ["title", "titulo", "nombre"]);
+    const rawPrice = getValue(row, ["price", "precio"]);
+    const price = Number(rawPrice);
+    const currency = getValue(row, ["currency", "moneda"]).toUpperCase() === "USD" ? "USD" : "DOP";
+    const category = resolveCategoryName(getValue(row, ["category", "categoria"]));
+    const description = getValue(row, ["description", "descripcion"]);
+    const paymentMethod = normalizeImportPaymentMethod(getValue(row, ["paymentMethod", "metodoPago", "pago"]));
+    const imageUrls = splitCsvList(getValue(row, ["imageUrls", "images", "imagenes", "imageLinks"]));
+    const tags = splitCsvList(getValue(row, ["tags", "etiquetas"]));
+    const vehicleYear = getValue(row, ["vehicleYear", "ano", "año", "year"]);
+    const clothingSize = getValue(row, ["clothingSize", "talla", "size"]);
+    const shoeSize = getValue(row, ["shoeSize", "tallaZapato", "shoe"]);
+    const errors: string[] = [];
+
+    if (!title) errors.push("Falta title.");
+    if (!Number.isFinite(price) || price <= 0) errors.push("Price debe ser mayor a 0.");
+    if (!category) errors.push("Category no coincide con una categoría válida.");
+    if (!description) errors.push("Falta description.");
+    if (!imageUrls.length) errors.push("Agrega al menos un enlace en imageUrls.");
+    if (imageUrls.some((url) => !/^https?:\/\//i.test(url))) errors.push("imageUrls debe contener enlaces http/https.");
+    if (category && getExpectedImportKind(category) !== importType) errors.push("La categoría no coincide con el tipo de importación seleccionado.");
+    if (importType === "vehicle" && (!Number(vehicleYear) || Number(vehicleYear) < 1900)) errors.push("vehicleYear es obligatorio.");
+    if (importType === "clothing" && !clothingSize) errors.push("clothingSize es obligatorio.");
+    if (importType === "shoes" && !shoeSize) errors.push("shoeSize es obligatorio.");
+
+    return {
+      key: `row-${index + 2}`,
+      rowNumber: index + 2,
+      title,
+      price,
+      currency,
+      category,
+      description,
+      paymentMethod,
+      imageUrls,
+      tags,
+      vehicleYear,
+      clothingSize,
+      shoeSize,
+      errors,
+      status: "idle",
+    };
+  });
+}
+
 export default function NewListingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -423,6 +615,15 @@ export default function NewListingPage() {
   const [publishingBazar, setPublishingBazar] = useState(false);
   const [editingListingId, setEditingListingId] = useState("");
   const [republishingListing, setRepublishingListing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserVerified, setCurrentUserVerified] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importType, setImportType] = useState<CsvImportType>("normal");
+  const [csvText, setCsvText] = useState("");
+  const [importRows, setImportRows] = useState<CsvImportRow[]>([]);
+  const [publishingImport, setPublishingImport] = useState(false);
+  const [importError, setImportError] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentUser = auth.currentUser;
   const currentUserName =
@@ -593,6 +794,7 @@ export default function NewListingPage() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid || "");
       if (user?.emailVerified) {
         const destination = getPostAuthDestination("/item/new");
         if (destination !== "/item/new") {
@@ -603,6 +805,21 @@ export default function NewListingPage() {
 
     return () => unsub();
   }, [router]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setCurrentUserVerified(false);
+      return;
+    }
+
+    const unsub = subscribeVerifiedUser(currentUserId, setCurrentUserVerified);
+    return () => unsub();
+  }, [currentUserId]);
+
+  useEffect(() => {
+    setImportRows(buildCsvImportRows(csvText, importType));
+    setImportError("");
+  }, [csvText, importType]);
 
   useEffect(() => {
     if (!bazarTitleTouched) {
@@ -1015,6 +1232,99 @@ export default function NewListingPage() {
     }
   };
 
+  const validImportRows = importRows.filter((row) => row.errors.length === 0);
+  const publishableImportRows = validImportRows.filter((row) => row.status !== "published");
+  const importReadyLabel = `${String(validImportRows.length).padStart(2, "0")}/${String(importRows.length).padStart(2, "0")} artículos correctos`;
+
+  const handleCsvFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setCsvText(await file.text());
+    input.value = "";
+  };
+
+  const downloadCsvTemplate = () => {
+    const blob = new Blob([buildCsvTemplate(importType)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `josealo-import-${importType}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePublishImportRows = async () => {
+    const user = ensureAuthenticated();
+    if (!user || publishingImport) return;
+    if (publishableImportRows.length === 0) {
+      setImportError("No hay artículos válidos para publicar.");
+      return;
+    }
+
+    setPublishingImport(true);
+    setImportError("");
+
+    try {
+      const currentLocation = await requestCurrentSupportedLocation();
+      const whatsappContact = getWhatsappContactSettings();
+
+      for (const row of publishableImportRows) {
+        setImportRows((current) =>
+          current.map((item) => (item.key === row.key ? { ...item, status: "publishing", publishError: "" } : item))
+        );
+
+        try {
+          const listingId = await createListing({
+            ownerId: user.uid,
+            ownerName: user.displayName || user.email || "Vendedor",
+            ownerAvatar: readProfileAvatar(user.uid),
+            sellerWhatsappNumber: whatsappContact.phone,
+            sellerUsesWhatsapp: whatsappContact.enabled,
+            type: "article",
+            title: row.title,
+            price: row.price,
+            currency: row.currency,
+            category: row.category,
+            description: row.description,
+            tags: row.tags,
+            paymentMethod: row.paymentMethod,
+            location: currentLocation.name,
+            image: row.imageUrls[0] || "",
+            images: row.imageUrls,
+            ...getCategoryMetadataPayload(getCategoryInputKind(row.category), {
+              vehicleYear: row.vehicleYear,
+              clothingSize: row.clothingSize,
+              shoeSize: row.shoeSize,
+            }),
+            bazarItems: [],
+          });
+          setImportRows((current) =>
+            current.map((item) => (item.key === row.key ? { ...item, status: "published", listingId } : item))
+          );
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "No se pudo publicar.";
+          setImportRows((current) =>
+            current.map((item) => (item.key === row.key ? { ...item, status: "error", publishError: message } : item))
+          );
+        }
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "";
+      if (message === "location/not-supported") {
+        setImportError("Tu dispositivo no permite obtener ubicación. Activa el acceso a ubicación para publicar.");
+      } else if (message === "location/not-available") {
+        setImportError("Completa tu país y provincia en tu perfil para publicar con una ubicación válida.");
+      } else if (message === "User denied Geolocation" || message === "location/permission-denied") {
+        setImportError("Debes permitir acceso a tu ubicación para publicar.");
+      } else {
+        setImportError("No pudimos publicar el CSV. Intenta de nuevo.");
+      }
+    } finally {
+      setPublishingImport(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       <header className="flex items-center justify-between px-4 py-4">
@@ -1046,8 +1356,183 @@ export default function NewListingPage() {
             );
           })}
         </div>
-        <div className="h-10 w-10" />
+        {currentUserVerified && listingType === "article" && !editingListingId ? (
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm active:scale-95"
+            aria-label="Importar artículos por CSV"
+          >
+            <Upload className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="h-10 w-10" />
+        )}
       </header>
+
+      {importOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/70 px-4 py-5 backdrop-blur-sm">
+          <div className="mx-auto flex h-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white">Importar artículos</div>
+                <div className="mt-1 text-xs text-neutral-400">{importReadyLabel}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportOpen(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-200"
+                aria-label="Cerrar importador"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {csvImportTypes.map((type) => {
+                  const active = importType === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setImportType(type.id)}
+                      className={[
+                        "rounded-2xl border p-3 text-left transition",
+                        active
+                          ? "border-orange-400 bg-orange-400/10 text-orange-200"
+                          : "border-neutral-800 bg-neutral-900/60 text-neutral-300 hover:border-neutral-600",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <span
+                          className={[
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                            active
+                              ? "border-orange-400/40 bg-orange-400/15 text-orange-300"
+                              : "border-neutral-800 bg-neutral-950 text-neutral-400",
+                          ].join(" ")}
+                        >
+                          <CsvImportTypeIcon type={type.id} />
+                        </span>
+                        <span>{type.label}</span>
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-neutral-400">{type.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <input ref={importFileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFileChange} />
+                <button
+                  type="button"
+                  onClick={() => importFileInputRef.current?.click()}
+                  className="flex h-11 items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100"
+                >
+                  <Upload className="h-4 w-4" />
+                  Subir CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCsvTemplate}
+                  className="flex h-11 items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar plantilla
+                </button>
+              </div>
+
+              <label className="mt-4 flex flex-col gap-2">
+                <span className="text-xs text-neutral-400">CSV</span>
+                <textarea
+                  value={csvText}
+                  onChange={(event) => setCsvText(event.target.value)}
+                  rows={7}
+                  placeholder={buildCsvTemplate(importType)}
+                  className="min-h-36 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 font-mono text-xs text-neutral-100 placeholder:text-neutral-600 focus:border-orange-400 focus:outline-none"
+                />
+              </label>
+
+              {importRows.length > 0 ? (
+                <div className="mt-4 space-y-3 pb-24">
+                  {importRows.map((row) => {
+                    const hasIssue = row.errors.length > 0 || row.status === "error";
+                    return (
+                      <details
+                        key={row.key}
+                        className={[
+                          "rounded-2xl border bg-neutral-900/60 p-3",
+                          hasIssue ? "border-orange-400/70" : "border-neutral-800",
+                        ].join(" ")}
+                      >
+                        <summary className="cursor-pointer list-none">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-neutral-100">
+                                Fila {row.rowNumber}: {row.title || "Sin título"}
+                              </div>
+                              <div className="mt-1 text-xs text-neutral-400">
+                                {row.category || "Sin categoría"} · {row.currency} {Number(row.price || 0).toLocaleString()}
+                              </div>
+                            </div>
+                            <div
+                              className={[
+                                "shrink-0 rounded-full px-2 py-1 text-[11px] font-bold uppercase",
+                                row.status === "published"
+                                  ? "bg-green-500/10 text-green-300"
+                                  : hasIssue
+                                    ? "bg-orange-400/10 text-orange-300"
+                                    : "bg-neutral-800 text-neutral-300",
+                              ].join(" ")}
+                            >
+                              {row.status === "published" ? "Publicado" : hasIssue ? "Revisar" : "Correcto"}
+                            </div>
+                          </div>
+                        </summary>
+                        <div className="mt-3 space-y-2 text-xs text-neutral-300">
+                          <div>{row.description}</div>
+                          <div>Imágenes: {row.imageUrls.length ? row.imageUrls.join(" · ") : "Sin imágenes"}</div>
+                          {row.vehicleYear ? <div>Año: {row.vehicleYear}</div> : null}
+                          {row.clothingSize ? <div>Talla: {row.clothingSize}</div> : null}
+                          {row.shoeSize ? <div>Talla zapatos: {row.shoeSize}</div> : null}
+                          {row.errors.length ? <div className="text-orange-300">{row.errors.join(" ")}</div> : null}
+                          {row.publishError ? <div className="text-orange-300">{row.publishError}</div> : null}
+                          {row.listingId ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/item/${row.listingId}`)}
+                              className="rounded-xl border border-neutral-700 px-3 py-2 text-xs font-semibold text-neutral-100"
+                            >
+                              Revisar publicación
+                            </button>
+                          ) : null}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 text-sm text-neutral-400">
+                  Sube un CSV o pega el contenido para revisar tus artículos antes de publicar.
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-neutral-800 bg-neutral-950/95 px-4 py-4">
+              {importError ? <div className="mb-3 text-xs text-orange-300">{importError}</div> : null}
+              <button
+                type="button"
+                onClick={handlePublishImportRows}
+                disabled={publishingImport || publishableImportRows.length === 0}
+                className="h-12 w-full rounded-2xl bg-orange-400 px-5 text-sm font-semibold text-black disabled:bg-neutral-800 disabled:text-neutral-500"
+              >
+                {publishingImport ? "Publicando..." : "Publicar todo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {listingType === "article" ? (
         <>

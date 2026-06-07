@@ -66,6 +66,18 @@ export default function AdminUserRow({
           <div className="flex items-center gap-2">
             <div className="truncate text-sm font-semibold text-neutral-100">{user.displayName}</div>
             {user.isVerified ? <VerifiedBadge /> : null}
+            {user.accountType === "business" && user.businessName ? (
+              <div className="truncate text-xs font-semibold text-neutral-300">· {user.businessName}</div>
+            ) : null}
+            {user.businessVerificationStatus === "pending" ? (
+              <span className="shrink-0 rounded-full border border-orange-400/30 bg-orange-400/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-orange-300">
+                Pending
+              </span>
+            ) : user.businessVerificationStatus === "verified" ? (
+              <span className="shrink-0 rounded-full border border-green-400/30 bg-green-400/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-green-300">
+                Verified
+              </span>
+            ) : null}
           </div>
           <div className="truncate text-xs text-neutral-400">{user.email || user.uid}</div>
         </div>

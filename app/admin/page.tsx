@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, ShieldAlert, Search, X } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, ShieldAlert, Search, X } from "lucide-react";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import AdminUserRow from "@/components/admin/AdminUserRow";
 import { Button } from "@/components/ui/button";
@@ -151,6 +151,7 @@ export default function AdminHomePage() {
   const [historicalReportQuery, setHistoricalReportQuery] = useState("");
   const [usersPage, setUsersPage] = useState(1);
   const [deactivatedPage, setDeactivatedPage] = useState(1);
+  const [deactivatedMenuUserId, setDeactivatedMenuUserId] = useState("");
   const [activeReportsPage, setActiveReportsPage] = useState(1);
   const [historicalReportsPage, setHistoricalReportsPage] = useState(1);
   const [moderationAction, setModerationAction] = useState<ModerationAction | null>(null);
@@ -242,7 +243,14 @@ export default function AdminHomePage() {
         ? {
             ...current,
             users: current.users.map((row) =>
-              row.uid === user.uid ? { ...row, isVerified: !row.isVerified } : row
+              row.uid === user.uid
+                ? {
+                    ...row,
+                    isVerified: !row.isVerified,
+                    businessVerificationStatus:
+                      row.accountType === "business" ? (!row.isVerified ? "verified" : "pending") : row.businessVerificationStatus,
+                  }
+                : row
             ),
           }
         : current
@@ -376,6 +384,34 @@ export default function AdminHomePage() {
                 ? { ...row, supportStatus: "active", supportDeactivationReason: "" }
                 : row
             ),
+          }
+        : current
+    );
+  };
+
+  const handlePermanentDeleteUser = async (user: AdminUser) => {
+    const confirmed = window.confirm(
+      `Eliminar permanentemente la cuenta de ${user.displayName}? Esta acción borrará el usuario y sus datos de la base de datos.`
+    );
+    if (!confirmed) return;
+
+    setDeactivatedMenuUserId("");
+    const response = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.uid, action: "permanent_delete" }),
+    });
+
+    if (!response.ok) {
+      window.alert("No pudimos eliminar permanentemente esta cuenta. Intenta de nuevo.");
+      return;
+    }
+
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            users: current.users.filter((row) => row.uid !== user.uid),
           }
         : current
     );
@@ -561,13 +597,38 @@ export default function AdminHomePage() {
                       <div className="mt-1 truncate text-xs text-neutral-400">{user.email || user.uid}</div>
                       <div className="mt-1 truncate text-xs text-neutral-500">{user.supportDeactivationReason || "Sin razón registrada"}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleReactivateUser(user)}
-                      className="shrink-0 rounded-2xl border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-300"
-                    >
-                      Reactivar
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReactivateUser(user)}
+                        className="rounded-2xl border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-300"
+                      >
+                        Reactivar
+                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeactivatedMenuUserId((current) => (current === user.uid ? "" : user.uid))
+                          }
+                          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900 text-neutral-200"
+                          aria-label="Opciones de cuenta desactivada"
+                        >
+                          <MoreHorizontal className="h-5 w-5" />
+                        </button>
+                        {deactivatedMenuUserId === user.uid ? (
+                          <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[210px] rounded-2xl border border-neutral-800 bg-neutral-950 p-2 shadow-2xl">
+                            <button
+                              type="button"
+                              onClick={() => handlePermanentDeleteUser(user)}
+                              className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-300 hover:bg-neutral-900"
+                            >
+                              Eliminar permanente
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))

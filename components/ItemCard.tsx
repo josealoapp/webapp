@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { Heart, Share2, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import InterestModal from "./InterestModal";
 import SellerAvatar from "@/components/SellerAvatar";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { formatListingAge } from "@/lib/relative-time";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
 
 type Item = {
   id: string;
@@ -132,6 +134,18 @@ function SellerBadge({
   sellerName?: string;
   sellerAvatar?: string;
 }) {
+  const [isVerified, setIsVerified] = useState(false);
+
+  useEffect(() => {
+    if (!sellerId) {
+      setIsVerified(false);
+      return;
+    }
+
+    const unsub = subscribeVerifiedUser(sellerId, setIsVerified);
+    return () => unsub();
+  }, [sellerId]);
+
   if (!sellerId) {
     return (
       <div className="relative flex h-14 w-14 items-center justify-center">
@@ -163,6 +177,11 @@ function SellerBadge({
           initialsClassName="text-sm font-bold"
           imageClassName="object-cover"
         />
+        {isVerified ? (
+          <span className="absolute -bottom-1 -right-1 rounded-full bg-neutral-950 p-0.5">
+            <VerifiedBadge className="h-4 w-4" />
+          </span>
+        ) : null}
       </div>
     </Link>
   );

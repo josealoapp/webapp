@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertAdminRequest } from "@/lib/admin-session";
-import { deleteUserAccount, listAdminUsers, markReportHandled, reactivateUserAccount } from "@/lib/admin-data";
+import { deleteUserAccount, hardDeleteUserAccount, listAdminUsers, markReportHandled, reactivateUserAccount } from "@/lib/admin-data";
 
 export const runtime = "nodejs";
 
@@ -27,13 +27,18 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json().catch(() => null)) as { userId?: string; reason?: string; reportId?: string } | null;
+    const body = (await request.json().catch(() => null)) as { userId?: string; reason?: string; reportId?: string; action?: string } | null;
     const userId = body?.userId?.trim() || "";
-    const reason = body?.reason?.trim() || "";
+    const reason = body?.reason?.trim() || "Moderación de soporte";
     const reportId = body?.reportId?.trim() || "";
 
-    if (!userId || !reason) {
+    if (!userId) {
       return NextResponse.json({ error: "admin/user-id-required" }, { status: 400 });
+    }
+
+    if (body?.action === "permanent_delete") {
+      await hardDeleteUserAccount(userId);
+      return NextResponse.json({ ok: true });
     }
 
     await deleteUserAccount(userId, reason);

@@ -10,11 +10,13 @@ import AppBottomNav from "@/components/AppBottomNav";
 import ItemCard from "@/components/ItemCard";
 import Navbar from "@/components/Navbar";
 import SellerAvatar from "@/components/SellerAvatar";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { subscribeAccountProfile } from "@/lib/account-profile";
 import { normalizeCategoryName } from "@/lib/categories";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser } from "@/lib/likes";
 import { getActiveBazarItems, Listing, searchListings } from "@/lib/marketplace";
+import { subscribeVerifiedUser } from "@/lib/user-verified";
 
 type DiscoverItem = {
   id: string;
@@ -574,6 +576,13 @@ function SwipeCard({
   onPointerCancel?: (event: PointerEvent) => void;
   onShare: () => void;
 }) {
+  const [sellerVerified, setSellerVerified] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeVerifiedUser(item.sellerId, setSellerVerified);
+    return () => unsub();
+  }, [item.sellerId]);
+
   return (
     <article
       className={[
@@ -601,7 +610,10 @@ function SwipeCard({
             imageClassName="object-cover"
           />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-white">{item.sellerName}</div>
+            <div className="flex min-w-0 items-center gap-1">
+              <div className="truncate text-sm font-semibold text-white">{item.sellerName}</div>
+              {sellerVerified ? <VerifiedBadge className="h-3.5 w-3.5" /> : null}
+            </div>
             <div className="text-xs text-neutral-300">Vendedor</div>
           </div>
         </Link>

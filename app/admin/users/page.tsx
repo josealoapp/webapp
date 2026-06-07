@@ -41,7 +41,18 @@ export default function AdminUsersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.uid, verified: !user.isVerified }),
     });
-    setUsers((current) => current.map((row) => (row.uid === user.uid ? { ...row, isVerified: !row.isVerified } : row)));
+    setUsers((current) =>
+      current.map((row) =>
+        row.uid === user.uid
+          ? {
+              ...row,
+              isVerified: !row.isVerified,
+              businessVerificationStatus:
+                row.accountType === "business" ? (!row.isVerified ? "verified" : "pending") : row.businessVerificationStatus,
+            }
+          : row
+      )
+    );
   };
 
   const handleDeleteUser = async (user: AdminUser) => {
