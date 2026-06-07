@@ -100,7 +100,7 @@ const predictiveCategoryRules = [
     ],
   },
   {
-    category: "Autos",
+    category: "Vehículos",
     keywords: [
       "carro",
       "auto",

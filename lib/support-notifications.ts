@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 export type SupportNotification = {
   id: string;
   userId: string;
-  type: "item_removed" | "account_deactivated" | "account_reactivated";
+  type: "item_removed" | "account_deactivated" | "account_reactivated" | "listing_reserved" | "listing_sold";
   title: string;
   message: string;
   reason: string;

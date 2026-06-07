@@ -25,7 +25,7 @@ function buildCategory(name: string, image: string): AppCategory {
 }
 
 export const appCategories: AppCategory[] = [
-  buildCategory("Autos", categoryImage("photo-1494976388531-d1058494cdd8")),
+  buildCategory("Vehículos", categoryImage("photo-1494976388531-d1058494cdd8")),
   buildCategory("Motocicletas", categoryImage("photo-1558981806-ec527fa84c39")),
   buildCategory("Camiones", categoryImage("photo-1519003722824-194d4455a60c")),
   buildCategory("Vehículos recreativos (RV / campers)", categoryImage("photo-1500530855697-b586d89ba3ee")),
@@ -110,11 +110,15 @@ export const appCategories: AppCategory[] = [
 ];
 
 export function normalizeCategoryName(value: string) {
-  return value
+  const normalized = value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .trim();
+
+  if (normalized === "autos") return "vehiculos";
+
+  return normalized;
 }
 
 export type CategoryInputKind = "default" | "vehicle" | "clothing" | "shoes";
@@ -125,6 +129,7 @@ export function getCategoryInputKind(categoryName?: string): CategoryInputKind {
   if (
     [
       "autos",
+      "vehiculos",
       "motocicletas",
       "camiones",
       "vehiculos recreativos (rv / campers)",

@@ -61,6 +61,9 @@ export type Listing = {
   bazarEndsAt?: number;
   createdAt: number;
   status?: "active" | "sold" | "removed_by_support" | "account_deactivated";
+  reservedForUserId?: string;
+  reservedForUserName?: string;
+  reservedAt?: number;
   soldAt?: number;
   soldWithJosealo?: boolean;
   saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
@@ -174,6 +177,7 @@ export type MessageRecord = {
   senderId: string;
   senderRole: "buyer" | "seller";
   text: string;
+  imageUrl?: string;
   createdAt: number;
 };
 
@@ -537,6 +541,45 @@ export async function markBazarItemSold(listingId: string, bazarItemId: string) 
   return payload;
 }
 
+export async function updateListingChatAction(input: {
+  listingId: string;
+  chatId: string;
+  action: "reserve" | "sell";
+}) {
+  const token = await auth.currentUser?.getIdToken();
+
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/listings/chat-action", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        ok?: boolean;
+        error?: string;
+        status?: Listing["status"];
+        reservedForUserId?: string;
+        reservedForUserName?: string;
+        reservedAt?: number;
+        soldAt?: number;
+      }
+    | null;
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "listing/chat-action-failed");
+  }
+
+  return payload;
+}
+
 export async function recordListingView(listingId: string, bazarItemId?: string) {
   const storageKey = `josealo_listing_view:${listingId}:${bazarItemId || "root"}`;
   const now = Date.now();
@@ -610,11 +653,13 @@ export async function addChatMessage(input: {
   senderId: string;
   senderRole: "buyer" | "seller";
   text: string;
+  imageUrl?: string;
 }) {
   const createdAt = Date.now();
   const chat = await getChatById(input.chatId);
   const recipientId =
     chat && input.senderId === chat.sellerId ? chat.buyerId : chat?.sellerId;
+  const lastMessage = input.text.trim() || (input.imageUrl ? "Imagen" : "");
 
   await addDoc(collection(db, "messages"), {
     ...input,
@@ -625,7 +670,7 @@ export async function addChatMessage(input: {
   await updateDoc(doc(db, "chats", input.chatId), {
     updatedAt: createdAt,
     updatedAtServer: serverTimestamp(),
-    lastMessage: input.text,
+    lastMessage,
     lastMessageSenderId: input.senderId,
     ...(recipientId ? { [`unreadBy.${recipientId}`]: increment(1) } : {}),
   });

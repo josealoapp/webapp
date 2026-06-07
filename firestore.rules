@@ -115,6 +115,10 @@ service cloud.firestore {
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.chatId is string
         && request.resource.data.text is string
+        && (
+          !request.resource.data.keys().hasAny(['imageUrl']) ||
+          request.resource.data.imageUrl is string
+        )
         && request.resource.data.senderRole in ['buyer', 'seller']
         && exists(/databases/$(database)/documents/chats/$(request.resource.data.chatId))
         && isParticipant(
@@ -132,6 +136,16 @@ service cloud.firestore {
 
     match /userPrivateProfiles/{userId} {
       allow read, create, update, delete: if isOwnDocument(userId);
+    }
+
+    match /userPresence/{userId} {
+      allow read: if isSignedIn();
+
+      allow create, update: if isOwnDocument(userId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.lastActiveAt is number;
+
+      allow delete: if false;
     }
 
     match /userLocations/{userId} {

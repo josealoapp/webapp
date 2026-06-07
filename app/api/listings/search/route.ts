@@ -49,6 +49,13 @@ function locationQueryValues(location: string) {
   return [location];
 }
 
+function categoryQueryValues(category: string) {
+  const normalized = normalizeSearchText(category);
+  if (!normalized) return [];
+  if (normalized === "vehiculos" || normalized === "autos") return ["Vehículos", "Autos"];
+  return [category];
+}
+
 function parseCursor(value: string | null): ListingCursor | null {
   if (!value) return null;
 
@@ -129,6 +136,9 @@ function serializeListing(id: string, data: Record<string, unknown>) {
     bazarEndsAt: data.bazarEndsAt,
     createdAt: Number(data.createdAt || 0),
     status: data.status || "active",
+    reservedForUserId: data.reservedForUserId || "",
+    reservedForUserName: data.reservedForUserName || "",
+    reservedAt: data.reservedAt,
     soldAt: data.soldAt,
     soldWithJosealo: data.soldWithJosealo,
     saleSpeedRating: data.saleSpeedRating,
@@ -168,8 +178,11 @@ export async function GET(request: NextRequest) {
       query = query.where("location", "in", locationValues);
     }
 
-    if (category) {
-      query = query.where("category", "==", category);
+    const categoryValues = categoryQueryValues(category);
+    if (categoryValues.length === 1) {
+      query = query.where("category", "==", categoryValues[0]);
+    } else if (categoryValues.length > 1) {
+      query = query.where("category", "in", categoryValues);
     }
 
     if (type) {

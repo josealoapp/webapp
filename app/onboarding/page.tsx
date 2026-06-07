@@ -25,7 +25,7 @@ const BUSINESS_VERIFICATION_MESSAGE =
   "Te estaremos contactando en los proximos 7 a 14 dias laborales para verificar tu cuenta y colocarte la marca de perfil verificado.";
 const MAX_PERSONAL_INTERESTS = 8;
 const SUGGESTED_PERSONAL_INTERESTS = [
-  "Autos",
+  "Vehículos",
   "Celulares",
   "Ropa para hombres",
   "Ropa para niños",

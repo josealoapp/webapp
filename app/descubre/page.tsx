@@ -43,57 +43,12 @@ function textMatchesSpecificInterests(values: Array<string | undefined>, specifi
   return Array.from(specificInterestKeys).some((interest) => searchableText.includes(interest));
 }
 
-function categoryMatchesInterests(categoryNames: Array<string | undefined>, interestCategoryKeys: Set<string>) {
-  return categoryNames.some((categoryName) => {
-    const normalizedCategory = normalizeCategoryName(categoryName || "");
-    if (!normalizedCategory) return false;
-
-    return Array.from(interestCategoryKeys).some((interest) => {
-      const variants = getInterestCategoryVariants(interest);
-      return (
-        variants.has(normalizedCategory) ||
-        normalizedCategory.includes(interest) ||
-        interest.includes(normalizedCategory)
-      );
-    });
-  });
-}
-
-function getInterestCategoryVariants(interest: string) {
-  const variants = new Set([interest]);
-
-  if (
-    [
-      "celulares y smartphones",
-      "computadoras y laptops",
-      "tablets",
-      "televisores",
-      "camaras y fotografia",
-      "audio (bocinas, audifonos)",
-      "videojuegos y consolas",
-      "accesorios electronicos",
-      "electronicos",
-    ].includes(interest)
-  ) {
-    variants.add("electronicos");
-  }
-
-  if (interest.includes("ropa para hombres")) variants.add("hombre");
-  if (interest.includes("ropa para mujeres")) variants.add("mujer");
-  if (interest.includes("muebles") || interest.includes("cocina") || interest.includes("decoracion")) {
-    variants.add("hogar");
-  }
-
-  return variants;
-}
-
 export default function DiscoverPage() {
   const router = useRouter();
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
   const [authResolved, setAuthResolved] = useState(false);
-  const [interestCategoryKeys, setInterestCategoryKeys] = useState<Set<string>>(new Set());
   const [specificInterestKeys, setSpecificInterestKeys] = useState<Set<string>>(new Set());
   const [interestsLoaded, setInterestsLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "swipe">("list");
@@ -143,9 +98,6 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     const unsub = subscribeAccountProfile((profile) => {
-      setInterestCategoryKeys(
-        new Set(profile.interests.slice(0, 8).map((interest) => normalizeCategoryName(interest)))
-      );
       setSpecificInterestKeys(
         new Set(profile.specificInterests.map((interest) => normalizeCategoryName(interest)).filter(Boolean))
       );
@@ -155,7 +107,7 @@ export default function DiscoverPage() {
     return () => unsub();
   }, []);
 
-  const hasSelectedInterests = interestCategoryKeys.size > 0 || specificInterestKeys.size > 0;
+  const hasSelectedInterests = specificInterestKeys.size > 0;
 
   const renderedItems = useMemo(() => {
     return items
@@ -164,27 +116,20 @@ export default function DiscoverPage() {
 
         const listingType = item.type || "article";
         const listingCategory = item.bazarCategory || item.category;
-        const matchesListingCategory = categoryMatchesInterests(
-          [item.category, item.bazarCategory],
-          interestCategoryKeys
-        );
 
         if (listingType === "bazar") {
           return getActiveBazarItems(item)
             .filter((bazarItem) => {
-              return (
-                matchesListingCategory ||
-                textMatchesSpecificInterests(
-                  [
-                    bazarItem.title,
-                    bazarItem.description,
-                    listingCategory,
-                    item.title,
-                    item.description,
-                    ...(item.tags || []),
-                  ],
-                  specificInterestKeys
-                )
+              return textMatchesSpecificInterests(
+                [
+                  bazarItem.title,
+                  bazarItem.description,
+                  listingCategory,
+                  item.title,
+                  item.description,
+                  ...(item.tags || []),
+                ],
+                specificInterestKeys
               );
             })
             .map((bazarItem) => ({
@@ -206,7 +151,6 @@ export default function DiscoverPage() {
         }
 
         if (
-          !matchesListingCategory &&
           !textMatchesSpecificInterests(
             [item.title, item.description, item.category, ...(item.tags || [])],
             specificInterestKeys
@@ -233,7 +177,7 @@ export default function DiscoverPage() {
           },
         ];
       });
-  }, [currentUserId, interestCategoryKeys, items, specificInterestKeys]);
+  }, [currentUserId, items, specificInterestKeys]);
 
   const swipeItems = useMemo(
     () =>
@@ -485,15 +429,15 @@ export default function DiscoverPage() {
 function ConfigureInterestsEmptyState() {
   return (
     <div className="mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
-      <div className="text-lg font-semibold text-neutral-50">No tienes intereses seleccionados</div>
+      <div className="text-lg font-semibold text-neutral-50">Configura tu Para ti</div>
       <p className="mt-3 text-sm leading-6 text-neutral-400">
-        Haz click en configurar intereses para ver lo que tenemos para ti.
+        Agrega intereses específicos para que esta sección muestre artículos relacionados con lo que estás buscando.
       </p>
       <Link
         href="/settings/interests"
         className="mt-6 rounded-2xl bg-orange-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-300"
       >
-        Configurar intereses
+        Configurar "Para ti"
       </Link>
     </div>
   );

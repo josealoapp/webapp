@@ -177,7 +177,7 @@ export default function InterestsSettingsPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="text-sm font-semibold text-white">Intereses</div>
+        <div className="text-sm font-semibold text-white">Configurar para ti</div>
         <div className="min-w-[40px] text-right text-sm font-semibold text-orange-300">
           {selected.length}/{MAX_INTERESTS}
         </div>
@@ -186,7 +186,7 @@ export default function InterestsSettingsPage() {
 
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-40 pt-24">
         <div className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5">
-          <div className="text-lg font-semibold text-white">Intereses especificos</div>
+          <div className="text-lg font-semibold text-white">Configurar para ti</div>
           <p className="mt-2 text-sm leading-6 text-neutral-400">
             Seguido de una coma agrega tus intereses. Esto nos ayuda a dar prioridad a lo que realmente te interesa cada vez que entres a Josealo.
           </p>

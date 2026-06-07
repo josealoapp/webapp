@@ -168,6 +168,7 @@ export default function ItemDetailsPage() {
 
   const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
   const isSold = listing?.status === "sold";
+  const isReserved = Boolean(listing?.reservedForUserId && !isSold);
   const isRemovedBySupport = listing?.status === "removed_by_support" || listing?.status === "account_deactivated";
   const isSelectedBazarItemSold = selectedBazarItem?.status === "sold";
   const isBazarRoot = item?.type === "bazar" && !selectedBazarItem;
@@ -591,7 +592,7 @@ export default function ItemDetailsPage() {
 
       {/* CONTENT SHEET */}
       <div className="relative z-30 -mt-8 rounded-t-3xl border-t border-neutral-800 bg-neutral-950 text-neutral-50">
-        <div className="mx-auto max-w-md px-4 pb-28 pt-5">
+        <div className="mx-auto max-w-md px-4 pb-56 pt-5">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-800" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -789,11 +790,16 @@ export default function ItemDetailsPage() {
               Esta publicación fue marcada como vendida.
             </div>
           ) : null}
+          {isReserved ? (
+            <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm leading-6 text-orange-200">
+              Este artículo está apartado para un comprador. Aún puedes contactar al vendedor con una mejor oferta.
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* FIXED BOTTOM BAR */}
-      <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
+      <div className="fixed bottom-[56px] left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <div className="text-xs text-neutral-500">
@@ -852,19 +858,32 @@ export default function ItemDetailsPage() {
             }}
             disabled={publishingSold || (!isOwnListing && (isSold || isSelectedBazarItemSold))}
           >
-            {isOwnListing
-              ? item.type === "bazar" && selectedBazarItem
-                ? isSelectedBazarItemSold
-                  ? "Vendido"
-                  : "Marcar vendido"
-                : item.type === "bazar"
-                ? "Editar"
-                : isSold
-                  ? "Publicar de nuevo"
-                  : "Marcar vendido"
-              : isSold || isSelectedBazarItemSold
-                ? "Vendido"
-                : "Estoy interesado"}
+            {isOwnListing ? (
+              item.type === "bazar" && selectedBazarItem ? (
+                isSelectedBazarItemSold ? (
+                  "Vendido"
+                ) : (
+                  "Marcar vendido"
+                )
+              ) : item.type === "bazar" ? (
+                "Editar"
+              ) : isSold ? (
+                "Publicar de nuevo"
+              ) : (
+                "Marcar vendido"
+              )
+            ) : isSold || isSelectedBazarItemSold ? (
+              "Vendido"
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                {item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim() ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  </span>
+                ) : null}
+                <span>Estoy interesado</span>
+              </span>
+            )}
           </Button>
         </div>
       </div>
