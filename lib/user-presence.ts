@@ -1,7 +1,6 @@
 "use client";
 
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 const ONLINE_THRESHOLD_MS = 90_000;
 
@@ -13,15 +12,20 @@ export type UserPresence = {
 export function touchUserPresence(userId: string) {
   if (!userId) return Promise.resolve();
 
-  return setDoc(
-    doc(db, "userPresence", userId),
-    {
-      userId,
-      lastActiveAt: Date.now(),
-      lastActiveAtServer: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  return auth.currentUser
+    ?.getIdToken()
+    .then((token) =>
+      fetch("/api/presence", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId }),
+      })
+    )
+    .then(() => undefined)
+    .catch(() => undefined) || Promise.resolve();
 }
 
 export function subscribeUserPresence(userId: string, onData: (presence: UserPresence | null) => void) {
@@ -30,22 +34,31 @@ export function subscribeUserPresence(userId: string, onData: (presence: UserPre
     return () => {};
   }
 
-  return onSnapshot(
-    doc(db, "userPresence", userId),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onData(null);
-        return;
-      }
+  let cancelled = false;
 
-      const data = snapshot.data() as Partial<UserPresence>;
-      onData({
-        userId,
-        lastActiveAt: Number(data.lastActiveAt || 0),
-      });
-    },
-    () => onData(null)
-  );
+  const load = async () => {
+    try {
+      const response = await fetch(`/api/presence?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("presence/load-failed");
+      const data = (await response.json()) as Partial<UserPresence>;
+      if (!cancelled) {
+        onData({
+          userId,
+          lastActiveAt: Number(data.lastActiveAt || 0),
+        });
+      }
+    } catch {
+      if (!cancelled) onData(null);
+    }
+  };
+
+  void load();
+  const intervalId = window.setInterval(load, 15_000);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export function isUserOnline(lastActiveAt: number, now = Date.now()) {
