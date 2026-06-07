@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, ImagePlus, Info, Plus, Search } from "lucide-react";
 import { auth } from "@/lib/firebase";
-import { createListing, getListingById, updateListing, uploadListingImages } from "@/lib/marketplace";
+import { createListing, getListingById, updateListing, uploadListingImages, type ListingCurrency } from "@/lib/marketplace";
 import { getPostAuthDestination, getWhatsappContactSettings, readAccountProfile } from "@/lib/account-profile";
 import {
   appCategories,
@@ -26,6 +26,7 @@ type DraftBazarItem = {
   title: string;
   description: string;
   price: string;
+  currency: ListingCurrency;
   vehicleYear?: string;
   clothingSize?: string;
   shoeSize?: string;
@@ -34,10 +35,15 @@ type DraftBazarItem = {
   imageUrl?: string;
 };
 
-const paymentOptions: Array<{ id: "efectivo" | "intercambio" | "transferencia"; label: string }> = [
+const currencyOptions: Array<{ id: ListingCurrency; label: string }> = [
+  { id: "DOP", label: "RD$" },
+  { id: "USD", label: "USD" },
+];
+
+const paymentOptions: Array<{ id: "efectivo" | "intercambio" | "ambos"; label: string }> = [
   { id: "efectivo", label: "Efectivo" },
   { id: "intercambio", label: "Intercambio" },
-  { id: "transferencia", label: "Transferencia" },
+  { id: "ambos", label: "Ambos" },
 ];
 
 const normalizedCategoryMap = new Map(
@@ -377,13 +383,14 @@ export default function NewListingPage() {
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState<ListingCurrency>("DOP");
   const [category, setCategory] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
   const [clothingSize, setClothingSize] = useState("");
   const [shoeSize, setShoeSize] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "intercambio" | "transferencia">("efectivo");
+  const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "intercambio" | "ambos">("efectivo");
   const [priceError, setPriceError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -404,6 +411,7 @@ export default function NewListingPage() {
   const [bazarItemTitle, setBazarItemTitle] = useState("");
   const [bazarItemDescription, setBazarItemDescription] = useState("");
   const [bazarItemPrice, setBazarItemPrice] = useState("");
+  const [bazarItemCurrency, setBazarItemCurrency] = useState<ListingCurrency>("DOP");
   const [bazarItemVehicleYear, setBazarItemVehicleYear] = useState("");
   const [bazarItemClothingSize, setBazarItemClothingSize] = useState("");
   const [bazarItemShoeSize, setBazarItemShoeSize] = useState("");
@@ -452,6 +460,7 @@ export default function NewListingPage() {
   useEffect(() => {
     const nextTitle = searchParams.get("title");
     const nextPrice = searchParams.get("price");
+    const nextCurrency = searchParams.get("currency");
     const nextCategory = searchParams.get("category");
     const nextDescription = searchParams.get("description");
     const nextTags = searchParams.get("tags");
@@ -462,6 +471,7 @@ export default function NewListingPage() {
 
     if (nextTitle !== null) setTitle(nextTitle);
     if (nextPrice !== null) setPrice(nextPrice);
+    if (nextCurrency === "USD" || nextCurrency === "DOP") setCurrency(nextCurrency);
     if (nextCategory !== null) {
       setCategory(nextCategory);
       categoryWasManuallyChangedRef.current = true;
@@ -479,9 +489,10 @@ export default function NewListingPage() {
     if (
       nextPaymentMethod === "efectivo" ||
       nextPaymentMethod === "intercambio" ||
+      nextPaymentMethod === "ambos" ||
       nextPaymentMethod === "transferencia"
     ) {
-      setPaymentMethod(nextPaymentMethod);
+      setPaymentMethod(nextPaymentMethod === "transferencia" ? "ambos" : nextPaymentMethod);
     }
   }, [searchParams]);
 
@@ -497,10 +508,18 @@ export default function NewListingPage() {
         setListingType("article");
         setTitle(listing.title || "");
         setPrice(String(listing.price || ""));
+        setCurrency(listing.currency || "DOP");
         setCategory(listing.category || "");
         setDescription(listing.description || "");
         setTags((listing.tags || []).join(", "));
-        setPaymentMethod(listing.paymentMethod || "efectivo");
+        const listingPaymentMethod = String(listing.paymentMethod || "efectivo");
+        setPaymentMethod(
+          listingPaymentMethod === "intercambio"
+            ? "intercambio"
+            : listingPaymentMethod === "ambos" || listingPaymentMethod === "transferencia"
+              ? "ambos"
+              : "efectivo"
+        );
         setVehicleYear(listing.vehicleYear ? String(listing.vehicleYear) : "");
         setClothingSize(listing.clothingSize || "");
         setShoeSize(listing.shoeSize || "");
@@ -525,6 +544,7 @@ export default function NewListingPage() {
           title: item.title,
           description: item.description,
           price: String(item.price),
+          currency: item.currency || listing.currency || "DOP",
           vehicleYear: item.vehicleYear ? String(item.vehicleYear) : "",
           clothingSize: item.clothingSize || "",
           shoeSize: item.shoeSize || "",
@@ -626,6 +646,7 @@ export default function NewListingPage() {
     setBazarItemTitle("");
     setBazarItemDescription("");
     setBazarItemPrice("");
+    setBazarItemCurrency("DOP");
     setBazarItemVehicleYear("");
     setBazarItemClothingSize("");
     setBazarItemShoeSize("");
@@ -667,6 +688,7 @@ export default function NewListingPage() {
         title: bazarItemTitle.trim(),
         description: bazarItemDescription.trim(),
         price: String(numericPrice),
+        currency: bazarItemCurrency,
         ...(bazarCategoryKind === "vehicle" && bazarItemVehicleYear
           ? { vehicleYear: bazarItemVehicleYear }
           : {}),
@@ -819,6 +841,7 @@ export default function NewListingPage() {
           type: "article",
           title: title.trim(),
           price: numericPrice,
+          currency,
           category: resolvedCategory,
           description: description.trim(),
           tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
@@ -838,6 +861,7 @@ export default function NewListingPage() {
       const params = new URLSearchParams({
         title: title.trim(),
         price: numericPrice.toString(),
+        currency,
         category: resolvedCategory,
         description: description.trim(),
         tags: tags.trim(),
@@ -910,6 +934,7 @@ export default function NewListingPage() {
         title: item.title,
         description: item.description,
         price: Number(item.price),
+        currency: item.currency,
         image: item.imageUrl || uploadedUrls[uploadedIndex++] || "",
         ...(item.vehicleYear ? { vehicleYear: Number(item.vehicleYear) } : {}),
         ...(item.clothingSize ? { clothingSize: item.clothingSize } : {}),
@@ -928,6 +953,7 @@ export default function NewListingPage() {
           type: "bazar" as const,
           title: bazarTitle.trim(),
           price: lowestPrice,
+          currency: publishedItems[0]?.currency || "DOP",
           category: resolvedBazarCategory,
           bazarCategory: resolvedBazarCategory,
           bazarDurationHours: Number(bazarDurationHours),
@@ -1090,7 +1116,18 @@ export default function NewListingPage() {
               <label className="flex flex-col gap-2">
                 <span className="text-xs text-neutral-400">Precio</span>
                 <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm focus-within:border-orange-400">
-                  <span className="text-neutral-500">RD$</span>
+                  <Select value={currency} onValueChange={(value) => setCurrency(value as ListingCurrency)}>
+                    <SelectTrigger className="h-10 w-[92px] border-0 bg-transparent px-0 text-sm font-semibold text-neutral-200 shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-neutral-800 bg-neutral-950 text-neutral-100">
+                      {currencyOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id} className="focus:bg-neutral-900 focus:text-neutral-100">
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <input
                     type="number"
                     placeholder="0"
@@ -1316,7 +1353,18 @@ export default function NewListingPage() {
                 <label className="flex flex-col gap-2">
                   <span className="text-xs text-neutral-400">Precio</span>
                   <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-sm focus-within:border-orange-400">
-                    <span className="text-neutral-500">RD$</span>
+                    <Select value={bazarItemCurrency} onValueChange={(value) => setBazarItemCurrency(value as ListingCurrency)}>
+                      <SelectTrigger className="h-10 w-[92px] border-0 bg-transparent px-0 text-sm font-semibold text-neutral-200 shadow-none focus:ring-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="border-neutral-800 bg-neutral-950 text-neutral-100">
+                        {currencyOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id} className="focus:bg-neutral-900 focus:text-neutral-100">
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <input
                       type="number"
                       placeholder="0"
@@ -1370,7 +1418,7 @@ export default function NewListingPage() {
                       <div className="min-w-0 flex-1 pr-8">
                         <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
                         <div className="mt-1 text-sm font-semibold text-orange-400">
-                          RD${Number(item.price).toLocaleString()}
+                          {formatMoney(Number(item.price), item.currency)}
                         </div>
                         <p className="mt-1 text-xs leading-5 text-neutral-400">{item.description}</p>
                         {item.vehicleYear || item.clothingSize || item.shoeSize ? (
@@ -1424,4 +1472,9 @@ export default function NewListingPage() {
       )}
     </div>
   );
+}
+
+function formatMoney(value: number, currency: ListingCurrency = "DOP") {
+  const prefix = currency === "USD" ? "USD" : "RD$";
+  return `${prefix}${Number(value || 0).toLocaleString()}`;
 }

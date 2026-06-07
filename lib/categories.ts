@@ -54,6 +54,7 @@ export const appCategories: AppCategory[] = [
   buildCategory("Audio (bocinas, audífonos)", categoryImage("photo-1505740420928-5e560c06d30e")),
   buildCategory("Videojuegos y consolas", categoryImage("photo-1606144042614-b2417e99c4e3")),
   buildCategory("Accesorios electrónicos", categoryImage("photo-1517336714739-489689fd1ca8")),
+  buildCategory("Hogar", categoryImage("photo-1505693416388-ac5ce068fe85")),
   buildCategory("Muebles", categoryImage("photo-1505693416388-ac5ce068fe85")),
   buildCategory("Cocina y comedor", categoryImage("photo-1473093295043-cdd812d0e601")),
   buildCategory("Electrodomésticos", categoryImage("photo-1586201375761-83865001e31c")),
@@ -116,9 +117,21 @@ export function normalizeCategoryName(value: string) {
     .toLowerCase()
     .trim();
 
-  if (normalized === "autos") return "vehiculos";
+  if (normalized === "autos" || normalized === "auto" || normalized === "carros") return "vehiculos";
+  if (normalized === "mujer") return "ropa para mujeres";
+  if (normalized === "hombre" || normalized === "hombres") return "ropa para hombres";
+  if (normalized === "celulares") return "celulares y smartphones";
+  if (normalized === "electronicos") return "accesorios electronicos";
+  if (normalized === "cocina") return "cocina y comedor";
 
   return normalized;
+}
+
+export function getCanonicalCategoryName(value: string) {
+  const normalized = normalizeCategoryName(value);
+  const category = appCategories.find((item) => normalizeCategoryName(item.name) === normalized);
+
+  return category?.name || value.trim();
 }
 
 export type CategoryInputKind = "default" | "vehicle" | "clothing" | "shoes";

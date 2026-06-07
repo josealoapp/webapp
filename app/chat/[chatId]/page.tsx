@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, CheckCheck, ImagePlus, LoaderCircle, MoreHorizontal, Send, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, ImagePlus, LoaderCircle, MoreHorizontal, Repeat2, Send, X } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import {
@@ -35,6 +35,7 @@ export default function ChatPage() {
 
   const [chat, setChat] = useState<ChatRecord | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
+  const [tradeListing, setTradeListing] = useState<Listing | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [text, setText] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
@@ -48,6 +49,8 @@ export default function ChatPage() {
   const [listingActionOpen, setListingActionOpen] = useState(false);
   const [listingActionLoading, setListingActionLoading] = useState<"" | "reserve" | "sell">("");
   const [listingActionError, setListingActionError] = useState("");
+  const [actionListing, setActionListing] = useState<Listing | null>(null);
+  const [soldListingOverlayDismissed, setSoldListingOverlayDismissed] = useState(false);
   const [olderMessagesCursor, setOlderMessagesCursor] = useState<number | null>(null);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +147,26 @@ export default function ChatPage() {
   }, [chat?.listingId]);
 
   useEffect(() => {
+    if (!chat?.tradeListingId) {
+      setTradeListing(null);
+      return;
+    }
+
+    let cancelled = false;
+    getListingById(chat.tradeListingId)
+      .then((row) => {
+        if (!cancelled) setTradeListing(row);
+      })
+      .catch(() => {
+        if (!cancelled) setTradeListing(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chat?.tradeListingId]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
@@ -200,6 +223,10 @@ export default function ChatPage() {
     setSelectedImagePreview(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedImage]);
+
+  useEffect(() => {
+    setSoldListingOverlayDismissed(false);
+  }, [listing?.id, listing?.status]);
 
   const handleSend = async () => {
     const trimmed = text.trim();
@@ -287,20 +314,35 @@ export default function ChatPage() {
   const counterpartOnline = isUserOnline(lastActiveAt, presenceNow);
   const presenceLabel = formatLastActive(lastActiveAt, presenceNow);
   const canManageListing = Boolean(chat && listing && currentUserId === chat.sellerId && listing.status !== "sold");
+  const hasTradeHeader = Boolean(chat?.tradeListingId && tradeListing && listing);
+  const desiredListing = listing;
+  const offeredListing = tradeListing;
+  const gettingListing = currentUserId === chat?.buyerId ? desiredListing : offeredListing;
+  const givingListing = currentUserId === chat?.buyerId ? offeredListing : desiredListing;
+  const showSoldListingOverlay = listing?.status === "sold" && !soldListingOverlayDismissed;
+  const soldListingOverlayTitle =
+    listing?.soldToUserId === currentUserId ? "Adquiriste este artículo" : "Este artículo fue vendido";
+  const listingActionTargetName =
+    actionListing && chat
+      ? actionListing.id === chat.listingId
+        ? chat.buyerName || "comprador"
+        : chat.sellerName || "comprador"
+      : chat?.buyerName || "comprador";
 
   const handleListingAction = async (action: "reserve" | "sell") => {
-    if (!chat || !listing || listingActionLoading) return;
+    const targetListing = actionListing || listing;
+    if (!chat || !targetListing || listingActionLoading) return;
 
     setListingActionLoading(action);
     setListingActionError("");
 
     try {
       const result = await updateListingChatAction({
-        listingId: listing.id,
+        listingId: targetListing.id,
         chatId: chat.id,
         action,
       });
-      setListing((current) =>
+      const updateListingState = (current: Listing | null) =>
         current
           ? {
               ...current,
@@ -310,9 +352,11 @@ export default function ChatPage() {
               reservedAt: result.reservedAt || current.reservedAt,
               soldAt: result.soldAt || current.soldAt,
             }
-          : current
-      );
+          : current;
+      if (targetListing.id === listing?.id) setListing(updateListingState);
+      if (targetListing.id === tradeListing?.id) setTradeListing(updateListingState);
       setListingActionOpen(false);
+      setActionListing(null);
     } catch {
       setListingActionError("No pudimos completar la acción. Intenta de nuevo.");
     } finally {
@@ -372,33 +416,62 @@ export default function ChatPage() {
 
         <div className="border-t border-neutral-800">
           <div className="mx-auto max-w-3xl px-4 py-3">
-            <div className="flex w-full min-w-0 items-center gap-2 rounded-3xl border border-neutral-800 bg-neutral-950 p-3 transition hover:border-neutral-600">
-              <Link href={`/item/${chat.listingId}`} className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-800">
-                  {itemImage ? (
-                    <img src={itemImage} alt={itemTitle} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-neutral-800" />
-                  )}
+            {hasTradeHeader && gettingListing && givingListing ? (
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <TradeHeaderCard
+                  listing={gettingListing}
+                  borderClassName="border-green-800"
+                  currentUserId={currentUserId}
+                  onActions={(target) => {
+                    setActionListing(target);
+                    setListingActionOpen(true);
+                  }}
+                />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-950 text-neutral-200">
+                  <Repeat2 className="h-5 w-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-neutral-100">{itemTitle}</div>
-                  <div className="mt-1 truncate text-sm font-bold text-orange-400">
-                    RD${itemPrice.toLocaleString()}
+                <TradeHeaderCard
+                  listing={givingListing}
+                  borderClassName="border-red-800"
+                  currentUserId={currentUserId}
+                  onActions={(target) => {
+                    setActionListing(target);
+                    setListingActionOpen(true);
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex w-full min-w-0 items-center gap-2 rounded-3xl border border-neutral-800 bg-neutral-950 p-3 transition hover:border-neutral-600">
+                <Link href={`/item/${chat.listingId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-800">
+                    {itemImage ? (
+                      <img src={itemImage} alt={itemTitle} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-neutral-800" />
+                    )}
                   </div>
-                </div>
-              </Link>
-              {canManageListing ? (
-                <button
-                  type="button"
-                  onClick={() => setListingActionOpen(true)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-900 hover:text-white"
-                  aria-label="Acciones del artículo"
-                >
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-              ) : null}
-            </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-neutral-100">{itemTitle}</div>
+                    <div className="mt-1 truncate text-sm font-bold text-orange-400">
+                      {formatMoney(itemPrice, listing?.currency || "DOP")}
+                    </div>
+                  </div>
+                </Link>
+                {canManageListing ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionListing(listing);
+                      setListingActionOpen(true);
+                    }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-900 hover:text-white"
+                    aria-label="Acciones del artículo"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -533,7 +606,10 @@ export default function ChatPage() {
           <button
             type="button"
             className="absolute inset-0"
-            onClick={() => setListingActionOpen(false)}
+            onClick={() => {
+              setListingActionOpen(false);
+              setActionListing(null);
+            }}
             aria-label="Cerrar acciones"
           />
           <div className="relative w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-4 shadow-2xl">
@@ -545,7 +621,7 @@ export default function ChatPage() {
                 disabled={Boolean(listingActionLoading)}
                 className="h-12 w-full rounded-2xl bg-orange-400 px-4 text-sm font-semibold text-black hover:bg-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
               >
-                {listingActionLoading === "sell" ? "Vendiendo..." : `Vender a ${chat.buyerName || "comprador"}`}
+                {listingActionLoading === "sell" ? "Vendiendo..." : `Vender a ${listingActionTargetName}`}
               </button>
               <button
                 type="button"
@@ -553,7 +629,7 @@ export default function ChatPage() {
                 disabled={Boolean(listingActionLoading)}
                 className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:bg-neutral-800 disabled:text-neutral-500"
               >
-                {listingActionLoading === "reserve" ? "Reservando..." : `Reservar para ${chat.buyerName || "comprador"}`}
+                {listingActionLoading === "reserve" ? "Reservando..." : `Reservar para ${listingActionTargetName}`}
               </button>
             </div>
             {listingActionError ? (
@@ -564,6 +640,95 @@ export default function ChatPage() {
           </div>
         </div>
       ) : null}
+
+      {showSoldListingOverlay ? (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => setSoldListingOverlayDismissed(true)}
+            aria-label="Cerrar aviso"
+          />
+          <div className="relative w-full max-w-sm rounded-3xl border border-neutral-800 bg-neutral-950 p-6 text-center shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setSoldListingOverlayDismissed(true)}
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-neutral-300 hover:bg-neutral-900 hover:text-white"
+              aria-label="Cerrar aviso"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="text-lg font-semibold text-white">{soldListingOverlayTitle}</div>
+            <p className="mt-3 text-sm leading-6 text-neutral-400">
+              Esta negociación queda visible como historial, pero el artículo ya no está disponible.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSoldListingOverlayDismissed(true)}
+                className="h-11 flex-1 rounded-2xl bg-white px-4 text-sm font-semibold text-neutral-950"
+              >
+                Ver chat
+              </button>
+              <Link
+                href="/messages"
+                className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-neutral-800 px-4 text-sm font-semibold text-neutral-100"
+              >
+                Volver
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function TradeHeaderCard({
+  listing,
+  borderClassName,
+  currentUserId,
+  onActions,
+}: {
+  listing: Listing;
+  borderClassName: string;
+  currentUserId: string;
+  onActions: (listing: Listing) => void;
+}) {
+  const canManage = listing.ownerId === currentUserId && listing.status !== "sold";
+
+  return (
+    <div className={["relative rounded-3xl border bg-neutral-950 p-2", borderClassName].join(" ")}>
+      <Link href={`/item/${listing.id}`} className="flex min-w-0 items-center gap-2 pr-8">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-neutral-800">
+          {listing.image ? (
+            <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-neutral-800" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-semibold text-neutral-100 sm:text-sm">{listing.title}</div>
+          <div className="mt-1 truncate text-xs font-bold text-orange-400 sm:text-sm">
+            {formatMoney(Number(listing.price || 0), listing.currency || "DOP")}
+          </div>
+        </div>
+      </Link>
+      {canManage ? (
+        <button
+          type="button"
+          onClick={() => onActions(listing)}
+          className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-900 hover:text-white"
+          aria-label="Acciones del artículo"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function formatMoney(value: number, currency: "DOP" | "USD" = "DOP") {
+  const prefix = currency === "USD" ? "USD" : "RD$";
+  return `${prefix}${Number(value || 0).toLocaleString()}`;
 }

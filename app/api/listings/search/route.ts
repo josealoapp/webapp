@@ -53,6 +53,17 @@ function categoryQueryValues(category: string) {
   const normalized = normalizeSearchText(category);
   if (!normalized) return [];
   if (normalized === "vehiculos" || normalized === "autos") return ["Vehículos", "Autos"];
+  if (normalized === "ropa para mujeres" || normalized === "mujer") return ["Ropa para mujeres", "Mujer"];
+  if (normalized === "ropa para hombres" || normalized === "hombre" || normalized === "hombres") {
+    return ["Ropa para hombres", "Hombre", "Hombres"];
+  }
+  if (normalized === "celulares y smartphones" || normalized === "celulares") {
+    return ["Celulares y smartphones", "Celulares"];
+  }
+  if (normalized === "accesorios electronicos" || normalized === "electronicos") {
+    return ["Accesorios electrónicos", "Electrónicos"];
+  }
+  if (normalized === "cocina y comedor" || normalized === "cocina") return ["Cocina y comedor", "Cocina"];
   return [category];
 }
 
@@ -110,6 +121,15 @@ function listingMatchesExactField(data: Record<string, unknown>, field: string, 
   return data[field] === value;
 }
 
+function listingMatchesCategory(data: Record<string, unknown>, categoryValues: string[]) {
+  if (!categoryValues.length) return true;
+
+  const listingCategory = typeof data.category === "string" ? data.category : "";
+  const normalizedListingCategory = normalizeSearchText(listingCategory);
+
+  return categoryValues.some((category) => normalizeSearchText(category) === normalizedListingCategory);
+}
+
 function serializeListing(id: string, data: Record<string, unknown>) {
   return {
     id,
@@ -121,6 +141,7 @@ function serializeListing(id: string, data: Record<string, unknown>) {
     type: data.type || "article",
     title: data.title || "",
     price: Number(data.price || 0),
+    currency: data.currency || "DOP",
     category: data.category || "General",
     bazarCategory: data.bazarCategory || "",
     description: data.description || "",
@@ -142,6 +163,8 @@ function serializeListing(id: string, data: Record<string, unknown>) {
     soldAt: data.soldAt,
     soldWithJosealo: data.soldWithJosealo,
     saleSpeedRating: data.saleSpeedRating,
+    soldToUserId: data.soldToUserId || "",
+    soldToUserName: data.soldToUserName || "",
   };
 }
 
@@ -247,7 +270,7 @@ export async function GET(request: NextRequest) {
       })
       .filter(({ data }) => listingMatchesStatus(data, status))
       .filter(({ data }) => listingMatchesLocation(data, locationValues))
-      .filter(({ data }) => listingMatchesExactField(data, "category", category))
+      .filter(({ data }) => listingMatchesCategory(data, categoryValues))
       .filter(({ data }) => listingMatchesExactField(data, "type", type))
       .filter(({ data }) => listingMatchesExactField(data, "ownerId", ownerId))
       .filter(({ data }) => listingMatchesQuery(data, searchQuery))

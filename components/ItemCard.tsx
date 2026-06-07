@@ -17,6 +17,7 @@ type Item = {
   sellerId?: string;
   sellerName?: string;
   sellerAvatar?: string;
+  paymentMethod?: "efectivo" | "intercambio" | "ambos" | "transferencia";
 };
 
 export default function ItemCard({ item }: { item: Item }) {
@@ -103,6 +104,7 @@ export default function ItemCard({ item }: { item: Item }) {
           sellerId: item.sellerId,
           sellerName: item.sellerName,
           sellerMaxDiscountPercent: 20,
+          paymentMethod: item.paymentMethod,
         }}
       />
     </>

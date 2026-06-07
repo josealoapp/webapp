@@ -33,11 +33,21 @@ import {
   shouldAutoRefreshCurrentLocation,
 } from "@/lib/location";
 import { formatBazarTimeLeftShort } from "@/lib/bazar-duration";
+import { appCategories, getCanonicalCategoryName, normalizeCategoryName } from "@/lib/categories";
 
 type PendingReviewRequest = {
   id: string;
   itemTitle: string;
   sellerName: string;
+};
+
+type PendingTradeOffer = {
+  listingId: string;
+  listingTitle: string;
+  listingPrice: number;
+  sellerId?: string;
+  sellerName?: string;
+  createdAt: number;
 };
 
 export default function HomePage() {
@@ -54,6 +64,7 @@ export default function HomePage() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [pendingTradeOffer, setPendingTradeOffer] = useState<PendingTradeOffer | null>(null);
   const [bazarNow, setBazarNow] = useState(Date.now());
   const [personalInterests, setPersonalInterests] = useState<string[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
@@ -92,6 +103,45 @@ export default function HomePage() {
   useEffect(() => {
     const intervalId = window.setInterval(() => setBazarNow(Date.now()), 1000);
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const loadPendingTradeOffer = () => {
+      try {
+        const raw = localStorage.getItem("pending_trade_offer");
+        if (!raw) {
+          setPendingTradeOffer(null);
+          return;
+        }
+
+        const parsed = JSON.parse(raw) as Partial<PendingTradeOffer>;
+        if (!parsed.listingId || !parsed.createdAt || Date.now() - Number(parsed.createdAt) > 7 * 24 * 60 * 60 * 1000) {
+          localStorage.removeItem("pending_trade_offer");
+          setPendingTradeOffer(null);
+          return;
+        }
+
+        setPendingTradeOffer({
+          listingId: parsed.listingId,
+          listingTitle: parsed.listingTitle || "publicación",
+          listingPrice: Number(parsed.listingPrice || 0),
+          sellerId: parsed.sellerId,
+          sellerName: parsed.sellerName,
+          createdAt: Number(parsed.createdAt),
+        });
+      } catch {
+        setPendingTradeOffer(null);
+      }
+    };
+
+    loadPendingTradeOffer();
+    window.addEventListener("storage", loadPendingTradeOffer);
+    window.addEventListener("focus", loadPendingTradeOffer);
+
+    return () => {
+      window.removeEventListener("storage", loadPendingTradeOffer);
+      window.removeEventListener("focus", loadPendingTradeOffer);
+    };
   }, []);
 
   useEffect(() => {
@@ -283,8 +333,8 @@ export default function HomePage() {
     const targetLocation = normalizeLocation(selectedLocation || preferredLocation || "");
     const getInterestMatch = (item: Listing) => {
       if (normalizedInterests.length === 0) return 0;
-      const category = normalizeCategory(item.category?.trim() || "General");
-      const bazarCategory = normalizeCategory(item.bazarCategory?.trim() || "");
+      const category = normalizeCategoryName(item.category?.trim() || "General");
+      const bazarCategory = normalizeCategoryName(item.bazarCategory?.trim() || "");
       return normalizedInterests.includes(category) || (bazarCategory ? normalizedInterests.includes(bazarCategory) : false)
         ? 1
         : 0;
@@ -309,7 +359,7 @@ export default function HomePage() {
 
         if (normalizedActiveCategory !== "todo") {
           if (listingType === "bazar") return false;
-          return normalizeCategory(item.category?.trim() || "General") === normalizedActiveCategory;
+          return normalizeCategoryName(item.category?.trim() || "General") === normalizedActiveCategory;
         }
 
         if (listingType === "bazar") {
@@ -334,12 +384,21 @@ export default function HomePage() {
         return (b.createdAt ?? 0) - (a.createdAt ?? 0);
       });
   }, [activeCategory, currentUserId, followingIds, listings, personalInterests, preferredLocation, selectedLocation]);
+  const visibleRecentChats = useMemo(() => {
+    return recentChats.filter((chat) => {
+      const listing = recentChatListings[chat.listingId];
+      if (!chat.listingId) return true;
+      if (!Object.prototype.hasOwnProperty.call(recentChatListings, chat.listingId)) return false;
+
+      return listing?.status !== "sold";
+    });
+  }, [recentChatListings, recentChats]);
   const listingsByCategory = useMemo(() => {
     const categories = new Map<string, Listing[]>();
 
     marketplaceListings.forEach((item) => {
       if ((item.type || "article") === "bazar") return;
-      const categoryName = item.category?.trim() || "General";
+      const categoryName = getCanonicalCategoryName(item.category?.trim() || "General");
       const existing = categories.get(categoryName) || [];
       categories.set(categoryName, [...existing, item]);
     });
@@ -377,6 +436,26 @@ export default function HomePage() {
       </div>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-28 pt-5">
+        {pendingTradeOffer ? (
+          <section className="rounded-[22px] border border-orange-400/30 bg-orange-400/10 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-orange-100">Continúa tu oferta</div>
+                <div className="mt-1 truncate text-xs text-orange-100/70">
+                  Termina tu oferta para {pendingTradeOffer.listingTitle}.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/item/${pendingTradeOffer.listingId}?continueOffer=1`)}
+                className="h-11 rounded-2xl bg-orange-400 px-5 text-sm font-semibold text-black hover:bg-orange-300"
+              >
+                Continuar tu oferta
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         {activeReview ? (
           <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
             <div className="text-base font-semibold text-neutral-100">
@@ -422,7 +501,7 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {currentUserId && recentChats.length > 0 ? (
+        {currentUserId && visibleRecentChats.length > 0 ? (
           <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
             <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
               <span>Negociaciones recientes</span>
@@ -431,7 +510,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {recentChats.map((chat) => {
+              {visibleRecentChats.map((chat) => {
                 const listing = recentChatListings[chat.listingId];
                 const image = listing?.image || "";
                 const price = Number(listing?.price || chat.listingPrice || 0);
@@ -629,7 +708,7 @@ export default function HomePage() {
               <section key={categoryName} className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
                 <div className="mb-3 flex items-center justify-between text-sm font-semibold text-neutral-100">
                   <span>{categoryName}</span>
-                  <Link href="/descubre" className="text-xs text-neutral-400 hover:text-neutral-200">
+                  <Link href={getCategoryHref(categoryName)} className="text-xs text-neutral-400 hover:text-neutral-200">
                     Ver más
                   </Link>
                 </div>
@@ -674,9 +753,13 @@ function normalizeLocation(location: string) {
 }
 
 function normalizeCategory(category: string) {
-  return category
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
+  return normalizeCategoryName(category);
+}
+
+function getCategoryHref(categoryName: string) {
+  const category = appCategories.find(
+    (item) => normalizeCategoryName(item.name) === normalizeCategoryName(categoryName)
+  );
+
+  return category ? `/categories/${category.id}` : "/categories";
 }

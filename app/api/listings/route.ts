@@ -4,7 +4,8 @@ import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { getBazarEndsAt, isValidBazarDuration } from "@/lib/bazar-duration";
 import { buildListingSearchTokens } from "@/lib/listing-search-tokens";
 
-const PAYMENT_METHODS = new Set(["efectivo", "intercambio", "transferencia"]);
+const PAYMENT_METHODS = new Set(["efectivo", "intercambio", "ambos", "transferencia"]);
+const CURRENCIES = new Set(["DOP", "USD"]);
 const LISTING_TYPES = new Set(["article", "bazar"]);
 const MAX_TEXT_LENGTH = 5000;
 const MAX_TAGS = 12;
@@ -37,6 +38,10 @@ function cleanPrice(value: unknown) {
 
 function cleanBoolean(value: unknown) {
   return value === true;
+}
+
+function cleanCurrency(value: unknown) {
+  return typeof value === "string" && CURRENCIES.has(value) ? value : "DOP";
 }
 
 function cleanBazarDurationHours(value: unknown) {
@@ -100,12 +105,14 @@ function cleanBazarItems(value: unknown) {
     }
 
     const metadata = cleanCategoryMetadata(item);
+    const currency = cleanCurrency(item.currency);
 
     return {
       id: cleanText(item.id, 120) || `item-${index + 1}`,
       title,
       description: cleanText(item.description, MAX_TEXT_LENGTH),
       price,
+      currency,
       image,
       status,
       ...(status === "sold" && Number.isFinite(soldAt) && soldAt > 0 ? { soldAt } : {}),
@@ -121,10 +128,11 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
   const title = cleanText(body.title, 180);
   const category = cleanText(body.category, 120);
   const description = cleanText(body.description, MAX_TEXT_LENGTH);
-  const paymentMethod =
+  const rawPaymentMethod =
     typeof body.paymentMethod === "string" && PAYMENT_METHODS.has(body.paymentMethod)
       ? body.paymentMethod
       : "efectivo";
+  const paymentMethod = rawPaymentMethod === "transferencia" ? "ambos" : rawPaymentMethod;
   const location = cleanText(body.location, 140);
   const ownerName = cleanText(body.ownerName, 160) || "Vendedor";
   const ownerAvatar = cleanImageUrl(body.ownerAvatar);
@@ -133,6 +141,7 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
   const tags = cleanTags(body.tags);
   const metadata = cleanCategoryMetadata(body);
   const bazarItems = cleanBazarItems(body.bazarItems);
+  const currency = type === "bazar" ? bazarItems[0]?.currency || cleanCurrency(body.currency) : cleanCurrency(body.currency);
   const image =
     type === "bazar"
       ? cleanImageUrl(body.image) || bazarItems[0]?.image || ""
@@ -169,6 +178,7 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
     type,
     title,
     price,
+    currency,
     category,
     ...(type === "bazar" ? { bazarCategory: cleanText(body.bazarCategory, 120) || category } : {}),
     description,

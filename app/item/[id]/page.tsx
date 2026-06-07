@@ -23,6 +23,7 @@ import {
   markListingSold,
   recordListingView,
   subscribeChatsForUser,
+  updateListingChatAction,
 } from "@/lib/marketplace";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 import { AppSkeleton } from "@/components/AppSkeleton";
@@ -63,6 +64,8 @@ export default function ItemDetailsPage() {
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [sellerVerified, setSellerVerified] = useState(false);
   const [listingChats, setListingChats] = useState<ChatRecord[]>([]);
+  const [removingReservation, setRemovingReservation] = useState(false);
+  const [reservationError, setReservationError] = useState("");
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -145,7 +148,9 @@ export default function ItemDetailsPage() {
         title: listing.title,
         location: listing.location,
         price: listing.price,
+        currency: listing.currency || "DOP",
         description: listing.description,
+        paymentMethod: listing.paymentMethod,
         images: listing.type === "bazar" ? bazarImages : [listing.image],
         sellerName: listing.ownerName,
         sellerId: listing.ownerId,
@@ -169,6 +174,11 @@ export default function ItemDetailsPage() {
   const isOwnListing = Boolean(item?.sellerId && currentUserId === item.sellerId);
   const isSold = listing?.status === "sold";
   const isReserved = Boolean(listing?.reservedForUserId && !isSold);
+  const reservedForName = listing?.reservedForUserName || "comprador";
+  const reservedBuyerChat = useMemo(
+    () => listingChats.find((chat) => chat.buyerId === listing?.reservedForUserId) || null,
+    [listing?.reservedForUserId, listingChats]
+  );
   const isRemovedBySupport = listing?.status === "removed_by_support" || listing?.status === "account_deactivated";
   const isSelectedBazarItemSold = selectedBazarItem?.status === "sold";
   const isBazarRoot = item?.type === "bazar" && !selectedBazarItem;
@@ -181,7 +191,11 @@ export default function ItemDetailsPage() {
   const displayTitle = selectedBazarItem?.title || item?.title || "";
   const displayDescription = selectedBazarItem?.description || item?.description || "";
   const displayPrice = selectedBazarItem?.price || item?.price || 0;
+  const displayCurrency = selectedBazarItem?.currency || item?.currency || "DOP";
   const displayCategory = selectedBazarItem ? `${item?.category || "Bazar"} · Artículo` : item?.category || "";
+  const reservedItemNoun = /veh[ií]culo|auto|motocicleta|camion|camión/i.test(displayCategory)
+    ? "vehículo"
+    : "artículo";
   const likeRecordId = useMemo(() => {
     if (!currentUserId || !item?.id) return "";
     return getLikeRecordId(currentUserId, item.id, selectedBazarItem?.id);
@@ -194,6 +208,13 @@ export default function ItemDetailsPage() {
 
     void recordListingView(listing.id, selectedBazarItemId).catch(() => {});
   }, [authResolved, currentUserId, listing?.id, listing?.ownerId, selectedBazarItemId]);
+
+  useEffect(() => {
+    if (!authResolved || !item || isOwnListing) return;
+    if (searchParams.get("continueOffer") !== "1") return;
+
+    setOpenInterest(true);
+  }, [authResolved, isOwnListing, item, searchParams]);
 
   useEffect(() => {
     if (!currentUserId || !listing?.id || listing.ownerId !== currentUserId) {
@@ -239,6 +260,7 @@ export default function ItemDetailsPage() {
     return new URLSearchParams({
       title: listing.title,
       price: String(listing.price),
+      currency: listing.currency || "DOP",
       category: listing.category,
       description: listing.description,
       tags: listing.tags.join(", "),
@@ -356,6 +378,35 @@ export default function ItemDetailsPage() {
       setReportError("No pudimos enviar el reporte. Intenta de nuevo.");
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const handleRemoveReservation = async () => {
+    if (!listing?.id || removingReservation) return;
+
+    setRemovingReservation(true);
+    setReservationError("");
+
+    try {
+      await updateListingChatAction({
+        listingId: listing.id,
+        chatId: reservedBuyerChat?.id,
+        action: "unreserve",
+      });
+      setListing((current) =>
+        current
+          ? {
+              ...current,
+              reservedForUserId: "",
+              reservedForUserName: "",
+              reservedAt: undefined,
+            }
+          : current
+      );
+    } catch {
+      setReservationError("No pudimos remover la reservación. Intenta de nuevo.");
+    } finally {
+      setRemovingReservation(false);
     }
   };
 
@@ -718,7 +769,7 @@ export default function ItemDetailsPage() {
                         <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Vendido</div>
                       ) : null}
                       <div className="mt-2 text-sm font-semibold text-orange-400">
-                        RD${Number(bazarItem.price).toLocaleString()}
+                        {formatMoney(Number(bazarItem.price), bazarItem.currency || item.currency || "DOP")}
                       </div>
                     </div>
                   </button>
@@ -792,7 +843,24 @@ export default function ItemDetailsPage() {
           ) : null}
           {isReserved ? (
             <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm leading-6 text-orange-200">
-              Este artículo está apartado para un comprador. Aún puedes contactar al vendedor con una mejor oferta.
+              {isOwnListing ? (
+                <div className="space-y-3">
+                  <p>
+                    Reservaste este {reservedItemNoun} para {reservedForName}. Si {reservedForName} ya no está interesado haz click en "Remover reservación".
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveReservation()}
+                    disabled={removingReservation}
+                    className="h-10 rounded-2xl border border-orange-400/40 bg-orange-400/10 px-4 text-sm font-semibold text-orange-100 hover:bg-orange-400/20 disabled:opacity-60"
+                  >
+                    {removingReservation ? "Removiendo..." : "Remover reservación"}
+                  </button>
+                  {reservationError ? <div className="text-xs text-red-200">{reservationError}</div> : null}
+                </div>
+              ) : (
+                "Este artículo está reservado. Aún puedes contactar al vendedor con una mejor oferta."
+              )}
             </div>
           ) : null}
         </div>
@@ -806,7 +874,7 @@ export default function ItemDetailsPage() {
               {item.type === "bazar" && !selectedBazarItem ? "Valor estimado" : "Precio"}
             </div>
             <div className="text-lg font-semibold text-neutral-50">
-              RD${Number(item.type === "bazar" && !selectedBazarItem ? estimatedBazarValue : displayPrice).toLocaleString()}
+              {formatMoney(Number(item.type === "bazar" && !selectedBazarItem ? estimatedBazarValue : displayPrice), displayCurrency)}
             </div>
           </div>
 
@@ -897,11 +965,13 @@ export default function ItemDetailsPage() {
           id: item.id,
           title: selectedBazarItem ? selectedBazarItem.title : item.title,
           price: selectedBazarItem ? selectedBazarItem.price : item.price,
+          currency: displayCurrency,
           sellerId: item.sellerId,
           sellerName: isOwnListing && item.type === "bazar" ? "Mi bazar" : item.sellerName,
           sellerWhatsappNumber: item.sellerWhatsappNumber,
           sellerUsesWhatsapp: item.sellerUsesWhatsapp,
           sellerMaxDiscountPercent: item.sellerMaxDiscountPercent ?? 10,
+          paymentMethod: item.paymentMethod,
         }}
       />
 
@@ -1205,4 +1275,9 @@ export default function ItemDetailsPage() {
 
     </div>
   );
+}
+
+function formatMoney(value: number, currency: "DOP" | "USD" = "DOP") {
+  const prefix = currency === "USD" ? "USD" : "RD$";
+  return `${prefix}${Number(value || 0).toLocaleString()}`;
 }

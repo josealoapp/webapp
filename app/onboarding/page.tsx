@@ -26,15 +26,15 @@ const BUSINESS_VERIFICATION_MESSAGE =
 const MAX_PERSONAL_INTERESTS = 8;
 const SUGGESTED_PERSONAL_INTERESTS = [
   "Vehículos",
-  "Celulares",
+  "Celulares y smartphones",
   "Ropa para hombres",
   "Ropa para niños",
   "Maquillaje",
   "Belleza",
-  "Electrónicos",
+  "Accesorios electrónicos",
   "Libros",
   "Hogar",
-  "Cocina",
+  "Cocina y comedor",
 ];
 
 type Step = "accountType" | "personalInterests" | "businessDetails" | "businessVerification";

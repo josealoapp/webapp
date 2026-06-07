@@ -36,9 +36,11 @@ function NewListingPreviewContent() {
   const data = useMemo(() => {
     const priceValue = Number(search.get("price") ?? "");
     const rawTags = (search.get("tags") || "").split(",").map((t) => t.trim()).filter(Boolean);
+    const currency = search.get("currency") === "USD" ? "USD" : "DOP";
     return {
       title: search.get("title") || "",
       price: priceValue,
+      currency: currency as "DOP" | "USD",
       category: search.get("category") || "",
       description: search.get("description") || "",
       tags: rawTags,
@@ -96,12 +98,15 @@ function NewListingPreviewContent() {
         type: "article",
         title: data.title || "Sin título",
         price: data.price,
+        currency: data.currency,
         category: data.category || "General",
         description: data.description || "Sin descripción",
         tags: data.tags,
         paymentMethod:
-          data.paymentMethod === "intercambio" || data.paymentMethod === "transferencia"
-            ? data.paymentMethod
+          data.paymentMethod === "intercambio" || data.paymentMethod === "ambos" || data.paymentMethod === "transferencia"
+            ? data.paymentMethod === "transferencia"
+              ? "ambos"
+              : data.paymentMethod
             : "efectivo",
         location: data.location || getDefaultListingLocation(),
         image: data.imageUrl,
@@ -153,7 +158,7 @@ function NewListingPreviewContent() {
           )}
           <div className="mt-2 text-lg font-semibold text-white">{data.title || "Sin título"}</div>
           <div className="mt-1 text-orange-400">
-            {data.isPriceValid ? `RD$${data.price.toLocaleString()}` : "Precio inválido"}
+            {data.isPriceValid ? formatMoney(data.price, data.currency) : "Precio inválido"}
           </div>
           <div className="mt-2 text-sm text-neutral-300">
             {data.category || "Sin categoría"} · {data.description ? "Con descripción" : "Sin descripción"}
@@ -219,4 +224,9 @@ function NewListingPreviewContent() {
       </div>
     </div>
   );
+}
+
+function formatMoney(value: number, currency: "DOP" | "USD" = "DOP") {
+  const prefix = currency === "USD" ? "USD" : "RD$";
+  return `${prefix}${Number(value || 0).toLocaleString()}`;
 }

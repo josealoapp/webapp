@@ -18,14 +18,16 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { optimizeListingImage } from "@/lib/image-upload";
 
-export type PaymentMethod = "efectivo" | "intercambio" | "transferencia";
+export type PaymentMethod = "efectivo" | "intercambio" | "ambos";
 export type ListingType = "article" | "bazar";
+export type ListingCurrency = "DOP" | "USD";
 
 export type BazarItem = {
   id: string;
   title: string;
   description: string;
   price: number;
+  currency?: ListingCurrency;
   image: string;
   vehicleYear?: number;
   clothingSize?: string;
@@ -34,6 +36,8 @@ export type BazarItem = {
   soldAt?: number;
   soldWithJosealo?: boolean;
   saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
+  soldToUserId?: string;
+  soldToUserName?: string;
 };
 
 export type Listing = {
@@ -46,6 +50,7 @@ export type Listing = {
   type?: ListingType;
   title: string;
   price: number;
+  currency?: ListingCurrency;
   category: string;
   bazarCategory?: string;
   description: string;
@@ -67,6 +72,8 @@ export type Listing = {
   soldAt?: number;
   soldWithJosealo?: boolean;
   saleSpeedRating?: 1 | 2 | 3 | 4 | 5;
+  soldToUserId?: string;
+  soldToUserName?: string;
 };
 
 export type ListingSoldFeedback = {
@@ -159,6 +166,11 @@ export type ChatRecord = {
   listingId: string;
   listingTitle: string;
   listingPrice: number;
+  tradeListingId?: string;
+  tradeListingTitle?: string;
+  tradeListingPrice?: number;
+  tradeListingImage?: string;
+  tradeListingCurrency?: ListingCurrency;
   sellerId: string;
   sellerName: string;
   buyerId: string;
@@ -375,6 +387,11 @@ export async function createOffer(input: {
   listingId: string;
   listingTitle: string;
   listingPrice: number;
+  tradeListingId?: string;
+  tradeListingTitle?: string;
+  tradeListingPrice?: number;
+  tradeListingImage?: string;
+  tradeListingCurrency?: ListingCurrency;
   sellerId: string;
   sellerName: string;
   message: string;
@@ -543,8 +560,8 @@ export async function markBazarItemSold(listingId: string, bazarItemId: string) 
 
 export async function updateListingChatAction(input: {
   listingId: string;
-  chatId: string;
-  action: "reserve" | "sell";
+  chatId?: string;
+  action: "reserve" | "sell" | "unreserve";
 }) {
   const token = await auth.currentUser?.getIdToken();
 

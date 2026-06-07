@@ -6,6 +6,11 @@ type OfferRequest = {
   listingId?: string;
   listingTitle?: string;
   listingPrice?: number;
+  tradeListingId?: string;
+  tradeListingTitle?: string;
+  tradeListingPrice?: number;
+  tradeListingImage?: string;
+  tradeListingCurrency?: string;
   sellerId?: string;
   sellerName?: string;
   message?: string;
@@ -38,6 +43,11 @@ export async function POST(request: NextRequest) {
     const listingId = body.listingId?.trim();
     const listingTitle = body.listingTitle?.trim();
     const listingPrice = Number(body.listingPrice);
+    const tradeListingId = body.tradeListingId?.trim();
+    const tradeListingTitle = body.tradeListingTitle?.trim();
+    const tradeListingPrice = Number(body.tradeListingPrice);
+    const tradeListingImage = body.tradeListingImage?.trim();
+    const tradeListingCurrency = body.tradeListingCurrency === "USD" ? "USD" : body.tradeListingCurrency === "DOP" ? "DOP" : "";
     const sellerId = body.sellerId?.trim();
     const sellerName = body.sellerName?.trim();
     const message = body.message?.trim();
@@ -68,6 +78,15 @@ export async function POST(request: NextRequest) {
           listingId,
           listingTitle,
           listingPrice,
+          ...(tradeListingId && tradeListingTitle && Number.isFinite(tradeListingPrice) && tradeListingPrice > 0
+            ? {
+                tradeListingId,
+                tradeListingTitle,
+                tradeListingPrice,
+                tradeListingImage: tradeListingImage || "",
+                tradeListingCurrency: tradeListingCurrency || "DOP",
+              }
+            : {}),
           sellerId,
           sellerName,
           buyerId: decoded.uid,

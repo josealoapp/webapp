@@ -15,10 +15,10 @@ import logoIcon from "@/app/logo.svg";
 
 const categories = [
   { label: "Todo", value: "Todo" },
-  { label: "Mujer", value: "Mujer" },
-  { label: "Hombres", value: "Hombre" },
   { label: "Bazar", value: "Bazar" },
-  { label: "Electrónicos", value: "Electrónicos" },
+  { label: "Vehículos", value: "Vehículos" },
+  { label: "Mujer", value: "Ropa para mujeres" },
+  { label: "Hombres", value: "Ropa para hombres" },
   { label: "Zapatos", value: "Zapatos" },
   { label: "Hogar", value: "Hogar" },
 ];

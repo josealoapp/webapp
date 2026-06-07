@@ -8,7 +8,14 @@ import { ArrowLeft, MessageCircle, MoreVertical, Search } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
-import { ChatRecord, deleteChat, listChatsForUser, subscribeChatsForUser } from "@/lib/marketplace";
+import {
+  ChatRecord,
+  deleteChat,
+  getListingById,
+  Listing,
+  listChatsForUser,
+  subscribeChatsForUser,
+} from "@/lib/marketplace";
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -24,6 +31,9 @@ export default function MessagesPage() {
   const [screenError, setScreenError] = useState("");
   const [loadingChats, setLoadingChats] = useState(false);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [chatListings, setChatListings] = useState<Record<string, Listing>>({});
+  const [buyerChats, setBuyerChats] = useState<ChatRecord[]>([]);
+  const [sellerChats, setSellerChats] = useState<ChatRecord[]>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -91,6 +101,52 @@ export default function MessagesPage() {
     };
   }, [activeTab, currentUserId]);
 
+  useEffect(() => {
+    if (!currentUserId) {
+      setBuyerChats([]);
+      setSellerChats([]);
+      return;
+    }
+
+    const unsubBuyer = subscribeChatsForUser(currentUserId, "buyer", setBuyerChats, () => setBuyerChats([]));
+    const unsubSeller = subscribeChatsForUser(currentUserId, "seller", setSellerChats, () => setSellerChats([]));
+
+    return () => {
+      unsubBuyer();
+      unsubSeller();
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (chats.length === 0) {
+      setChatListings({});
+      return;
+    }
+
+    let cancelled = false;
+    const listingIds = Array.from(new Set(chats.map((chat) => chat.listingId).filter(Boolean)));
+
+    Promise.all(
+      listingIds.map(async (listingId) => {
+        const listing = await getListingById(listingId);
+        return listing ? ([listingId, listing] as const) : null;
+      })
+    )
+      .then((rows) => {
+        if (cancelled) return;
+        setChatListings(
+          Object.fromEntries(rows.filter((row): row is readonly [string, Listing] => Boolean(row)))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setChatListings({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chats]);
+
   const visibleChats = useMemo(() => {
     return chats;
   }, [chats]);
@@ -111,6 +167,13 @@ export default function MessagesPage() {
   const messageTabs = accountType === "business"
     ? (["vendiendo", "comprando"] as const)
     : (["comprando", "vendiendo"] as const);
+  const tabUnreadCounts = useMemo(
+    () => ({
+      comprando: buyerChats.reduce((total, chat) => total + getUnreadCount(chat, currentUserId), 0),
+      vendiendo: sellerChats.reduce((total, chat) => total + getUnreadCount(chat, currentUserId), 0),
+    }),
+    [buyerChats, currentUserId, sellerChats]
+  );
   const loadMoreChats = async () => {
     if (!currentUserId || !nextCursor || loadingChats) return;
 
@@ -175,7 +238,19 @@ export default function MessagesPage() {
                   activeTab === tab ? "after:bg-orange-400" : "after:bg-transparent",
                 ].join(" ")}
               >
-                {tab}
+                <span className="inline-flex items-center gap-2">
+                  <span>{tab}</span>
+                  {tabUnreadCounts[tab] > 0 ? (
+                    <span
+                      className={[
+                        "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold leading-none",
+                        activeTab === tab ? "bg-orange-400 text-black" : "bg-neutral-800 text-neutral-200",
+                      ].join(" ")}
+                    >
+                      {formatUnreadCount(tabUnreadCounts[tab])}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             ))}
           </div>
@@ -218,10 +293,21 @@ export default function MessagesPage() {
               {filtered.map((chat) => {
               const isSellingChat = chat.sellerId === currentUserId;
               const counterpartName = isSellingChat ? chat.buyerName : chat.sellerName;
-              const roleLabel = isSellingChat ? "Oferta recibida" : "Oferta enviada";
+              const listing = chatListings[chat.listingId];
+              const isSold = listing?.status === "sold";
+              const wasPurchasedByCurrentUser = isSold && listing.soldToUserId === currentUserId;
+              const roleLabel = isSold
+                ? wasPurchasedByCurrentUser
+                  ? "Adquiriste este artículo"
+                  : "No disponible"
+                : isSellingChat
+                  ? "Oferta recibida"
+                  : "Oferta enviada";
               const unreadCount = getUnreadCount(chat, currentUserId);
               const statusStyles =
-                "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
+                isSold
+                  ? "border-neutral-700/70 bg-neutral-800/80 text-neutral-300"
+                  : "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
 
               return (
                 <div
@@ -333,4 +419,8 @@ function getUnreadCount(chat: ChatRecord, userId: string) {
   }
 
   return 0;
+}
+
+function formatUnreadCount(count: number) {
+  return count > 99 ? "+99" : String(count);
 }

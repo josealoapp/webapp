@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AccountStatusGuard from "@/components/AccountStatusGuard";
 import SupportNotificationBanner from "@/components/SupportNotificationBanner";
+import UnreadMessageToast from "@/components/UnreadMessageToast";
+import { Toaster } from "@/components/ui/sonner";
 
 const poppins = Poppins({
   variable: "--font-geist-sans",
@@ -37,7 +39,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AccountStatusGuard />
           <SupportNotificationBanner />
+          <UnreadMessageToast />
           {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
