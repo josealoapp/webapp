@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { ArrowLeft, Car, Download, Footprints, ImagePlus, Info, Package, Plus, Search, Shirt, Upload, X } from "lucide-react";
 import { auth } from "@/lib/firebase";
-import { createListing, getListingById, updateListing, uploadListingImages, type ListingCurrency } from "@/lib/marketplace";
+import { createListing, getListingById, updateListing, uploadListingImages, type BazarItem, type ListingCurrency } from "@/lib/marketplace";
 import { getPostAuthDestination, getWhatsappContactSettings, readAccountProfile } from "@/lib/account-profile";
 import {
   appCategories,
@@ -980,7 +980,7 @@ export default function NewListingPage() {
       return "Falta configurar AWS S3 en las variables del servidor.";
     }
     if (code.includes("presign") || code.includes("put-failed")) {
-      return "No se pudieron subir las fotos a AWS S3. Revisa la configuración del bucket.";
+      return "No se pudieron subir las fotos. Intenta con imágenes más livianas o vuelve a intentarlo.";
     }
     if (code.includes("image-load-failed") || code.includes("webp-conversion-failed")) {
       return "No pudimos optimizar una foto antes de subirla. Intenta con otra imagen.";
@@ -991,7 +991,7 @@ export default function NewListingPage() {
     if (detail) {
       return `No se pudieron subir las fotos: ${detail}.`;
     }
-    return "No se pudieron subir las fotos. Verifica AWS S3 e intenta de nuevo.";
+    return "No se pudieron subir las fotos. Intenta de nuevo.";
   };
 
   const normalizePublishError = (err: unknown) => {
@@ -1158,22 +1158,26 @@ export default function NewListingPage() {
 
     try {
       const currentLocation = await requestCurrentSupportedLocation();
-      const pendingUploadItems = bazarItems.filter((item) => item.file);
-      const uploadedUrls = pendingUploadItems.length
-        ? await uploadListingImages(pendingUploadItems.map((item) => item.file as File))
-        : [];
-      let uploadedIndex = 0;
-      const publishedItems = bazarItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        price: Number(item.price),
-        currency: item.currency,
-        image: item.imageUrl || uploadedUrls[uploadedIndex++] || "",
-        ...(item.vehicleYear ? { vehicleYear: Number(item.vehicleYear) } : {}),
-        ...(item.clothingSize ? { clothingSize: item.clothingSize } : {}),
-        ...(item.shoeSize ? { shoeSize: item.shoeSize } : {}),
-      }));
+      const publishedItems: BazarItem[] = [];
+      for (const item of bazarItems) {
+        const uploadedUrl = item.imageUrl
+          ? item.imageUrl
+          : item.file
+            ? (await uploadListingImages([item.file]))[0] || ""
+            : "";
+
+        publishedItems.push({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          price: Number(item.price),
+          currency: item.currency,
+          image: uploadedUrl,
+          ...(item.vehicleYear ? { vehicleYear: Number(item.vehicleYear) } : {}),
+          ...(item.clothingSize ? { clothingSize: item.clothingSize } : {}),
+          ...(item.shoeSize ? { shoeSize: item.shoeSize } : {}),
+        });
+      }
       const lowestPrice = publishedItems.reduce((min, item) => Math.min(min, item.price), publishedItems[0]?.price || 0);
 
       try {
