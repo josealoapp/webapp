@@ -60,6 +60,7 @@ export default function NearbyDiscoverPage() {
         sellerId: item.ownerId,
         sellerName: item.ownerName,
         sellerAvatar: item.ownerAvatar,
+        createdAt: item.createdAt,
       }));
   }, [currentUserId, items, selectedLocation]);
 

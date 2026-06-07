@@ -133,6 +133,10 @@ function SignUpContent() {
       const currentProfile = readAccountProfile();
       writeAccountProfile({
         ...currentProfile,
+        userId: cred.user.uid,
+        onboardingRequired: true,
+        onboardingCompleted: false,
+        pendingBusinessUpgrade: false,
         whatsappPhone: whatsappNumber.trim(),
         useWhatsappForCustomers: currentProfile.useWhatsappForCustomers,
       });

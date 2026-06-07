@@ -87,15 +87,18 @@ export async function likeItem(input: Omit<LikeRecord, "id" | "createdAt">) {
       )
   );
 
-  const record = {
+  const record: LikeRecord = {
     ...input,
     id: likeIdFor(input.actorId, input.listingId, input.bazarItemId),
     createdAt: Date.now(),
   };
+  const firestoreRecord = Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value !== undefined)
+  ) as LikeRecord;
 
   writeLikeRegistry([...current, record]);
   await setDoc(likeRef(input.actorId, input.listingId, input.bazarItemId), {
-    ...record,
+    ...firestoreRecord,
     createdAtServer: serverTimestamp(),
   });
 }

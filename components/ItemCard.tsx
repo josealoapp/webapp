@@ -5,6 +5,7 @@ import { Heart, Share2, MapPin } from "lucide-react";
 import { useState } from "react";
 import InterestModal from "./InterestModal";
 import SellerAvatar from "@/components/SellerAvatar";
+import { formatListingAge } from "@/lib/relative-time";
 
 type Item = {
   id: string;
@@ -17,11 +18,13 @@ type Item = {
   sellerId?: string;
   sellerName?: string;
   sellerAvatar?: string;
+  createdAt?: number;
   paymentMethod?: "efectivo" | "intercambio" | "ambos" | "transferencia";
 };
 
 export default function ItemCard({ item }: { item: Item }) {
   const [open, setOpen] = useState(false);
+  const ageLabel = formatListingAge(Number(item.createdAt || 0));
 
   return (
     <>
@@ -63,7 +66,8 @@ export default function ItemCard({ item }: { item: Item }) {
 
               <div className="mt-1 flex items-center gap-1 text-xs text-neutral-400">
                 <MapPin className="h-3 w-3" />
-                {item.location}
+                <span className="truncate">{item.location}</span>
+                {ageLabel ? <span className="shrink-0 text-neutral-500">· {ageLabel}</span> : null}
               </div>
             </div>
 

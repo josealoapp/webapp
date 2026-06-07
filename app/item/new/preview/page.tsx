@@ -37,6 +37,11 @@ function NewListingPreviewContent() {
     const priceValue = Number(search.get("price") ?? "");
     const rawTags = (search.get("tags") || "").split(",").map((t) => t.trim()).filter(Boolean);
     const currency = search.get("currency") === "USD" ? "USD" : "DOP";
+    const imageUrls = (search.get("imageUrls") || "")
+      .split(",")
+      .map((url) => url.trim())
+      .filter(Boolean);
+    const imageUrl = search.get("imageUrl") || imageUrls[0] || "";
     return {
       title: search.get("title") || "",
       price: priceValue,
@@ -45,7 +50,8 @@ function NewListingPreviewContent() {
       description: search.get("description") || "",
       tags: rawTags,
       paymentMethod: search.get("paymentMethod") || "",
-      imageUrl: search.get("imageUrl") || "",
+      imageUrl,
+      imageUrls: imageUrls.length ? imageUrls : imageUrl ? [imageUrl] : [],
       location: search.get("location") || "",
       vehicleYear: search.get("vehicleYear") || "",
       clothingSize: search.get("clothingSize") || "",
@@ -110,6 +116,7 @@ function NewListingPreviewContent() {
             : "efectivo",
         location: data.location || getDefaultListingLocation(),
         image: data.imageUrl,
+        images: data.imageUrls,
         ...(data.vehicleYear ? { vehicleYear: Number(data.vehicleYear) } : {}),
         ...(data.clothingSize ? { clothingSize: data.clothingSize } : {}),
         ...(data.shoeSize ? { shoeSize: data.shoeSize } : {}),
@@ -151,9 +158,13 @@ function NewListingPreviewContent() {
 
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4">
           <div className="text-xs uppercase tracking-wide text-neutral-500">Resumen</div>
-          {data.imageUrl && (
-            <div className="mt-3 h-36 w-full overflow-hidden rounded-xl border border-neutral-800">
-              <img src={data.imageUrl} alt={data.title || "Preview"} className="h-full w-full object-cover" />
+          {data.imageUrls.length > 0 && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {data.imageUrls.map((url, index) => (
+                <div key={url} className="h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-neutral-800">
+                  <img src={url} alt={`${data.title || "Preview"} ${index + 1}`} className="h-full w-full object-cover" />
+                </div>
+              ))}
             </div>
           )}
           <div className="mt-2 text-lg font-semibold text-white">{data.title || "Sin título"}</div>

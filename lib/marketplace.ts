@@ -58,6 +58,7 @@ export type Listing = {
   paymentMethod: PaymentMethod;
   location: string;
   image: string;
+  images?: string[];
   vehicleYear?: number;
   clothingSize?: string;
   shoeSize?: string;

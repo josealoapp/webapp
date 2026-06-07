@@ -319,6 +319,7 @@ export default function ChatPage() {
   const offeredListing = tradeListing;
   const gettingListing = currentUserId === chat?.buyerId ? desiredListing : offeredListing;
   const givingListing = currentUserId === chat?.buyerId ? offeredListing : desiredListing;
+  const buyerTradeView = currentUserId === chat?.buyerId;
   const showSoldListingOverlay = listing?.status === "sold" && !soldListingOverlayDismissed;
   const soldListingOverlayTitle =
     listing?.soldToUserId === currentUserId ? "Adquiriste este artículo" : "Este artículo fue vendido";
@@ -417,10 +418,10 @@ export default function ChatPage() {
         <div className="border-t border-neutral-800">
           <div className="mx-auto max-w-3xl px-4 py-3">
             {hasTradeHeader && gettingListing && givingListing ? (
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <TradeHeaderCard
-                  listing={gettingListing}
-                  borderClassName="border-green-800"
+                  listing={buyerTradeView ? givingListing : gettingListing}
+                  borderClassName={buyerTradeView ? "border-red-800" : "border-green-800"}
                   currentUserId={currentUserId}
                   onActions={(target) => {
                     setActionListing(target);
@@ -431,8 +432,8 @@ export default function ChatPage() {
                   <Repeat2 className="h-5 w-5" />
                 </div>
                 <TradeHeaderCard
-                  listing={givingListing}
-                  borderClassName="border-red-800"
+                  listing={buyerTradeView ? gettingListing : givingListing}
+                  borderClassName={buyerTradeView ? "border-green-800" : "border-red-800"}
                   currentUserId={currentUserId}
                   onActions={(target) => {
                     setActionListing(target);
@@ -698,8 +699,8 @@ function TradeHeaderCard({
   const canManage = listing.ownerId === currentUserId && listing.status !== "sold";
 
   return (
-    <div className={["relative rounded-3xl border bg-neutral-950 p-2", borderClassName].join(" ")}>
-      <Link href={`/item/${listing.id}`} className="flex min-w-0 items-center gap-2 pr-8">
+    <div className={["relative min-w-0 overflow-hidden rounded-3xl border bg-neutral-950 p-2", borderClassName].join(" ")}>
+      <Link href={`/item/${listing.id}`} className="flex w-full min-w-0 items-center gap-2 pr-8">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-neutral-800">
           {listing.image ? (
             <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
@@ -707,8 +708,10 @@ function TradeHeaderCard({
             <div className="h-full w-full bg-neutral-800" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-semibold text-neutral-100 sm:text-sm">{listing.title}</div>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-neutral-100 sm:text-sm">
+            {listing.title}
+          </div>
           <div className="mt-1 truncate text-xs font-bold text-orange-400 sm:text-sm">
             {formatMoney(Number(listing.price || 0), listing.currency || "DOP")}
           </div>

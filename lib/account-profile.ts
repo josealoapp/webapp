@@ -18,7 +18,9 @@ export type BusinessProfile = {
 };
 
 export type AccountProfile = {
+  userId: string;
   accountType: AccountType;
+  onboardingRequired: boolean;
   onboardingCompleted: boolean;
   pendingBusinessUpgrade: boolean;
   interests: string[];
@@ -48,8 +50,10 @@ export const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
 
 export function getDefaultAccountProfile(): AccountProfile {
   return {
+    userId: "",
     accountType: "personal",
-    onboardingCompleted: false,
+    onboardingRequired: false,
+    onboardingCompleted: true,
     pendingBusinessUpgrade: false,
     interests: [],
     specificInterests: [],
@@ -126,8 +130,25 @@ export async function loadAccountProfileFromBackend(userId = auth.currentUser?.u
 
   try {
     const snapshot = await getDoc(doc(db, "userPrivateProfiles", userId));
-    if (!snapshot.exists()) return readAccountProfile();
-    const profile = normalizeAccountProfile(snapshot.data() as Partial<AccountProfile>);
+    if (!snapshot.exists()) {
+      const localProfile = readAccountProfile();
+      if (localProfile.userId === userId && localProfile.onboardingRequired && !localProfile.onboardingCompleted) {
+        return localProfile;
+      }
+
+      const profile = normalizeAccountProfile({
+        userId,
+        onboardingRequired: false,
+        onboardingCompleted: true,
+      });
+      cacheAccountProfile(profile);
+      return profile;
+    }
+
+    const profile = normalizeAccountProfile({
+      userId,
+      ...(snapshot.data() as Partial<AccountProfile>),
+    });
     cacheAccountProfile(profile);
     return profile;
   } catch {
@@ -191,7 +212,13 @@ export function subscribeAccountProfile(onData: (profile: AccountProfile) => voi
 
 export function getPostAuthDestination(nextPath: string) {
   const profile = readAccountProfile();
-  if (!profile.onboardingCompleted || profile.pendingBusinessUpgrade) {
+  const currentUserId = auth.currentUser?.uid || "";
+  const isCurrentUsersOnboarding =
+    profile.onboardingRequired &&
+    !profile.onboardingCompleted &&
+    (!profile.userId || !currentUserId || profile.userId === currentUserId);
+
+  if (isCurrentUsersOnboarding || profile.pendingBusinessUpgrade) {
     const flow = profile.pendingBusinessUpgrade ? "&flow=business" : "";
     return `/onboarding?next=${encodeURIComponent(nextPath || "/")}${flow}`;
   }

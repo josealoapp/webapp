@@ -31,6 +31,7 @@ type DiscoverItem = {
   sellerId: string;
   sellerName: string;
   sellerAvatar?: string;
+  createdAt?: number;
 };
 
 const SWIPE_HINT_STORAGE_KEY = "josealo_discover_swipe_hint_seen";
@@ -147,6 +148,7 @@ export default function DiscoverPage() {
               sellerId: item.ownerId,
               sellerName: item.ownerName,
               sellerAvatar: item.ownerAvatar,
+              createdAt: item.createdAt,
             }));
         }
 
@@ -174,6 +176,7 @@ export default function DiscoverPage() {
             sellerId: item.ownerId,
             sellerName: item.ownerName,
             sellerAvatar: item.ownerAvatar,
+            createdAt: item.createdAt,
           },
         ];
       });
@@ -232,7 +235,7 @@ export default function DiscoverPage() {
       ownerId: item.sellerId,
       ownerName: item.sellerName,
       listingId: item.listingId,
-      bazarItemId: item.bazarItemId,
+      ...(item.bazarItemId ? { bazarItemId: item.bazarItemId } : {}),
       itemTitle: item.title,
       image: item.image || "",
       price: item.price,

@@ -92,7 +92,12 @@ function OnboardingContent() {
       }
 
       const profile = readAccountProfile();
-      if (profile.onboardingCompleted) {
+      const isCurrentUsersOnboarding =
+        profile.onboardingRequired &&
+        !profile.onboardingCompleted &&
+        (!profile.userId || profile.userId === user.uid);
+
+      if (!isCurrentUsersOnboarding && !profile.pendingBusinessUpgrade && requestedFlow !== "business") {
         router.replace(nextPath);
         return;
       }
@@ -217,7 +222,9 @@ function OnboardingContent() {
     const currentProfile = readAccountProfile();
     writeAccountProfile({
       ...currentProfile,
+      userId: auth.currentUser?.uid || currentProfile.userId,
       accountType: "personal",
+      onboardingRequired: false,
       onboardingCompleted: true,
       pendingBusinessUpgrade: false,
       interests,
@@ -284,7 +291,9 @@ function OnboardingContent() {
     const currentProfile = readAccountProfile();
     writeAccountProfile({
       ...currentProfile,
+      userId: auth.currentUser?.uid || currentProfile.userId,
       accountType: "business",
+      onboardingRequired: false,
       onboardingCompleted: true,
       pendingBusinessUpgrade: false,
       interests: [],

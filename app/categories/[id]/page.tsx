@@ -22,6 +22,7 @@ import {
   readStoredUserLocation,
   saveManualListingLocation,
 } from "@/lib/location";
+import { formatListingAge } from "@/lib/relative-time";
 
 type CategoryFilters = {
   minPrice: string;
@@ -368,7 +369,10 @@ export default function CategoryDetailPage() {
         ) : filtered.length ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {filtered.map((item) => (
+              {filtered.map((item) => {
+                const ageLabel = formatListingAge(item.createdAt);
+
+                return (
               <Link
                 key={item.id}
                 href={item.href}
@@ -386,9 +390,11 @@ export default function CategoryDetailPage() {
                 <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{item.location || "Santo Domingo"}</span>
+                  {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
                 </div>
               </Link>
-              ))}
+                );
+              })}
             </div>
             {nextCursor ? (
               <button

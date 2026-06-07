@@ -34,6 +34,7 @@ import {
 } from "@/lib/location";
 import { formatBazarTimeLeftShort } from "@/lib/bazar-duration";
 import { appCategories, getCanonicalCategoryName, normalizeCategoryName } from "@/lib/categories";
+import { formatListingAge } from "@/lib/relative-time";
 
 type PendingReviewRequest = {
   id: string;
@@ -516,6 +517,7 @@ export default function HomePage() {
                 const price = Number(listing?.price || chat.listingPrice || 0);
                 const location = listing?.location || "Santo Domingo";
                 const isSelling = chat.sellerId === currentUserId;
+                const ageLabel = formatListingAge(Number(listing?.createdAt || chat.createdAt || 0));
 
                 return (
                   <Link
@@ -547,6 +549,7 @@ export default function HomePage() {
                     <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span className="truncate">{location}</span>
+                      {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
                     </div>
                   </Link>
                 );
@@ -580,6 +583,7 @@ export default function HomePage() {
                       item.type === "bazar" && item.bazarEndsAt
                         ? formatBazarTimeLeftShort(item.bazarEndsAt, bazarNow)
                         : "";
+                    const ageLabel = formatListingAge(item.createdAt, bazarNow);
 
                     return (
                   <Link
@@ -614,6 +618,7 @@ export default function HomePage() {
                     <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span className="truncate">{item.location || "Santo Domingo"}</span>
+                      {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
                     </div>
                   </Link>
                     );
@@ -713,7 +718,10 @@ export default function HomePage() {
                   </Link>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2">
-                  {categoryListings.map((item) => (
+                  {categoryListings.map((item) => {
+                    const ageLabel = formatListingAge(item.createdAt, bazarNow);
+
+                    return (
                     <Link
                       key={item.id}
                       href={`/item/${item.id}`}
@@ -733,9 +741,11 @@ export default function HomePage() {
                       <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
                         <MapPin className="h-3 w-3 shrink-0" />
                         <span className="truncate">{item.location || "Santo Domingo"}</span>
+                        {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
                       </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}

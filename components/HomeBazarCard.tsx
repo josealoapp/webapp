@@ -10,6 +10,7 @@ import { followUser } from "@/lib/follows";
 import { getActiveBazarItems, Listing } from "@/lib/marketplace";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import { formatBazarTimeLeft } from "@/lib/bazar-duration";
+import { formatListingAge } from "@/lib/relative-time";
 
 export default function HomeBazarCard({
   item,
@@ -31,6 +32,7 @@ export default function HomeBazarCard({
   const visibleItems = getActiveBazarItems(item);
   const canFollow = Boolean(currentUserId && currentUserId !== item.ownerId && !isFollowing);
   const timeLeftLabel = item.bazarEndsAt ? formatBazarTimeLeft(item.bazarEndsAt, now) : "En vivo";
+  const ageLabel = formatListingAge(item.createdAt, now);
 
   useEffect(() => {
     const unsub = subscribeVerifiedUser(item.ownerId, setIsVerified);
@@ -122,6 +124,7 @@ export default function HomeBazarCard({
             <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{item.location || "Santo Domingo"}</span>
+              {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
             </div>
           </button>
         ))}

@@ -151,7 +151,12 @@ export default function ItemDetailsPage() {
         currency: listing.currency || "DOP",
         description: listing.description,
         paymentMethod: listing.paymentMethod,
-        images: listing.type === "bazar" ? bazarImages : [listing.image],
+        images:
+          listing.type === "bazar"
+            ? bazarImages
+            : listing.images?.length
+              ? listing.images
+              : [listing.image].filter(Boolean),
         sellerName: listing.ownerName,
         sellerId: listing.ownerId,
         sellerAvatar: listing.ownerAvatar,
@@ -292,7 +297,7 @@ export default function ItemDetailsPage() {
       ownerId: item.sellerId,
       ownerName: item.sellerName || "Vendedor",
       listingId: item.id,
-      bazarItemId: selectedBazarItem?.id,
+      ...(selectedBazarItem?.id ? { bazarItemId: selectedBazarItem.id } : {}),
       itemTitle: displayTitle,
       image: images[0] || "",
       price: displayPrice,

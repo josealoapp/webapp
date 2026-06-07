@@ -66,6 +66,11 @@ function cleanImageUrl(value: unknown) {
   }
 }
 
+function cleanImageUrls(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map(cleanImageUrl).filter(Boolean))).slice(0, 10);
+}
+
 function cleanTags(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value
@@ -142,10 +147,12 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
   const metadata = cleanCategoryMetadata(body);
   const bazarItems = cleanBazarItems(body.bazarItems);
   const currency = type === "bazar" ? bazarItems[0]?.currency || cleanCurrency(body.currency) : cleanCurrency(body.currency);
+  const articleImages = type === "article" ? cleanImageUrls(body.images) : [];
   const image =
     type === "bazar"
       ? cleanImageUrl(body.image) || bazarItems[0]?.image || ""
-      : cleanImageUrl(body.image);
+      : cleanImageUrl(body.image) || articleImages[0] || "";
+  const images = type === "article" ? (articleImages.length ? articleImages : image ? [image] : []) : [];
   const inputPrice = cleanPrice(body.price);
   const price =
     type === "bazar" && bazarItems.length
@@ -186,6 +193,7 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
     paymentMethod,
     location,
     image,
+    ...(type === "article" ? { images } : {}),
     status: body.status === "sold" && mode === "update" ? "sold" : "active",
     ...(type === "article" && metadata.vehicleYear ? { vehicleYear: metadata.vehicleYear } : {}),
     ...(type === "article" && metadata.clothingSize ? { clothingSize: metadata.clothingSize } : {}),

@@ -397,6 +397,7 @@ export default function NewListingPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [existingArticleImageUrl, setExistingArticleImageUrl] = useState("");
+  const [existingArticleImageUrls, setExistingArticleImageUrls] = useState<string[]>([]);
   const [existingArticleLocation, setExistingArticleLocation] = useState("");
   const [uploadingArticle, setUploadingArticle] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -523,7 +524,9 @@ export default function NewListingPage() {
         setVehicleYear(listing.vehicleYear ? String(listing.vehicleYear) : "");
         setClothingSize(listing.clothingSize || "");
         setShoeSize(listing.shoeSize || "");
-        setExistingArticleImageUrl(listing.image || "");
+        const listingImages = listing.images?.length ? listing.images : listing.image ? [listing.image] : [];
+        setExistingArticleImageUrl(listingImages[0] || "");
+        setExistingArticleImageUrls(listingImages);
         setExistingArticleLocation(listing.location || "");
         categoryWasManuallyChangedRef.current = true;
         return;
@@ -615,11 +618,14 @@ export default function NewListingPage() {
 
   const handleArticleFilesChange = (e: ChangeEvent<HTMLInputElement>) => {
     const incoming = Array.from(e.target.files || []);
-    const current = selectedFiles.length;
+    const current = selectedFiles.length + existingArticleImageUrls.length;
     const remaining = Math.max(0, maxArticlePhotos - current);
     const next = incoming.slice(0, remaining);
     setSelectedFiles((prev) => [...prev, ...next]);
-    if (next.length > 0) setExistingArticleImageUrl("");
+    if (next.length > 0) {
+      setExistingArticleImageUrl("");
+      setExistingArticleImageUrls([]);
+    }
     setPhotoError(null);
     e.currentTarget.value = "";
   };
@@ -640,6 +646,14 @@ export default function NewListingPage() {
 
   const removeArticlePhoto = (idx: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const removeExistingArticlePhoto = (idx: number) => {
+    setExistingArticleImageUrls((current) => {
+      const next = current.filter((_, i) => i !== idx);
+      setExistingArticleImageUrl(next[0] || "");
+      return next;
+    });
   };
 
   const resetBazarItemForm = (options?: { preservePreviewUrl?: boolean }) => {
@@ -811,7 +825,7 @@ export default function NewListingPage() {
       setCategoryError("Selecciona una categoría válida de la lista.");
       return;
     }
-    if (selectedFiles.length === 0 && !existingArticleImageUrl) {
+    if (selectedFiles.length === 0 && existingArticleImageUrls.length === 0 && !existingArticleImageUrl) {
       setPhotoError("Agrega al menos una foto para publicar.");
       return;
     }
@@ -829,7 +843,8 @@ export default function NewListingPage() {
         ? { name: existingArticleLocation }
         : await requestCurrentSupportedLocation();
       const urls = selectedFiles.length ? await uploadListingImages(selectedFiles) : [];
-      const imageUrl = urls[0] || existingArticleImageUrl;
+      const imageUrls = urls.length ? urls : existingArticleImageUrls.length ? existingArticleImageUrls : existingArticleImageUrl ? [existingArticleImageUrl] : [];
+      const imageUrl = imageUrls[0] || "";
       if (editingListingId) {
         const whatsappContact = getWhatsappContactSettings();
         await updateListing(editingListingId, {
@@ -848,6 +863,7 @@ export default function NewListingPage() {
           paymentMethod,
           location: currentLocation.name,
           image: imageUrl,
+          images: imageUrls,
           ...getCategoryMetadataPayload(articleCategoryKind, {
             vehicleYear,
             clothingSize,
@@ -867,6 +883,7 @@ export default function NewListingPage() {
         tags: tags.trim(),
         paymentMethod,
         imageUrl,
+        imageUrls: imageUrls.join(","),
         location: currentLocation.name,
       });
       const metadata = getCategoryMetadataPayload(articleCategoryKind, {
@@ -1055,22 +1072,24 @@ export default function NewListingPage() {
             </button>
 
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-[13px] text-neutral-300">
-              Fotos: {selectedFiles.length}/{maxArticlePhotos} · Solo fotos. Las convertimos a WebP y reducimos tamano automaticamente.
+              Fotos: {selectedFiles.length + existingArticleImageUrls.length}/{maxArticlePhotos} · Solo fotos. Las convertimos a WebP y reducimos tamano automaticamente.
             </div>
 
-            {existingArticleImageUrl ? (
+            {existingArticleImageUrls.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto pb-1">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-neutral-800">
-                  <img src={existingArticleImageUrl} alt="Foto actual" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setExistingArticleImageUrl("")}
-                    className="absolute right-1 top-1 rounded-full bg-black/70 px-1.5 text-xs text-white"
-                    aria-label="Eliminar foto actual"
-                  >
-                    ×
-                  </button>
-                </div>
+                {existingArticleImageUrls.map((url, idx) => (
+                  <div key={url} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-neutral-800">
+                    <img src={url} alt={`Foto actual ${idx + 1}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingArticlePhoto(idx)}
+                      className="absolute right-1 top-1 rounded-full bg-black/70 px-1.5 text-xs text-white"
+                      aria-label="Eliminar foto actual"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : null}
 
@@ -1115,9 +1134,9 @@ export default function NewListingPage() {
 
               <label className="flex flex-col gap-2">
                 <span className="text-xs text-neutral-400">Precio</span>
-                <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm focus-within:border-orange-400">
+                <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-2">
                   <Select value={currency} onValueChange={(value) => setCurrency(value as ListingCurrency)}>
-                    <SelectTrigger className="h-10 w-[92px] border-0 bg-transparent px-0 text-sm font-semibold text-neutral-200 shadow-none focus:ring-0">
+                    <SelectTrigger className="h-12 rounded-2xl border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 shadow-none focus:border-orange-400 focus:ring-orange-400/20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="border-neutral-800 bg-neutral-950 text-neutral-100">
@@ -1136,7 +1155,7 @@ export default function NewListingPage() {
                       setPrice(e.target.value);
                       setPriceError(null);
                     }}
-                    className="h-12 flex-1 bg-transparent text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
+                    className="h-12 min-w-0 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none"
                   />
                 </div>
                 {priceError ? <span className="text-xs text-orange-400">{priceError}</span> : null}
@@ -1352,9 +1371,9 @@ export default function NewListingPage() {
 
                 <label className="flex flex-col gap-2">
                   <span className="text-xs text-neutral-400">Precio</span>
-                  <div className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-sm focus-within:border-orange-400">
+                  <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-2">
                     <Select value={bazarItemCurrency} onValueChange={(value) => setBazarItemCurrency(value as ListingCurrency)}>
-                      <SelectTrigger className="h-10 w-[92px] border-0 bg-transparent px-0 text-sm font-semibold text-neutral-200 shadow-none focus:ring-0">
+                      <SelectTrigger className="h-12 rounded-2xl border-neutral-800 bg-neutral-950 px-4 text-sm font-semibold text-neutral-100 shadow-none focus:border-orange-400 focus:ring-orange-400/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="border-neutral-800 bg-neutral-950 text-neutral-100">
@@ -1370,7 +1389,7 @@ export default function NewListingPage() {
                       placeholder="0"
                       value={bazarItemPrice}
                       onChange={(e) => setBazarItemPrice(e.target.value)}
-                      className="h-12 flex-1 bg-transparent text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
+                      className="h-12 min-w-0 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-neutral-100 placeholder:text-neutral-500 focus:border-orange-400 focus:outline-none"
                     />
                   </div>
                 </label>
