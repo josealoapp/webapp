@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Script from "next/script";
 
 type TurnstileApi = {
@@ -10,11 +10,14 @@ type TurnstileApi = {
       sitekey: string;
       action?: string;
       theme?: "light" | "dark" | "auto";
+      execution?: "render" | "execute";
+      appearance?: "always" | "execute" | "interaction-only";
       callback?: (token: string) => void;
       "expired-callback"?: () => void;
       "error-callback"?: () => void;
     }
   ) => string;
+  execute: (container?: HTMLElement | string) => void;
   reset: (widgetId?: string) => void;
 };
 
@@ -26,17 +29,47 @@ declare global {
 
 type TurnstileWidgetProps = {
   action: string;
-  resetSignal: number;
-  onToken: (token: string) => void;
   onError?: () => void;
+};
+
+export type TurnstileWidgetHandle = {
+  execute: () => Promise<string>;
+  reset: () => void;
 };
 
 const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-export function TurnstileWidget({ action, resetSignal, onToken, onError }: TurnstileWidgetProps) {
+export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidgetProps>(function TurnstileWidget(
+  { action, onError },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
+  const pendingRef = useRef<{ resolve: (token: string) => void; reject: (error: Error) => void } | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
+
+  const resetWidget = () => {
+    pendingRef.current = null;
+    if (!window.turnstile || !widgetIdRef.current) return;
+    window.turnstile.reset(widgetIdRef.current);
+  };
+
+  useImperativeHandle(ref, () => ({
+    execute: () => {
+      if (!siteKey) {
+        return Promise.reject(new Error("turnstile/not-configured"));
+      }
+      if (!window.turnstile || !widgetIdRef.current) {
+        return Promise.reject(new Error("turnstile/not-ready"));
+      }
+
+      return new Promise((resolve, reject) => {
+        pendingRef.current = { resolve, reject };
+        window.turnstile?.execute(containerRef.current || undefined);
+      });
+    },
+    reset: resetWidget,
+  }));
 
   useEffect(() => {
     if (!siteKey || !scriptReady || !containerRef.current || !window.turnstile || widgetIdRef.current) {
@@ -47,20 +80,23 @@ export function TurnstileWidget({ action, resetSignal, onToken, onError }: Turns
       sitekey: siteKey,
       action,
       theme: "dark",
-      callback: onToken,
-      "expired-callback": () => onToken(""),
+      execution: "execute",
+      appearance: "execute",
+      callback: (token) => {
+        pendingRef.current?.resolve(token);
+        pendingRef.current = null;
+      },
+      "expired-callback": () => {
+        pendingRef.current?.reject(new Error("turnstile/expired"));
+        pendingRef.current = null;
+      },
       "error-callback": () => {
-        onToken("");
+        pendingRef.current?.reject(new Error("turnstile/failed"));
+        pendingRef.current = null;
         onError?.();
       },
     });
-  }, [action, onError, onToken, scriptReady]);
-
-  useEffect(() => {
-    if (!window.turnstile || !widgetIdRef.current) return;
-    onToken("");
-    window.turnstile.reset(widgetIdRef.current);
-  }, [onToken, resetSignal]);
+  }, [action, onError, scriptReady]);
 
   if (!siteKey) {
     return (
@@ -80,4 +116,4 @@ export function TurnstileWidget({ action, resetSignal, onToken, onError }: Turns
       <div ref={containerRef} />
     </div>
   );
-}
+});

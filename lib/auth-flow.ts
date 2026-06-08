@@ -123,6 +123,12 @@ export function getAuthErrorMessage(err: unknown, fallback: string) {
   if (firebaseCode === "turnstile/action-mismatch" || firebaseCode === "turnstile/failed") {
     return "No pudimos validar la verificación de seguridad. Intenta de nuevo.";
   }
+  if (firebaseCode === "turnstile/not-ready") {
+    return "La verificación de seguridad aún está cargando. Intenta de nuevo.";
+  }
+  if (firebaseCode === "turnstile/expired") {
+    return "La verificación de seguridad expiró. Intenta de nuevo.";
+  }
 
   return fallback;
 }

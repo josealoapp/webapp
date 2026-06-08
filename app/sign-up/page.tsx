@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -28,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
 import { getPasswordValidationMessage, isPasswordValid } from "@/lib/password-criteria";
-import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -63,12 +63,10 @@ function SignUpContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+  const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
 
   const resetTurnstile = () => {
-    setTurnstileToken("");
-    setTurnstileResetSignal((current) => current + 1);
+    turnstileRef.current?.reset();
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -107,7 +105,8 @@ function SignUpContent() {
 
     let cred;
     try {
-      await verifyTurnstileToken(turnstileToken, "sign-up");
+      const turnstileToken = await turnstileRef.current?.execute();
+      await verifyTurnstileToken(turnstileToken || "", "sign-up");
       cred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
     } catch (err: unknown) {
       const code =
@@ -171,7 +170,8 @@ function SignUpContent() {
     setGoogleLoading(true);
 
     try {
-      await verifyTurnstileToken(turnstileToken, "sign-up");
+      const turnstileToken = await turnstileRef.current?.execute();
+      await verifyTurnstileToken(turnstileToken || "", "sign-up");
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, provider);
@@ -273,16 +273,15 @@ function SignUpContent() {
               )}
 
               <TurnstileWidget
+                ref={turnstileRef}
                 action="sign-up"
-                resetSignal={turnstileResetSignal}
-                onToken={setTurnstileToken}
                 onError={() => setError("No pudimos cargar la verificación de seguridad. Intenta de nuevo.")}
               />
 
               <Button
                 type="submit"
                 className="w-full bg-orange-400 text-black hover:bg-orange-300"
-                disabled={loading || googleLoading || !turnstileToken}
+                disabled={loading || googleLoading}
               >
                 {loading ? "Creando..." : "Crear cuenta"}
               </Button>
@@ -298,7 +297,7 @@ function SignUpContent() {
                 variant="outline"
                 onClick={signUpWithGoogle}
                 className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
-                disabled={loading || googleLoading || !turnstileToken}
+                disabled={loading || googleLoading}
               >
                 <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
                   G
