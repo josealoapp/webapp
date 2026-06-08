@@ -11,7 +11,9 @@ import { auth } from "@/lib/firebase";
 import { ChatRecord, Listing, searchListings, subscribeInboxChatsForUser } from "@/lib/marketplace";
 import { normalizeLocationName } from "@/lib/location";
 import { SupportNotification, subscribeSupportNotifications } from "@/lib/support-notifications";
+import { useThemeSetting } from "@/components/ThemeProvider";
 import logoIcon from "@/app/logo.svg";
+import logoOrangeIcon from "@/app/logo-orange.svg";
 
 const categories = [
   { label: "Todo", value: "Todo" },
@@ -37,6 +39,7 @@ export default function HomeHeader({
   onCategoryChange: (category: string) => void;
 }) {
   const router = useRouter();
+  const { theme } = useThemeSetting();
   const [scrolled, setScrolled] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -128,8 +131,9 @@ export default function HomeHeader({
 
   return (
     <header
+      data-scrolled={scrolled ? "true" : "false"}
       className={`fixed inset-x-0 top-0 z-40 transition-colors ${
-        scrolled ? "bg-neutral-950/85 backdrop-blur" : "bg-transparent"
+        scrolled ? "bg-primary/95 shadow-[0_12px_30px_rgba(249,115,22,0.22)] backdrop-blur" : "bg-transparent"
       }`}
     >
       <div className="mx-auto w-full max-w-6xl px-4 pb-3 pt-4">
@@ -140,7 +144,14 @@ export default function HomeHeader({
             className="flex h-10 w-10 items-center justify-center text-white"
             aria-label="Josealo"
           >
-            <Image src={logoIcon} alt="Josealo logo" width={24} height={24} priority />
+            <Image
+              className="home-logo-image"
+              src={theme === "light" && !scrolled ? logoOrangeIcon : logoIcon}
+              alt="Josealo logo"
+              width={24}
+              height={24}
+              priority
+            />
           </Link>
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/70" />

@@ -35,6 +35,7 @@ import {
 import { formatBazarTimeLeftShort } from "@/lib/bazar-duration";
 import { appCategories, getCanonicalCategoryName, normalizeCategoryName } from "@/lib/categories";
 import { formatListingAge } from "@/lib/relative-time";
+import { useThemeSetting } from "@/components/ThemeProvider";
 
 type PendingReviewRequest = {
   id: string;
@@ -53,6 +54,7 @@ type PendingTradeOffer = {
 
 export default function HomePage() {
   const router = useRouter();
+  const { theme } = useThemeSetting();
   const [selectedLocation, setSelectedLocation] = useState("");
   const [preferredLocation, setPreferredLocation] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -414,9 +416,16 @@ export default function HomePage() {
     });
   }, [marketplaceListings]);
   const showBazarSectionInTodo = normalizeCategory(activeCategory) === "todo" && visibleBazaars.length > 0;
+  const lightHomeBackground =
+    theme === "light"
+      ? {
+          background:
+            "radial-gradient(circle at 18% 0%, rgba(var(--brand-primary-rgb), 0.34), transparent 34%), radial-gradient(circle at 88% 8%, rgba(255, 218, 172, 0.58), transparent 30%), linear-gradient(180deg, #ffe4bd 0%, #fff2df 26%, #fffaf4 48%, #ffffff 100%)",
+        }
+      : undefined;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50">
+    <div className="home-page min-h-screen bg-neutral-950 text-neutral-50" style={lightHomeBackground}>
       <HomeSplashScreen />
       <HomeHeader
         selectedLocation={selectedLocation}
@@ -535,7 +544,7 @@ export default function HomePage() {
                       )}
                       <span
                         className={[
-                          "absolute right-2 top-2 min-w-[112px] rounded-full bg-black px-4 py-2 text-center text-sm font-bold shadow-lg",
+                          "absolute left-2 top-2 rounded-full border border-orange-400/40 bg-black/75 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm",
                           isSelling ? "text-orange-400" : "text-white",
                         ].join(" ")}
                       >

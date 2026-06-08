@@ -8,7 +8,10 @@ export function formatListingAge(createdAt: number, now = Date.now()) {
   if (!createdAt || !Number.isFinite(createdAt)) return "";
 
   const elapsed = Math.max(0, now - createdAt);
-  if (elapsed < minuteMs) return "Hace unos segundos";
+  if (elapsed < minuteMs) {
+    const value = Math.max(1, Math.floor(elapsed / 1000));
+    return `Hace ${value}seg`;
+  }
 
   if (elapsed < hourMs) {
     const value = Math.max(1, Math.floor(elapsed / minuteMs));
@@ -27,9 +30,9 @@ export function formatListingAge(createdAt: number, now = Date.now()) {
 
   if (elapsed < yearMs) {
     const value = Math.max(1, Math.floor(elapsed / monthMs));
-    return `Hace ${value} ${value === 1 ? "mes" : "meses"}`;
+    return `Hace ${value}m`;
   }
 
   const value = Math.max(1, Math.floor(elapsed / yearMs));
-  return `Hace ${value} ${value === 1 ? "año" : "años"}`;
+  return `Hace ${value}a`;
 }

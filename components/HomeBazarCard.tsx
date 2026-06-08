@@ -107,22 +107,22 @@ export default function HomeBazarCard({
             key={bazarItem.id}
             type="button"
             onClick={() => router.push(`/item/${item.id}?bazarItemId=${bazarItem.id}`)}
-            className="min-w-[168px] max-w-[168px] rounded-[24px] border border-neutral-800 bg-neutral-950 p-3 text-left"
+            className="min-w-[140px] max-w-[160px] rounded-[22px] border border-neutral-800 bg-neutral-950/80 p-2 text-left shadow-sm"
           >
-            <div className="h-36 w-full overflow-hidden rounded-[20px] bg-neutral-800">
+            <div className="h-28 w-full overflow-hidden rounded-[18px] bg-neutral-800">
               {bazarItem.image ? (
                 <img src={bazarItem.image} alt={bazarItem.title} className="h-full w-full object-cover" />
               ) : null}
             </div>
-            <div className="mt-3 text-base text-neutral-200 line-clamp-2">{bazarItem.title}</div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-300">
+            <div className="mt-2 text-xs text-neutral-300 line-clamp-2">{bazarItem.title}</div>
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
               {item.bazarCategory || item.category}
             </div>
             <div className="mt-1 text-sm font-semibold text-orange-400">
               RD${Number(bazarItem.price).toLocaleString()}
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
+              <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{item.location || "Santo Domingo"}</span>
               {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
             </div>

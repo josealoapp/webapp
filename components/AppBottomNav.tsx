@@ -5,11 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
 import { auth } from "@/lib/firebase";
+import { useThemeSetting } from "@/components/ThemeProvider";
 import { ChatRecord, subscribeInboxChatsForUser } from "@/lib/marketplace";
 
 type AppBottomNavTab = "home" | "discover" | "create" | "messages" | "profile";
 
 export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
+  const { theme } = useThemeSetting();
   const [currentUserId, setCurrentUserId] = useState("");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const createHref = currentUserId ? "/item/new" : `/sign-in?next=${encodeURIComponent("/item/new")}`;
@@ -32,19 +34,27 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
   }, [chats, currentUserId]);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs text-neutral-400">
-        <NavIcon icon={Home} label="Inicio" href="/" active={active === "home"} />
-        <NavIcon icon={Navigation} label="Descubre" href="/descubre" active={active === "discover"} />
-        <NavIcon icon={PlusSquare} label="Crear" href={createHref} active={active === "create"} />
+    <nav
+      className={[
+        "app-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur",
+        theme === "light"
+          ? "border-slate-200 bg-white shadow-[0_-12px_30px_rgba(249,115,22,0.08)]"
+          : "border-neutral-800 bg-neutral-950/90",
+      ].join(" ")}
+    >
+      <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs">
+        <NavIcon icon={Home} label="Inicio" href="/" active={active === "home"} isLight={theme === "light"} />
+        <NavIcon icon={Navigation} label="Descubre" href="/descubre" active={active === "discover"} isLight={theme === "light"} />
+        <NavIcon icon={PlusSquare} label="Crear" href={createHref} active={active === "create"} isLight={theme === "light"} />
         <NavIcon
           icon={MessageCircle}
           label="Negociacion"
           href="/messages"
           active={active === "messages"}
           badgeCount={unreadMessages}
+          isLight={theme === "light"}
         />
-        <NavIcon icon={User} label="Perfil" href="/profile/me" active={active === "profile"} />
+        <NavIcon icon={User} label="Perfil" href="/profile/me" active={active === "profile"} isLight={theme === "light"} />
       </div>
     </nav>
   );
@@ -72,16 +82,18 @@ function NavIcon({
   href,
   active = false,
   badgeCount = 0,
+  isLight = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   href: string;
   active?: boolean;
   badgeCount?: number;
+  isLight?: boolean;
 }) {
   const className = [
-    "flex flex-col items-center gap-1 rounded-xl px-3 py-1 hover:text-white",
-    active ? "text-orange-400" : "text-neutral-400",
+    "flex flex-col items-center gap-1 rounded-xl px-3 py-1",
+    active ? "text-orange-400" : isLight ? "text-slate-500 hover:text-slate-900" : "text-neutral-400 hover:text-white",
   ].join(" ");
 
   return (
@@ -89,7 +101,12 @@ function NavIcon({
       <span className="relative">
         <Icon className="h-5 w-5" />
         {badgeCount > 0 ? (
-          <span className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-black ring-2 ring-neutral-950">
+          <span
+            className={[
+              "absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-black ring-2",
+              isLight ? "ring-white" : "ring-neutral-950",
+            ].join(" ")}
+          >
             {badgeCount > 99 ? "+99" : badgeCount}
           </span>
         ) : null}

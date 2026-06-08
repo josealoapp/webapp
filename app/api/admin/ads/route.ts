@@ -7,6 +7,7 @@ import { uploadListingImageObject, validateListingImage } from "@/lib/s3";
 import type { MarketplaceAd } from "@/lib/marketplace-ads";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function cleanText(value: FormDataEntryValue | null, maxLength = 180) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -40,7 +41,14 @@ export async function GET(request: NextRequest) {
       ...(docSnap.data() as Omit<MarketplaceAd, "id">),
     })) as MarketplaceAd[];
 
-    return NextResponse.json({ ads });
+    return NextResponse.json(
+      { ads },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "admin/ads-list-failed";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -97,17 +105,24 @@ export async function POST(request: NextRequest) {
       createdAtServer: FieldValue.serverTimestamp(),
     });
 
-    return NextResponse.json({
-      ad: {
-        id: ref.id,
-        campaignName,
-        imageUrl: upload.fileUrl,
-        linkUrl,
-        startDate,
-        endDate,
-        createdAt: now,
-      } satisfies MarketplaceAd,
-    });
+    return NextResponse.json(
+      {
+        ad: {
+          id: ref.id,
+          campaignName,
+          imageUrl: upload.fileUrl,
+          linkUrl,
+          startDate,
+          endDate,
+          createdAt: now,
+        } satisfies MarketplaceAd,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "admin/ads-create-failed";
     const status = message.startsWith("ads/") || message.startsWith("upload/") ? 400 : 500;
