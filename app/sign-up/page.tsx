@@ -19,6 +19,7 @@ import {
   cacheAuthUser,
   getAuthErrorMessage,
   preparePostAuthDestination,
+  verifyTurnstileToken,
 } from "@/lib/auth-flow";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
 import { getPasswordValidationMessage, isPasswordValid } from "@/lib/password-criteria";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -61,6 +63,13 @@ function SignUpContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+    setTurnstileResetSignal((current) => current + 1);
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +107,7 @@ function SignUpContent() {
 
     let cred;
     try {
+      await verifyTurnstileToken(turnstileToken, "sign-up");
       cred = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPass);
     } catch (err: unknown) {
       const code =
@@ -108,9 +118,12 @@ function SignUpContent() {
         setError("Ese email ya está en uso. Intenta iniciar sesión.");
       } else if (code === "auth/weak-password") {
         setError(getPasswordValidationMessage());
+      } else if (err instanceof Error && err.message.startsWith("turnstile/")) {
+        setError(getAuthErrorMessage(err, "No pudimos crear la cuenta. Intenta de nuevo."));
       } else {
         setError("No pudimos crear la cuenta. Intenta de nuevo.");
       }
+      resetTurnstile();
       setLoading(false);
       return;
     }
@@ -158,6 +171,7 @@ function SignUpContent() {
     setGoogleLoading(true);
 
     try {
+      await verifyTurnstileToken(turnstileToken, "sign-up");
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, provider);
@@ -170,6 +184,7 @@ function SignUpContent() {
       router.replace(postAuthDestination);
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err, "No se pudo continuar con Google. Intenta de nuevo."));
+      resetTurnstile();
     } finally {
       setGoogleLoading(false);
     }
@@ -257,10 +272,17 @@ function SignUpContent() {
                 </div>
               )}
 
+              <TurnstileWidget
+                action="sign-up"
+                resetSignal={turnstileResetSignal}
+                onToken={setTurnstileToken}
+                onError={() => setError("No pudimos cargar la verificación de seguridad. Intenta de nuevo.")}
+              />
+
               <Button
                 type="submit"
                 className="w-full bg-orange-400 text-black hover:bg-orange-300"
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || !turnstileToken}
               >
                 {loading ? "Creando..." : "Crear cuenta"}
               </Button>
@@ -276,7 +298,7 @@ function SignUpContent() {
                 variant="outline"
                 onClick={signUpWithGoogle}
                 className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || !turnstileToken}
               >
                 <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
                   G

@@ -15,6 +15,7 @@ import {
   getAuthErrorMessage,
   getDeactivatedAccountMessage,
   preparePostAuthDestination,
+  verifyTurnstileToken,
   waitForMinimumLoaderTime,
 } from "@/lib/auth-flow";
 
@@ -28,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -67,6 +69,13 @@ function SignInContent() {
   );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+    setTurnstileResetSignal((current) => current + 1);
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +99,7 @@ function SignInContent() {
     }
 
     try {
+      await verifyTurnstileToken(turnstileToken, "sign-in");
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const user = cred.user;
       await assertAccountIsActive(user);
@@ -112,6 +122,8 @@ function SignInContent() {
 
       if (err instanceof Error && err.message.startsWith("account/deactivated")) {
         setError(getAuthErrorMessage(err, "No se pudo iniciar sesión. Intenta de nuevo."));
+      } else if (err instanceof Error && err.message.startsWith("turnstile/")) {
+        setError(getAuthErrorMessage(err, "No se pudo iniciar sesión. Intenta de nuevo."));
       } else if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
         setError("Credenciales incorrectas. Revisa tu email y contraseña.");
       } else if (code === "auth/user-not-found") {
@@ -121,6 +133,7 @@ function SignInContent() {
       } else {
         setError("No se pudo iniciar sesión. Intenta de nuevo.");
       }
+      resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -132,6 +145,7 @@ function SignInContent() {
     const loaderStartedAt = Date.now();
 
     try {
+      await verifyTurnstileToken(turnstileToken, "sign-in");
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, provider);
@@ -145,6 +159,7 @@ function SignInContent() {
       router.replace(postAuthDestination);
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err, "No se pudo iniciar sesión con Google. Intenta de nuevo."));
+      resetTurnstile();
     } finally {
       setGoogleLoading(false);
     }
@@ -216,10 +231,17 @@ function SignInContent() {
                 </div>
               )}
 
+              <TurnstileWidget
+                action="sign-in"
+                resetSignal={turnstileResetSignal}
+                onToken={setTurnstileToken}
+                onError={() => setError("No pudimos cargar la verificación de seguridad. Intenta de nuevo.")}
+              />
+
               <Button
                 type="submit"
                 className="w-full bg-orange-400 text-black hover:bg-orange-300"
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || !turnstileToken}
               >
                 {loading ? "Ingresando..." : "Sign in"}
               </Button>
@@ -235,7 +257,7 @@ function SignInContent() {
                 variant="outline"
                 onClick={signInWithGoogle}
                 className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || !turnstileToken}
               >
                 <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
                   G

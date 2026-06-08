@@ -70,6 +70,25 @@ export async function preparePostAuthDestination(user: User, nextPath: string, o
   return getPostAuthDestination(nextPath);
 }
 
+export async function verifyTurnstileToken(token: string, action: string) {
+  if (!token) {
+    throw new Error("turnstile/missing-token");
+  }
+
+  const response = await fetch("/api/auth/turnstile", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, action }),
+  });
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+  if (!response.ok || payload?.error) {
+    throw new Error(payload?.error || "turnstile/failed");
+  }
+}
+
 export function getAuthErrorMessage(err: unknown, fallback: string) {
   const message = err instanceof Error ? err.message : "";
   const [code, detail] = message.split("|");
@@ -94,6 +113,15 @@ export function getAuthErrorMessage(err: unknown, fallback: string) {
   }
   if (firebaseCode === "auth/operation-not-allowed") {
     return "Google no está habilitado como método de acceso en Firebase.";
+  }
+  if (firebaseCode === "turnstile/missing-token") {
+    return "Completa la verificación de seguridad antes de continuar.";
+  }
+  if (firebaseCode === "turnstile/not-configured") {
+    return "Falta configurar Cloudflare Turnstile en el servidor.";
+  }
+  if (firebaseCode === "turnstile/action-mismatch" || firebaseCode === "turnstile/failed") {
+    return "No pudimos validar la verificación de seguridad. Intenta de nuevo.";
   }
 
   return fallback;
