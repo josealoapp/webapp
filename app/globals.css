@@ -146,6 +146,7 @@ html[data-theme="light"] .bg-neutral-950 { background-color: #f4f4f5 !important;
 html[data-theme="light"] .bg-neutral-900 { background-color: #f8f8f8 !important; }
 html[data-theme="light"] .bg-neutral-800 { background-color: #ffffff !important; }
 html[data-theme="light"] .bg-neutral-700 { background-color: #f2f2f2 !important; }
+html[data-theme="light"] [data-slot="skeleton"] { background-color: #ffffff !important; }
 html[data-theme="light"] .text-neutral-50,
 html[data-theme="light"] .text-neutral-100,
 html[data-theme="light"] .text-neutral-200,
