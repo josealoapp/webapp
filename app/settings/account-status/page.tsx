@@ -48,7 +48,7 @@ export default function AccountStatusPage() {
             className={[
               "flex w-full items-center gap-3 rounded-2xl border bg-neutral-900 px-4 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-orange-300",
               opt.tone === "danger"
-                ? "border-red-500/50 hover:border-red-400"
+                ? "border-red-500/100 hover:border-red-400"
                 : "border-neutral-800 hover:border-orange-400",
             ].join(" ")}
             onClick={() => {}}
@@ -56,13 +56,13 @@ export default function AccountStatusPage() {
             <div
               className={[
                 "flex h-11 w-11 items-center justify-center rounded-xl",
-                opt.tone === "danger" ? "bg-red-500/10 text-red-300" : "bg-neutral-800 text-neutral-200",
+                opt.tone === "danger" ? "bg-red-500/100 text-red-300" : "bg-neutral-800 text-neutral-200",
               ].join(" ")}
             >
               <opt.icon className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <div className={["text-sm font-semibold", opt.tone === "danger" ? "text-red-300" : "text-neutral-100"].join(" ")}>
+              <div className={["text-sm font-semibold", opt.tone === "danger" ? "text-red-500/100" : "text-neutral-100"].join(" ")}>
                 {opt.title}
               </div>
               <div className="text-xs text-neutral-400">{opt.subtitle}</div>

@@ -557,7 +557,7 @@ export default function PublicProfilePage() {
                 <button
                   type="button"
                   onClick={handleOpenReportUser}
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-300 hover:bg-neutral-900"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-400 hover:bg-neutral-900"
                 >
                   <AlertTriangle className="h-4 w-4" />
                   Reportar usuario

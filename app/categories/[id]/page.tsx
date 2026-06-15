@@ -312,7 +312,7 @@ export default function CategoryDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4">
           <Link
             href="/categories"
@@ -386,7 +386,7 @@ export default function CategoryDetailPage() {
                   )}
                 </div>
                 <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
-                <div className="text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
+                <div className="text-sm text-orange-400 font-semibold">RD${item.price.toLocaleString()}</div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{item.location || "Santo Domingo"}</span>

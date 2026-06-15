@@ -103,8 +103,8 @@ function NavIcon({
         {badgeCount > 0 ? (
           <span
             className={[
-              "absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-black ring-2",
-              isLight ? "ring-white" : "ring-neutral-950",
+              "absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none ring-2",
+              isLight ? "text-white ring-white" : "text-white ring-neutral-950",
             ].join(" ")}
           >
             {badgeCount > 99 ? "+99" : badgeCount}

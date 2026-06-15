@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { Home, MapPin, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
+import { MapPin } from "lucide-react";
+import AppBottomNav from "@/components/AppBottomNav";
 import Navbar from "@/components/Navbar";
 import ItemCard from "@/components/ItemCard";
 import { auth } from "@/lib/firebase";
@@ -20,7 +19,6 @@ export default function NearbyDiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
-  const createHref = currentUserId ? "/item/new" : `/sign-in?next=${encodeURIComponent("/item/new")}`;
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
@@ -79,7 +77,7 @@ export default function NearbyDiscoverPage() {
         </div>
 
         {nearbyItems.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/10 px-4 py-5 text-sm text-neutral-300">
             {selectedLocation
               ? `No hay publicaciones cerca de ${selectedLocation} ahora mismo.`
               : "Activa tu ubicación para ver publicaciones cerca de ti."}
@@ -93,48 +91,7 @@ export default function NearbyDiscoverPage() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs text-neutral-400">
-          <NavIcon icon={Home} label="Inicio" href="/" />
-          <NavIcon icon={Navigation} label="Descubre" href="/descubre" active />
-          <NavIcon icon={PlusSquare} label="Crear" href={createHref} />
-          <NavIcon icon={MessageCircle} label="Negociacion" href="/messages" />
-          <NavIcon icon={User} label="Perfil" href="/profile/me" />
-        </div>
-      </nav>
+      <AppBottomNav active="discover" />
     </div>
-  );
-}
-
-function NavIcon({
-  icon: Icon,
-  label,
-  href,
-  active = false,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  href?: string;
-  active?: boolean;
-}) {
-  const className = [
-    "flex flex-col items-center gap-1 rounded-xl px-3 py-1 hover:text-white",
-    active ? "text-orange-400" : "text-neutral-400",
-  ].join(" ");
-
-  if (href) {
-    return (
-      <Link href={href} className={className} aria-label={label}>
-        <Icon className="h-5 w-5" />
-        <span className="hidden text-[11px] sm:inline">{label}</span>
-      </Link>
-    );
-  }
-
-  return (
-    <button className={className} aria-label={label}>
-      <Icon className="h-5 w-5" />
-      <span className="hidden text-[11px] sm:inline">{label}</span>
-    </button>
   );
 }

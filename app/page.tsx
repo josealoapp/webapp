@@ -551,7 +551,7 @@ export default function HomePage() {
                         {isSelling ? "vendiendo" : "comprando"}
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-300 line-clamp-2">{chat.listingTitle}</div>
+                    <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{chat.listingTitle}</div>
                     <div className="mt-1 text-sm font-semibold text-orange-400">
                       RD${price.toLocaleString()}
                     </div>
@@ -577,7 +577,7 @@ export default function HomePage() {
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {myListings.length === 0 ? (
-                <div className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/50 p-3 text-sm text-neutral-400">
+                <div className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/10 p-3 text-sm text-neutral-400">
                   Aun no tienes publicaciones. Crea una para verla aqui.
                 </div>
               ) : (
@@ -617,7 +617,7 @@ export default function HomePage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="text-xs text-neutral-300 line-clamp-2">{item.title}</div>
+                    <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{item.title}</div>
                     {item.type === "bazar" ? (
                       <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">Bazar</div>
                     ) : null}
@@ -743,7 +743,7 @@ export default function HomePage() {
                           <div className="h-full w-full bg-neutral-800" />
                         )}
                       </div>
-                      <div className="text-xs text-neutral-300 line-clamp-2">{item.title}</div>
+                      <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{item.title}</div>
                       <div className="mt-1 text-sm font-semibold text-orange-400">
                         RD${item.price.toLocaleString()}
                       </div>

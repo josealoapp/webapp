@@ -84,7 +84,7 @@ export default function HistoricPage() {
 
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-24">
         {soldListings.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-400">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/900 p-4 text-sm text-neutral-400">
             Aún no tienes publicaciones en tu histórico.
           </div>
         ) : (
@@ -105,7 +105,7 @@ export default function HistoricPage() {
                 });
 
             return (
-              <div key={item.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
+              <div key={item.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/10 p-4">
                 <Link href={`/item/${item.id}`} className="block">
                   <div className="relative mb-3 h-40 overflow-hidden rounded-2xl bg-neutral-800">
                     {item.image ? (
@@ -114,7 +114,7 @@ export default function HistoricPage() {
                       <div className="h-full w-full bg-neutral-800" />
                     )}
                     {isBazar ? (
-                      <div className="absolute left-3 top-3 rounded-full border border-neutral-700 bg-black/75 px-3 py-1 text-xs font-semibold text-neutral-100 shadow-sm">
+                      <div className="absolute left-3 top-3 rounded-full border border-neutral-300 bg-black/70 px-3 py-1 text-xs font-semibold text-white shadow-sm">
                         {bazarSummary.sold}/{bazarSummary.total} artículos vendidos
                       </div>
                     ) : null}

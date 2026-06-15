@@ -146,8 +146,8 @@ export default function SearchPage() {
   });
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto max-w-4xl px-4 pb-4 pt-4">
           <div className="flex items-center gap-3">
             <button
@@ -162,7 +162,7 @@ export default function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar publicaciones"
-                className="w-full rounded-full border border-neutral-800 bg-neutral-900 px-4 py-3 pr-12 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-orange-400"
+                className="w-full rounded-full border border-neutral-800 bg-neutral-900/0 px-4 py-3 pr-12 text-sm text-neutral-100 outline-none placeholder:text-neutral-400 focus:border-orange-400"
               />
               <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
             </div>
@@ -188,15 +188,15 @@ export default function SearchPage() {
             {searchError}
           </div>
         ) : loading ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/10 px-4 py-5 text-sm text-neutral-300">
             Buscando publicaciones...
           </div>
         ) : !query.trim() ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/10 px-4 py-5 text-sm text-neutral-300">
             Escribe lo que quieres buscar para ver resultados.
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/10 px-4 py-5 text-sm text-neutral-300">
             No encontramos resultados para “{query.trim() || "tu búsqueda"}” en {selectedLocation || "todas las ubicaciones"}.
           </div>
         ) : (
@@ -206,7 +206,7 @@ export default function SearchPage() {
                 <Link
                   key={item.id}
                   href={`/item/${item.id}`}
-                  className="flex items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3 hover:border-orange-400"
+                  className="flex items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/0 p-3 hover:border-orange-400"
                 >
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-800">
                     {item.image ? (

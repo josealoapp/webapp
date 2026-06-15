@@ -433,7 +433,7 @@ export default function InterestModal({
         )}
 
         {!usesWhatsapp && (method === "cash" || method === "cash_trade") && (
-          <div className="mt-4 rounded-3xl border border-neutral-800 bg-neutral-900/30 p-4">
+          <div className="mt-4 rounded-3xl border border-neutral-800 bg-neutral-900/0 p-4">
             <div className="text-sm font-medium">Oferta en efectivo</div>
             <div className="mt-1 text-xs text-neutral-400">
               Mínimo aceptado: {formatMoney(minAccepted, itemCurrency)}
@@ -631,7 +631,7 @@ export default function InterestModal({
               type="button"
               onClick={handleContinue}
               disabled={submitting}
-              className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
+              className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
               {submitting ? "Enviando..." : "Ofertar"}
             </button>

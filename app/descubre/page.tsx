@@ -330,7 +330,7 @@ export default function DiscoverPage() {
             <>
               <section className={viewMode === "swipe" ? "hidden md:block" : ""}>
                 {renderedItems.length === 0 ? (
-                  <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 text-sm text-neutral-300">
+                  <div className="rounded-2xl border border-neutral-800/5 bg-neutral-900/5 px-4 py-5 text-sm text-neutral-300">
                     No hay publicaciones disponibles para descubrir ahora mismo.
                   </div>
                 ) : (
@@ -378,7 +378,7 @@ export default function DiscoverPage() {
                       <button
                         type="button"
                         onClick={() => dismissItem(activeItem.id)}
-                        className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/55 text-neutral-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95"
+                        className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/10 text-neutral-100 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95"
                         aria-label="Descartar"
                       >
                         <X className="h-10 w-10" />
@@ -390,7 +390,7 @@ export default function DiscoverPage() {
                         type="button"
                         onClick={() => void handleLike(activeItem)}
                         className={[
-                          "flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/55 text-orange-400 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95",
+                          "flex h-20 w-20 items-center justify-center rounded-full bg-neutral-950/10 text-orange-400 shadow-[0_18px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md transition active:scale-95",
                           heartBurstId === activeItem.id ? "scale-110" : "",
                         ].join(" ")}
                         aria-label="Guardar like"
@@ -399,7 +399,7 @@ export default function DiscoverPage() {
                           className={[
                             "h-10 w-10 transition-all duration-200",
                             heartBurstId === activeItem.id
-                              ? "scale-125 fill-current drop-shadow-[0_0_14px_rgba(251,146,60,0.85)]"
+                              ? "scale-125 fill-current  drop-shadow-[0_0_14px_rgba(251,146,60,0.85)]"
                               : "",
                           ].join(" ")}
                         />
@@ -407,7 +407,7 @@ export default function DiscoverPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
+                  <div className="discover-empty-card mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
                     <div className="text-lg font-semibold text-neutral-50">No hay mas sugerencias para ti hoy</div>
                     <p className="mt-3 text-sm leading-6 text-neutral-400">
                       Haz click en Ver Likes para ver todos tus articulos guardados.
@@ -433,7 +433,7 @@ export default function DiscoverPage() {
 
 function ConfigureInterestsEmptyState() {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
+    <div className="discover-empty-card mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
       <div className="text-lg font-semibold text-neutral-50">Configura tu Para ti</div>
       <p className="mt-3 text-sm leading-6 text-neutral-400">
         Agrega intereses específicos para que esta sección muestre artículos relacionados con lo que estás buscando.
@@ -450,7 +450,7 @@ function ConfigureInterestsEmptyState() {
 
 function SignedOutDiscoverEmptyState() {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
+    <div className="discover-empty-card mx-auto flex min-h-[calc(100vh-14rem)] max-w-md flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/70 px-6 text-center">
       <div className="text-lg font-semibold text-neutral-50">No has iniciado sesión aún</div>
       <p className="mt-3 text-sm leading-6 text-neutral-400">
         Haz click en acceder para entrar o crear tu cuenta.
@@ -638,7 +638,7 @@ function SwipeCard({
       <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[2rem] bg-neutral-950 px-6 pb-6 pt-7">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="line-clamp-2 text-2xl font-bold text-white">{item.title}</h2>
+            <h2 className="line-clamp-2 text-2xl font-bold text-black dark:text-white">{item.title}</h2>
             <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
               <MapPin className="h-4 w-4 text-neutral-500" />
               <span className="truncate">{item.location || "Santo Domingo"}</span>

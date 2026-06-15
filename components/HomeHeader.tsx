@@ -133,7 +133,7 @@ export default function HomeHeader({
     <header
       data-scrolled={scrolled ? "true" : "false"}
       className={`fixed inset-x-0 top-0 z-40 transition-colors ${
-        scrolled ? "bg-primary/95 shadow-[0_12px_30px_rgba(249,115,22,0.22)] backdrop-blur" : "bg-transparent"
+        scrolled ? "bg-neutral-950/95 shadow-[0_12px_30px_rgba(0,0,0,0.45)] backdrop-blur" : "bg-transparent"
       }`}
     >
       <div className="mx-auto w-full max-w-6xl px-4 pb-3 pt-4">
@@ -156,7 +156,7 @@ export default function HomeHeader({
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/70" />
             <input
-              placeholder="Search for items"
+              placeholder="Buscar artículos"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -169,7 +169,12 @@ export default function HomeHeader({
                   openResults();
                 }
               }}
-              className="w-full rounded-full border border-white/20 bg-black/30 py-3 pl-12 pr-4 text-sm text-white outline-none ring-0 placeholder:text-white/70 focus:border-orange-400"
+              className={[
+                "w-full rounded-full py-3 pl-12 pr-4 text-sm outline-none ring-0 focus:border-orange-400",
+                theme === "light" && scrolled
+                  ? "border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-500"
+                  : "border border-white/20 bg-black/30 text-white placeholder:text-white/70",
+              ].join(" ")}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -178,16 +183,28 @@ export default function HomeHeader({
               className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow"
               aria-label="Actividad"
             >
-              <Heart className="h-6 w-6" />
+              <Heart
+                className={[
+                  "h-6 w-6 border-current",
+                  scrolled ? "text-white" : "text-orange-500",
+                ].join(" ")}
+              />
               {hasUnreadActivity ? (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-neutral-950" />
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
               ) : null}
             </Link>
           </div>
         </div>
 
         {showSuggestions && trimmedQuery ? (
-          <div className="mt-3 rounded-3xl border border-white/10 bg-neutral-950/95 p-3 shadow-2xl backdrop-blur">
+     <div
+        className={[
+          "mt-3 rounded-3xl p-3 shadow-2xl backdrop-blur",
+          theme === "light"
+            ? "border border-neutral-200 bg-white"
+            : "border border-white/10 bg-neutral-950/95",
+        ].join(" ")}
+      >
             {loadingSuggestions ? (
               <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-4 text-sm text-neutral-300">
                 Buscando publicaciones...
@@ -215,7 +232,16 @@ export default function HomeHeader({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-white">{item.title}</div>
+                        <div
+                          className={[
+                            "truncate text-sm font-semibold",
+                            theme === "light" && scrolled
+                              ? "text-black"
+                              : "text-white",
+                          ].join(" ")}
+                        >
+                          {item.title}
+                        </div>
                         <div className="mt-1 text-xs text-neutral-400">{item.location}</div>
                       </div>
                       <div className="text-sm font-semibold text-orange-400">RD${item.price.toLocaleString()}</div>
@@ -226,7 +252,7 @@ export default function HomeHeader({
                 <button
                   type="button"
                   onClick={openResults}
-                  className="mt-3 h-11 w-full rounded-2xl border border-neutral-800 bg-neutral-900 text-sm font-semibold text-neutral-100 hover:border-orange-400 hover:text-white"
+                  className="mt-3 h-11 w-full rounded-2xl border border-neutral-800 bg-neutral-900/10 text-sm font-semibold text-neutral-100 hover:border-orange-400 hover:text-white"
                 >
                   Ver todos
                 </button>

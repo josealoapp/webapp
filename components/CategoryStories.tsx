@@ -31,7 +31,9 @@ export default function CategoryStories({ categories, activeId, onSelect }: Prop
             >
               <img src={cat.image} alt={cat.name} className="h-full w-full object-cover" />
             </div>
-            <div className="text-center text-[11px] text-neutral-300">{cat.name}</div>
+            <div className="w-full truncate whitespace-nowrap text-center text-[11px] text-neutral-300" title={cat.name}>
+              {cat.name}
+            </div>
           </button>
         ))}
       </div>

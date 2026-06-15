@@ -387,7 +387,7 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto max-w-3xl px-4 py-4">
           <div className="flex items-center gap-3">
             <Link
@@ -421,7 +421,7 @@ export default function ChatPage() {
               <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <TradeHeaderCard
                   listing={buyerTradeView ? givingListing : gettingListing}
-                  borderClassName={buyerTradeView ? "border-red-800" : "border-green-800"}
+                  borderClassName={buyerTradeView ? "border-red-600" : "border-green-600"}
                   currentUserId={currentUserId}
                   onActions={(target) => {
                     setActionListing(target);
@@ -433,7 +433,7 @@ export default function ChatPage() {
                 </div>
                 <TradeHeaderCard
                   listing={buyerTradeView ? gettingListing : givingListing}
-                  borderClassName={buyerTradeView ? "border-green-800" : "border-red-800"}
+                  borderClassName={buyerTradeView ? "border-green-800" : "border-red-600"}
                   currentUserId={currentUserId}
                   onActions={(target) => {
                     setActionListing(target);
@@ -508,7 +508,7 @@ export default function ChatPage() {
                   "max-w-[85%] rounded-3xl px-4 py-3 text-sm leading-relaxed",
                   isMine
                     ? "ml-auto bg-white text-neutral-950"
-                    : "mr-auto bg-neutral-900/40 border border-neutral-800 text-neutral-100",
+                    : "mr-auto bg-neutral-900/0 border border-neutral-800 text-neutral-100",
                 ].join(" ")}
               >
                 {m.imageUrl ? (
@@ -541,7 +541,7 @@ export default function ChatPage() {
       </main>
 
       {/* Composer */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-800 bg-neutral-950/90 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-neutral-800 bg-neutral-950/10 backdrop-blur">
         <div className="mx-auto max-w-3xl px-4 py-3">
           {selectedImagePreview ? (
             <div className="mb-3 flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-2">

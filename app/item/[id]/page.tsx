@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser, unlikeItem } from "@/lib/likes";
 import { createItemReport, REPORT_REASONS } from "@/lib/item-reports";
+import { useThemeSetting } from "@/components/ThemeProvider";
 import {
   ChatRecord,
   deleteListing,
@@ -35,6 +36,7 @@ export default function ItemDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const { theme } = useThemeSetting();
   const id = params?.id;
 
   const [openInterest, setOpenInterest] = useState(false);
@@ -562,13 +564,18 @@ export default function ItemDetailsPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm backdrop-blur active:scale-95"
+                className={[
+                  "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur active:scale-95",
+                  theme === "light"
+                    ? "border-neutral-300 bg-white/90 text-neutral-900"
+                    : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
+                ].join(" ")}
                 aria-label="Volver"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
 
-              <div className="flex items-center gap-3 rounded-2xl  backdrop-blur">
+              <div className="flex items-center gap-3 rounded-2xl  backdrop-blur text-white">
                 <Link
                   href={isOwnListing ? "/profile/me" : `/profile/${item.sellerId}?name=${encodeURIComponent(item.sellerName || "Vendedor")}`}
                   className="flex items-center gap-3"
@@ -598,15 +605,24 @@ export default function ItemDetailsPage() {
                 className={[
                   "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur active:scale-95",
                   isLiked
-                    ? "border-orange-400 bg-orange-500/20 text-orange-400"
-                    : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
+                    ? theme === "light"
+                      ? "border-orange-400 bg-white text-orange-400"
+                      : "border-orange-400 bg-neutral-900 text-orange-400"
+                    : theme === "light"
+                      ? "border-neutral-300 bg-white/90 text-neutral-900"
+                      : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
                 ].join(" ")}
                 aria-label={isLiked ? "Quitar like" : "Dar like"}
               >
                 <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
               </button>
               <button
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm backdrop-blur active:scale-95"
+                className={[
+                  "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur active:scale-95",
+                  theme === "light"
+                    ? "border-neutral-300 bg-white/90 text-neutral-900"
+                    : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
+                ].join(" ")}
                 aria-label="Compartir"
                 onClick={() => {
                   if (navigator.share) {
@@ -647,7 +663,7 @@ export default function ItemDetailsPage() {
       {/* CONTENT SHEET */}
       <div className="relative z-30 -mt-8 rounded-t-3xl border-t border-neutral-800 bg-neutral-950 text-neutral-50">
         <div className="mx-auto max-w-md px-4 pb-56 pt-5">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-800" />
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-500" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium text-neutral-400">{displayCategory}</div>
@@ -683,7 +699,7 @@ export default function ItemDetailsPage() {
                     <button
                       type="button"
                       onClick={handleOpenReportModal}
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-200 hover:bg-neutral-800"
+                      className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600/100 hover:bg-neutral-800"
                     >
                       Reportar
                     </button>
@@ -701,7 +717,7 @@ export default function ItemDetailsPage() {
           </div>
 
           {item.type === "bazar" ? (
-            <div className="mt-5 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
+            <div className="mt-5 rounded-2xl border border-neutral-800 bg-transparent p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-neutral-500">Bazar</div>
@@ -845,7 +861,7 @@ export default function ItemDetailsPage() {
             </div>
           ) : null}
           {isReserved ? (
-            <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm leading-6 text-orange-200">
+            <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm leading-6 text-orange-600/100">
               {isOwnListing ? (
                 <div className="space-y-3">
                   <p>
@@ -870,7 +886,7 @@ export default function ItemDetailsPage() {
       </div>
 
       {/* FIXED BOTTOM BAR */}
-      <div className="fixed bottom-[56px] left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
+      <div className="fixed bottom-[56px] left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/ backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <div className="text-xs text-neutral-500">
@@ -882,7 +898,10 @@ export default function ItemDetailsPage() {
           </div>
 
           <Button
-            className="h-12 rounded-2xl px-5 bg-orange-400 text-black hover:bg-orange-300"
+            className={[
+              "h-12 rounded-2xl px-5 bg-orange-400 hover:bg-orange-300",
+              theme === "light" ? "text-white" : "text-black",
+            ].join(" ")}
             onClick={() => {
               if (isOwnListing) {
                 if (item.type === "bazar" && selectedBazarItem) {
@@ -946,11 +965,9 @@ export default function ItemDetailsPage() {
             ) : isSold || isSelectedBazarItemSold ? (
               "Vendido"
             ) : (
-              <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-1">
                 {item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim() ? (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                  </span>
+                  <Image src="/whatsapp.svg" alt="" width={20} height={20} className="h-5 w-5" />
                 ) : null}
                 <span>Estoy interesado</span>
               </span>

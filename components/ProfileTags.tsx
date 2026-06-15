@@ -169,7 +169,7 @@ export default function ProfileTags({ userId, tags, editable = false }: Props) {
               setOpenCreate(true);
             }}
             className={[
-              "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold",
+              "profile-add-tag-button flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold",
               visibleTags.length
                 ? "border-neutral-800 bg-neutral-950 text-neutral-100 hover:border-orange-400 hover:text-white"
                 : "border-neutral-800 bg-neutral-950 text-white hover:border-orange-400",

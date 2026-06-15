@@ -32,7 +32,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4">
           <div className="relative flex-1">
             <input

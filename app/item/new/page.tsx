@@ -19,6 +19,7 @@ import { readProfileAvatar } from "@/lib/profile-avatar";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import { BAZAR_DURATION_OPTIONS } from "@/lib/bazar-duration";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useThemeSetting } from "@/components/ThemeProvider";
 const maxArticlePhotos = 10;
 const maxBazarItems = 20;
 
@@ -560,6 +561,7 @@ function buildCsvImportRows(text: string, importType: CsvImportType): CsvImportR
 
 export default function NewListingPage() {
   const router = useRouter();
+  const { theme } = useThemeSetting();
   const searchParams = useSearchParams();
   const [orderedCategories, setOrderedCategories] = useState<string[]>(() =>
     appCategories.map((category) => category.name)
@@ -1352,7 +1354,7 @@ export default function NewListingPage() {
                 onClick={() => setListingType(tab.id as "article" | "bazar")}
                 className={[
                   "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                  isActive ? "bg-orange-400 text-black" : "text-neutral-300 hover:text-white",
+                  isActive ? "bg-orange-400 text-white" : "text-neutral-300 hover:text-white",
                 ].join(" ")}
               >
                 {tab.label}
@@ -1601,7 +1603,7 @@ export default function NewListingPage() {
             )}
 
             <div className="flex items-start gap-3 rounded-2xl border border-neutral-800 bg-blue-900/20 px-4 py-3 text-sm text-neutral-100">
-              <div className="mt-0.5 rounded-full bg-blue-500/20 p-2 text-blue-300">
+              <div className="mt-0.5 rounded-full bg-blue-500/20 p-2 text-white">
                 <Info className="h-4 w-4" />
               </div>
               <p className="leading-6 text-neutral-200">
@@ -1724,11 +1726,11 @@ export default function NewListingPage() {
             {locationError ? <span className="text-xs text-orange-400">{locationError}</span> : null}
           </main>
 
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
+          <div className="item-new-fixed-footer fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
             <div className="mx-auto max-w-md px-6 py-4">
               <button
                 type="button"
-                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-black shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-white shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300"
                 onClick={handleArticleContinue}
                 disabled={uploadingArticle}
               >
@@ -1740,8 +1742,13 @@ export default function NewListingPage() {
       ) : (
         <>
           <main className="mx-auto flex max-w-md flex-col gap-5 px-4 pb-32">
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4">
-              <div className="text-sm font-semibold text-white">Configura tu bazar</div>
+            <div className="rounded-2xl border border-neutral-800 bg-blue-500/20 p-4">
+              <div className={[
+                "text-sm font-semibold",
+                theme === "light" ? "text-black" : "text-white",
+              ].join(" ")}>
+                Configura tu bazar
+              </div>
               <p className="mt-2 text-sm leading-6 text-neutral-400">
                 Un bazar agrupa múltiples artículos en una sola publicación. Puedes cargar hasta {maxBazarItems} artículos.
               </p>
@@ -1818,7 +1825,14 @@ export default function NewListingPage() {
             />
 
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-              <div className="text-sm font-semibold text-white">Agregar artículo al bazar</div>
+              <div
+                className={[
+                  "text-sm font-semibold",
+                  theme === "light" ? "text-black" : "text-white",
+                ].join(" ")}
+              >
+                Agregar artículo al bazar
+              </div>
 
               <button
                 type="button"
@@ -1911,7 +1925,14 @@ export default function NewListingPage() {
             </div>
 
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-              <div className="text-sm font-semibold text-white">Resumen del bazar</div>
+              <div
+                className={[
+                  "text-sm font-semibold",
+                  theme === "light" ? "text-black" : "text-white",
+                ].join(" ")}
+              >
+                Resumen del bazar
+              </div>
               {bazarItems.length === 0 ? (
                 <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-4 text-sm text-neutral-400">
                   Aún no has agregado artículos.
@@ -1956,11 +1977,11 @@ export default function NewListingPage() {
             {bazarError ? <span className="text-xs text-orange-400">{bazarError}</span> : null}
           </main>
 
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
+          <div className="item-new-fixed-footer fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
             <div className="mx-auto max-w-md px-6 py-4">
               <button
                 type="button"
-                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-black shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
+                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-white shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
                 onClick={handlePublishBazar}
                 disabled={publishingBazar}
               >

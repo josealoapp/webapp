@@ -109,8 +109,8 @@ export default function WhatsappSettingsPage() {
       </header>
 
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-24">
-        <div className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5">
-          <div className="text-lg font-semibold text-white">Configura tu canal de WhatsApp</div>
+        <div className="rounded-3xl border border-neutral-800 bg-transparent p-5">
+          <div className="text-lg font-semibold text-black">Configura tu canal de WhatsApp</div>
           <p className="mt-2 text-sm text-neutral-400">
             Si activas esta opción, tus publicaciones mostrarán WhatsApp en lugar de Mensaje.
           </p>
@@ -152,13 +152,13 @@ export default function WhatsappSettingsPage() {
             }}
             className={[
               "relative h-7 w-12 rounded-full border transition",
-              enabled ? "border-orange-400 bg-orange-400" : "border-neutral-700 bg-neutral-800",
+              enabled ? "border-orange-400 bg-orange-400" : "border-neutral-300 bg-neutral-100",
             ].join(" ")}
           >
             <span
               className={[
-                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition",
-                enabled ? "translate-x-5" : "translate-x-0",
+                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full transition",
+                enabled ? "translate-x-5 bg-white" : "translate-x-0 bg-neutral-300",
               ].join(" ")}
             />
           </button>

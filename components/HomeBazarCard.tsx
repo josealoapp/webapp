@@ -114,7 +114,7 @@ export default function HomeBazarCard({
                 <img src={bazarItem.image} alt={bazarItem.title} className="h-full w-full object-cover" />
               ) : null}
             </div>
-            <div className="mt-2 text-xs text-neutral-300 line-clamp-2">{bazarItem.title}</div>
+            <div className="mt-2 text-xs text-neutral-300 line-clamp-2 font-semibold">{bazarItem.title}</div>
             <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
               {item.bazarCategory || item.category}
             </div>

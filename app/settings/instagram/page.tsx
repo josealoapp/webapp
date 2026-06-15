@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
+import { useThemeSetting } from "@/components/ThemeProvider";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import {
@@ -14,6 +15,8 @@ import {
 
 export default function InstagramSettingsPage() {
   const router = useRouter();
+  const { theme } = useThemeSetting();
+  const isLight = theme === "light";
   const [currentUserId, setCurrentUserId] = useState("");
   const [username, setUsername] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -96,9 +99,16 @@ export default function InstagramSettingsPage() {
       </header>
 
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pb-24">
-        <div className="rounded-3xl border border-neutral-800 bg-neutral-900/60 p-5">
-          <div className="text-lg font-semibold text-white">Conecta tu perfil de Instagram</div>
-          <p className="mt-2 text-sm text-neutral-400">
+        <div
+          className={[
+            "rounded-3xl border p-5",
+            isLight ? "border-slate-200 bg-transparent" : "border-neutral-800 bg-neutral-900/60",
+          ].join(" ")}
+        >
+          <div className={["text-lg font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>
+            Conecta tu perfil de Instagram
+          </div>
+          <p className={["mt-2 text-sm", isLight ? "text-slate-600" : "text-neutral-400"].join(" ")}>
             Cuando lo configures, otros usuarios verán el botón de Instagram en tu perfil.
           </p>
         </div>

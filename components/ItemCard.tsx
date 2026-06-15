@@ -8,6 +8,7 @@ import SellerAvatar from "@/components/SellerAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { formatListingAge } from "@/lib/relative-time";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
+import { useThemeSetting } from "@/components/ThemeProvider";
 
 type Item = {
   id: string;
@@ -26,6 +27,7 @@ type Item = {
 
 export default function ItemCard({ item }: { item: Item }) {
   const [open, setOpen] = useState(false);
+  const { theme } = useThemeSetting();
   const ageLabel = formatListingAge(Number(item.createdAt || 0));
 
   return (
@@ -93,7 +95,10 @@ export default function ItemCard({ item }: { item: Item }) {
 
             <button
               onClick={() => setOpen(true)}
-              className="w-full rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-black hover:bg-orange-400"
+              className={[
+                "w-full rounded-2xl bg-primary px-4 py-3 text-sm font-semibold hover:bg-primary/90",
+                theme === "light" ? "text-white" : "text-black",
+              ].join(" ")}
             >
               Me interesa
             </button>
@@ -178,7 +183,7 @@ function SellerBadge({
           imageClassName="object-cover"
         />
         {isVerified ? (
-          <span className="absolute -bottom-1 -right-1 rounded-full bg-neutral-950 p-0.5">
+          <span className="absolute -bottom-1 -right-1 rounded-full bg-orange-100  p-0.5">
             <VerifiedBadge className="h-4 w-4" />
           </span>
         ) : null}

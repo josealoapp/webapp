@@ -40,14 +40,20 @@ export default function AppearancePage() {
               onClick={() => setTheme(opt.id)}
               className={[
                 "flex flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-orange-300",
-                theme === opt.id
-                  ? "border-orange-400 bg-orange-500/10 text-orange-200"
-                  : "border-neutral-800 bg-neutral-900 text-neutral-200 hover:border-orange-400 hover:text-white",
+                theme === opt.id && opt.id === "light"
+                  ? "border-orange-400 bg-orange-500/10 text-black"
+                  : theme === opt.id
+                    ? "border-orange-400 bg-orange-500/10 text-orange-200"
+                    : "border-neutral-800 bg-neutral-900 text-neutral-200 hover:border-orange-400 hover:text-white",
               ].join(" ")}
               aria-pressed={theme === opt.id}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-800">
-                <opt.icon className="h-6 w-6" />
+                <opt.icon
+                  className={`h-6 w-6 ${
+                    theme === opt.id && opt.id === "light" ? "text-black" : ""
+                  }`}
+                />
               </div>
               {opt.label}
             </button>

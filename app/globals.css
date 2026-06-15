@@ -168,6 +168,99 @@ html[data-theme="light"] .app-bottom-nav .text-orange-400 {
   color: var(--brand-primary) !important;
 }
 
+html[data-theme="light"] .profile-add-tag-button {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .settings-back-button {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .settings-page-title {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] header button.bg-neutral-900\/80.text-neutral-50 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="light"] header button[aria-label*="Volver"],
+html[data-theme="light"] header a[aria-label*="Volver"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #111827 !important;
+}
+
+html[data-theme="light"] header button[aria-label*="Volver"] svg,
+html[data-theme="light"] header a[aria-label*="Volver"] svg {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] header > .text-sm.font-semibold.text-white,
+html[data-theme="light"] header .mx-auto > .text-sm.font-semibold.text-white,
+html[data-theme="light"] header .text-sm.font-semibold.text-white {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .item-new-fixed-footer {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .discover-empty-card {
+  background-color: transparent !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .interests-settings-page header {
+  background-color: rgba(244, 244, 245, 0.95) !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .interests-settings-page header .text-white {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .interests-settings-page .bg-neutral-900\/60 {
+  background-color: transparent !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .interests-settings-page .text-white {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .interests-settings-page .text-neutral-400,
+html[data-theme="light"] .interests-settings-page .text-neutral-500 {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .interests-settings-page .bg-neutral-950,
+html[data-theme="light"] .interests-settings-page .bg-neutral-900 {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] .interests-settings-page input {
+  color: #111827 !important;
+}
+
+html[data-theme="light"] .interests-settings-page input::placeholder {
+  color: #737373 !important;
+}
+
+html[data-theme="light"] .interests-settings-page .bg-neutral-800 {
+  background-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .interests-settings-page > div.fixed {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+}
+
 html[data-theme="light"] .home-page {
   background:
     radial-gradient(circle at 18% 0%, rgba(var(--brand-primary-rgb), 0.34), transparent 34%),
@@ -176,6 +269,11 @@ html[data-theme="light"] .home-page {
 }
 
 .home-page header[data-scrolled="true"] {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-theme="light"] .home-page header[data-scrolled="true"] {
   background-color: rgba(var(--brand-primary-rgb), 0.95) !important;
   box-shadow: 0 12px 30px rgba(var(--brand-primary-rgb), 0.22) !important;
 }

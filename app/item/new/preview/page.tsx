@@ -10,6 +10,7 @@ import { getPostAuthDestination, getWhatsappContactSettings } from "@/lib/accoun
 import { AppSkeleton } from "@/components/AppSkeleton";
 import { getDefaultListingLocation } from "@/lib/location";
 import { readProfileAvatar } from "@/lib/profile-avatar";
+import { useThemeSetting } from "@/components/ThemeProvider";
 
 export default function NewListingPreviewPage() {
   return (
@@ -25,6 +26,7 @@ function PreviewFallback() {
 
 function NewListingPreviewContent() {
   const router = useRouter();
+  const { theme } = useThemeSetting();
   const search = useSearchParams();
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
@@ -167,7 +169,14 @@ function NewListingPreviewContent() {
               ))}
             </div>
           )}
-          <div className="mt-2 text-lg font-semibold text-white">{data.title || "Sin título"}</div>
+          <div
+            className={[
+              "mt-2 text-lg font-semibold",
+              theme === "light" ? "text-black" : "text-white",
+            ].join(" ")}
+          >
+            {data.title || "Sin título"}
+          </div>
           <div className="mt-1 text-orange-400">
             {data.isPriceValid ? formatMoney(data.price, data.currency) : "Precio inválido"}
           </div>
@@ -207,7 +216,7 @@ function NewListingPreviewContent() {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto max-w-md px-6 py-4">
           <div className="flex gap-3">
             <button
@@ -221,9 +230,12 @@ function NewListingPreviewContent() {
               type="button"
               disabled={!data.isPriceValid}
               className={[
-                "h-12 flex-1 rounded-2xl px-4 text-sm font-semibold text-black shadow focus:outline-none focus:ring-2 focus:ring-orange-300",
+                "h-12 flex-1 rounded-2xl px-4 text-sm font-semibold shadow focus:outline-none focus:ring-2 focus:ring-orange-300",
                 data.isPriceValid && !publishing
-                  ? "bg-orange-400 hover:bg-orange-300"
+                  ? [
+                      "bg-orange-400 hover:bg-orange-300",
+                      theme === "light" ? "text-white" : "text-black",
+                    ].join(" ")
                   : "bg-neutral-700 text-neutral-300",
               ].join(" ")}
               onClick={handlePublish}

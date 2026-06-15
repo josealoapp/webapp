@@ -106,12 +106,12 @@ export default function SettingsPage() {
       <header className="flex items-center justify-between px-4 py-4">
         <button
           onClick={() => router.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm backdrop-blur active:scale-95"
+          className="settings-back-button flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900/80 text-neutral-50 shadow-sm backdrop-blur active:scale-95"
           aria-label="Volver"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="text-sm font-semibold text-white">Ajustes</div>
+        <div className="settings-page-title text-sm font-semibold text-white">Ajustes</div>
         <div className="h-10 w-10" />
       </header>
 

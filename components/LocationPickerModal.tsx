@@ -95,7 +95,7 @@ export default function LocationPickerModal({
               setDetectingLocation(false);
             }
           }}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-400/40 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-300 hover:bg-orange-500/15"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-400/100 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-400 hover:bg-orange-500/15"
         >
           {detectingLocation ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
           {detectingLocation ? "Detectando ubicación..." : "Usar mi ubicación actual"}
@@ -129,7 +129,7 @@ export default function LocationPickerModal({
                   Buscar en todas las ubicaciones y mostrar primero las más cercanas.
                 </div>
                 {!currentLocation && (
-                  <div className="mt-2 inline-flex rounded-full bg-orange-400 px-3 py-1 text-xs font-medium text-black">
+                  <div className="mt-2 inline-flex rounded-full bg-orange-400 px-3 py-1 text-xs font-medium text-white">
                     Actual
                   </div>
                 )}

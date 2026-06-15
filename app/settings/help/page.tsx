@@ -61,7 +61,7 @@ export default function HelpPage() {
         </form>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/85 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-950/white backdrop-blur">
         <div className="mx-auto max-w-md px-6 py-4">
           <button
             type="button"

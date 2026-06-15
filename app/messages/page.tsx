@@ -206,8 +206,8 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
+    <div className="min-h-screen bg-neutral-950\\\ text-neutral-50">
+      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/0 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           <Link
             href="/"
@@ -244,7 +244,7 @@ export default function MessagesPage() {
                     <span
                       className={[
                         "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold leading-none",
-                        activeTab === tab ? "bg-orange-400 text-black" : "bg-neutral-800 text-neutral-200",
+                        activeTab === tab ? "bg-orange-400 text-white dark:text-black" : "bg-neutral-800 text-neutral-200",
                       ].join(" ")}
                     >
                       {formatUnreadCount(tabUnreadCounts[tab])}
@@ -298,7 +298,7 @@ export default function MessagesPage() {
               const wasPurchasedByCurrentUser = isSold && listing.soldToUserId === currentUserId;
               const roleLabel = isSold
                 ? wasPurchasedByCurrentUser
-                  ? "Adquiriste este artículo"
+                  ? "Cerrado"
                   : "No disponible"
                 : isSellingChat
                   ? "Oferta recibida"
@@ -306,13 +306,13 @@ export default function MessagesPage() {
               const unreadCount = getUnreadCount(chat, currentUserId);
               const statusStyles =
                 isSold
-                  ? "border-neutral-700/70 bg-neutral-800/80 text-neutral-300"
-                  : "border-neutral-700/70 bg-neutral-900/50 text-neutral-300";
+                  ? "border-neutral-600/30 bg-neutral-400/20  text-neutral-500/50"
+                  : "border-neutral-700/70 bg-neutral-900/10 text-neutral-300";
 
               return (
                 <div
                   key={chat.id}
-                  className="relative rounded-3xl border border-neutral-800 bg-neutral-900/20 p-4 hover:bg-neutral-900/30"
+                  className="relative rounded-3xl border border-neutral-800 bg-neutral-900/0 p-4 hover:bg-neutral-900/30"
                 >
                   <Link href={`/chat/${chat.id}`} className="block pr-14">
                     <div className="flex items-start justify-between gap-3">
@@ -324,7 +324,7 @@ export default function MessagesPage() {
                             {roleLabel}
                           </span>
                           {unreadCount > 0 ? (
-                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold leading-none text-black">
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold leading-none text-white dark:text-black">
                               {unreadCount > 99 ? "+99" : unreadCount}
                             </span>
                           ) : null}
