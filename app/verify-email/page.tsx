@@ -8,6 +8,7 @@ import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPostAuthDestination } from "@/lib/account-profile";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { clearEmailVerificationPending, isEmailVerificationPending } from "@/lib/email-verification-state";
 
 export default function VerifyEmailPage() {
   return (
@@ -40,7 +41,8 @@ function VerifyEmailContent() {
     }
 
     user.reload().then(() => {
-      if (!cancelled && auth.currentUser?.emailVerified) {
+      const refreshedUser = auth.currentUser;
+      if (!cancelled && refreshedUser?.emailVerified && !isEmailVerificationPending(refreshedUser.uid)) {
         router.replace(getPostAuthDestination(nextPath));
       }
     });
@@ -63,6 +65,7 @@ function VerifyEmailContent() {
       .then(async (response) => {
         if (!response.ok) throw new Error("auth/invalid-action-code");
         await auth.currentUser?.reload();
+        clearEmailVerificationPending(auth.currentUser?.uid);
         if (!cancelled) router.replace(getPostAuthDestination(nextPath));
       })
       .catch(() => {
@@ -131,7 +134,9 @@ function VerifyEmailContent() {
       return;
     }
     await user.reload();
-    if (user.emailVerified) {
+    const refreshedUser = auth.currentUser;
+    if (refreshedUser?.emailVerified) {
+      clearEmailVerificationPending(refreshedUser.uid);
       router.replace(getPostAuthDestination(nextPath));
     } else {
       setError("Aún no vemos tu email verificado. Revisa tu bandeja o reenvía el correo.");

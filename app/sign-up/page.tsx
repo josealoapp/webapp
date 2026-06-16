@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { PasswordStrengthInput } from "@/components/PasswordStrengthMeter";
 import { getPasswordValidationMessage, isPasswordValid } from "@/lib/password-criteria";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import { markEmailVerificationPending } from "@/lib/email-verification-state";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -136,6 +137,7 @@ function SignUpContent() {
     }
 
     let verificationEmailStatus: "sent" | "failed" = "sent";
+    markEmailVerificationPending(cred.user.uid);
     try {
       await sendEmailVerification(cred.user);
     } catch {

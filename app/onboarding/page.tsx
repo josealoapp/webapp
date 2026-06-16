@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AppSkeleton } from "@/components/AppSkeleton";
+import { isEmailVerificationPending } from "@/lib/email-verification-state";
 
 const BUSINESS_VERIFICATION_MESSAGE =
   "Te estaremos contactando en los proximos 7 a 14 dias laborales para verificar tu cuenta y colocarte la marca de perfil verificado.";
@@ -86,7 +87,7 @@ function OnboardingContent() {
         return;
       }
 
-      if (!user.emailVerified) {
+      if (!user.emailVerified || isEmailVerificationPending(user.uid)) {
         router.replace(`/verify-email?next=${encodeURIComponent(nextPath)}`);
         return;
       }
