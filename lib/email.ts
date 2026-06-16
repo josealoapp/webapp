@@ -125,7 +125,7 @@ export function verificationEmailTemplate(input: { email?: string | null; name?:
               </td>
             </tr>
             <tr>
-              <td style="padding:0 24px;">
+              <td background="${backgroundUrl}" style="padding:0 24px 235px;background-color:#fff1e8;background-image:url('${backgroundUrl}');background-repeat:no-repeat;background-position:center bottom;background-size:100% auto;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border:18px solid rgba(255,255,255,0.72);background:rgba(255,255,255,0.78);">
                   <tr>
                     <td align="center" style="padding:48px 34px 44px;text-align:center;background:transparent;">
@@ -155,11 +155,6 @@ export function verificationEmailTemplate(input: { email?: string | null; name?:
                     </td>
                   </tr>
                 </table>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:0;text-align:center;font-size:0;line-height:0;">
-                <img src="${backgroundUrl}" width="600" alt="" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;">
               </td>
             </tr>
           </table>
