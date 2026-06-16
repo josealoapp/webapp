@@ -130,7 +130,7 @@ export async function createPostgresAuthUser(input: { email: string; password: s
   const result = await pgQuery<AuthUserRow>(
     `
       insert into auth_users (email, display_name, email_verified, provider, password_hash, created_at_ms, updated_at_ms)
-      values (lower($1), $2, true, 'password', $3, $4, $4)
+      values (lower($1), $2, false, 'password', $3, $4, $4)
       returning *
     `,
     [input.email, input.displayName, passwordHash, now]
@@ -312,6 +312,14 @@ export async function resetPasswordWithPostgresToken(token: string, password: st
   const passwordHash = await hashPassword(password);
   const now = Date.now();
   await pgQuery("update auth_users set password_hash = $2, updated_at_ms = $3 where id = $1", [row.user_id, passwordHash, now]);
+  await pgQuery("update auth_action_tokens set used_at_ms = $2 where token_hash = $1", [hashToken(token), now]);
+}
+
+export async function verifyEmailWithPostgresToken(token: string) {
+  const row = await getAuthActionToken(token, "email_verification");
+  if (!row) throw new Error("auth/invalid-action-code");
+  const now = Date.now();
+  await pgQuery("update auth_users set email_verified = true, updated_at_ms = $2 where id = $1", [row.user_id, now]);
   await pgQuery("update auth_action_tokens set used_at_ms = $2 where token_hash = $1", [hashToken(token), now]);
 }
 

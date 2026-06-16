@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAuthActionToken, verifyPostgresAuthToken } from "@/lib/postgres-auth";
+import {
+  createAuthActionToken,
+  verifyEmailWithPostgresToken,
+  verifyPostgresAuthToken,
+} from "@/lib/postgres-auth";
 
 export const runtime = "nodejs";
 
@@ -20,5 +24,17 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "auth/email-verification-failed";
     return NextResponse.json({ error: message }, { status: 401 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.nextUrl.searchParams.get("token")?.trim() || "";
+    if (!token) return NextResponse.json({ error: "auth/invalid-action-code" }, { status: 400 });
+    await verifyEmailWithPostgresToken(token);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "auth/email-verification-failed";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

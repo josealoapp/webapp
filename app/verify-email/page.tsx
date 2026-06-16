@@ -26,6 +26,7 @@ function VerifyEmailContent() {
   const sp = useSearchParams();
   const nextPath = useMemo(() => sp.get("next") || "/", [sp]);
   const initialEmailStatus = useMemo(() => sp.get("email") || "", [sp]);
+  const verificationToken = useMemo(() => sp.get("token") || "", [sp]);
 
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
@@ -48,6 +49,32 @@ function VerifyEmailContent() {
       cancelled = true;
     };
   }, [router, nextPath]);
+
+  useEffect(() => {
+    if (!verificationToken) return;
+
+    let cancelled = false;
+    setStatus("sending");
+    setError("Verificando tu email...");
+
+    fetch(`/api/auth/email-verification?token=${encodeURIComponent(verificationToken)}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("auth/invalid-action-code");
+        await auth.currentUser?.reload();
+        if (!cancelled) router.replace(getPostAuthDestination(nextPath));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStatus("error");
+        setError("El link de verificación no es válido o expiró. Presiona Reenviar email.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verificationToken, nextPath, router]);
 
   useEffect(() => {
     if (initialEmailStatus !== "failed" || status !== "idle") return;
