@@ -33,6 +33,20 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
+function parseTransferCookie(value: string): StoredAuth | null {
+  try {
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    return JSON.parse(window.atob(padded)) as StoredAuth;
+  } catch {
+    try {
+      return JSON.parse(decodeURIComponent(value)) as StoredAuth;
+    } catch {
+      return null;
+    }
+  }
+}
+
 function readStoredAuth(): StoredAuth | null {
   if (typeof window === "undefined") return null;
   try {
@@ -88,14 +102,13 @@ export const auth: { currentUser: User | null } = {
   currentUser: (() => {
     const transfer = readCookie(AUTH_TRANSFER_COOKIE);
     if (transfer) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(transfer)) as StoredAuth;
+      const parsed = parseTransferCookie(transfer);
+      if (parsed?.token && parsed.user?.uid) {
         writeStoredAuth(parsed);
         clearCookie(AUTH_TRANSFER_COOKIE);
         return makeUser(parsed);
-      } catch {
-        clearCookie(AUTH_TRANSFER_COOKIE);
       }
+      clearCookie(AUTH_TRANSFER_COOKIE);
     }
     const stored = readStoredAuth();
     return stored ? makeUser(stored) : null;

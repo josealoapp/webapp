@@ -84,11 +84,15 @@ export async function GET(request: NextRequest) {
 
     const destination = session.isNewUser ? "/onboarding" : next;
     const response = NextResponse.redirect(new URL(destination, request.nextUrl.origin));
+    const transferPayload = Buffer.from(
+      JSON.stringify({ token: session.token, user: session.user }),
+      "utf8"
+    ).toString("base64url");
     response.cookies.delete(STATE_COOKIE);
     response.cookies.delete(NEXT_COOKIE);
     response.cookies.set(
       TRANSFER_COOKIE,
-      encodeURIComponent(JSON.stringify({ token: session.token, user: session.user })),
+      transferPayload,
       {
         httpOnly: false,
         sameSite: "lax",
