@@ -10,10 +10,12 @@ export default function AdminUserRow({
   user,
   onToggleVerify,
   onDelete,
+  onPermanentDelete,
 }: {
   user: AdminUser;
   onToggleVerify: (user: AdminUser) => Promise<void> | void;
   onDelete: (user: AdminUser) => Promise<void> | void;
+  onPermanentDelete: (user: AdminUser) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -57,6 +59,16 @@ export default function AdminUserRow({
                 className="w-full rounded-xl px-3 py-2 text-left text-sm text-red-300 hover:bg-neutral-900"
               >
                 Desactivar cuenta
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setOpen(false);
+                  await onPermanentDelete(user);
+                }}
+                className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-400 hover:bg-red-500/10"
+              >
+                Eliminar permanente
               </button>
             </div>
           ) : null}

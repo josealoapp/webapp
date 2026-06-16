@@ -56,12 +56,36 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (user: AdminUser) => {
-    if (!window.confirm(`Delete account for ${user.displayName}?`)) return;
+    const reason = window.prompt(`Razón para desactivar la cuenta de ${user.displayName}:`, "Moderación de soporte");
+    if (!reason) return;
     await fetch("/api/admin/users", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.uid }),
+      body: JSON.stringify({ userId: user.uid, reason }),
     });
+    setUsers((current) =>
+      current.map((row) =>
+        row.uid === user.uid
+          ? { ...row, supportStatus: "deactivated", supportDeactivationReason: reason }
+          : row
+      )
+    );
+  };
+
+  const handlePermanentDeleteUser = async (user: AdminUser) => {
+    const confirmed = window.confirm(
+      `Eliminar permanentemente la cuenta de ${user.displayName}? Esta acción borrará el usuario y sus datos de la base de datos.`
+    );
+    if (!confirmed) return;
+    const response = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.uid, action: "permanent_delete" }),
+    });
+    if (!response.ok) {
+      window.alert("No pudimos eliminar permanentemente esta cuenta. Intenta de nuevo.");
+      return;
+    }
     setUsers((current) => current.filter((row) => row.uid !== user.uid));
   };
 
@@ -114,6 +138,7 @@ export default function AdminUsersPage() {
                 user={user}
                 onToggleVerify={handleToggleVerify}
                 onDelete={handleDeleteUser}
+                onPermanentDelete={handlePermanentDeleteUser}
               />
             ))}
           </div>

@@ -556,6 +556,7 @@ export default function AdminHomePage() {
                 user={user}
                 onToggleVerify={handleToggleVerify}
                 onDelete={handleDeleteUser}
+                onPermanentDelete={handlePermanentDeleteUser}
               />
             ))}
           </div>

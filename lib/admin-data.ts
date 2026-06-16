@@ -1,7 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import type { AdminReportDetails, AdminReportRow, AdminReportedListing } from "@/lib/admin-types";
-import { isPostgresAdminEnabled, pgQuery } from "@/lib/postgres";
+import { isPostgresAdminEnabled, pgQuery, pgTransaction } from "@/lib/postgres";
 import {
   createSupportNotificationInPostgres,
   getReportFromPostgres,
@@ -661,6 +661,41 @@ export async function reactivateUserAccount(userId: string) {
 }
 
 export async function hardDeleteUserAccount(userId: string) {
+  if (isPostgresAdminEnabled()) {
+    await pgTransaction(async (query) => {
+      await query(
+        `
+          delete from messages
+          where sender_id = $1
+             or chat_id in (select id from chats where buyer_id = $1 or seller_id = $1)
+        `,
+        [userId]
+      );
+      await query("delete from chats where buyer_id = $1 or seller_id = $1", [userId]);
+      await query("delete from likes where actor_id = $1 or owner_id = $1", [userId]);
+      await query("delete from follows where follower_id = $1 or followee_id = $1", [userId]);
+      await query(
+        "delete from reports where reporter_id = $1 or seller_id = $1 or target_user_id = $1",
+        [userId]
+      );
+      await query("delete from support_notifications where user_id = $1", [userId]);
+      await query("delete from listing_sold_events where owner_id = $1", [userId]);
+      await query(
+        "delete from purchase_review_requests where seller_id = $1 or buyer_id = $1",
+        [userId]
+      );
+      await query("delete from user_ratings where seller_id = $1 or buyer_id = $1", [userId]);
+      await query("delete from listing_view_events where owner_id = $1 or viewer_id = $1", [userId]);
+      await query("delete from search_events where user_id = $1", [userId]);
+      await query("delete from user_presence where user_id = $1", [userId]);
+      await query("delete from listings where owner_id = $1", [userId]);
+      await query("delete from user_private_profiles where user_id = $1", [userId]);
+      await query("delete from user_profiles where id = $1", [userId]);
+      await query("delete from auth_users where id = $1", [userId]);
+    });
+    return;
+  }
+
   const db = getAdminDb();
 
   const deleteQuerySnapshot = async (query: FirebaseFirestore.Query) => {
