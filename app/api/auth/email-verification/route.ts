@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     const verificationUrl = new URL(`/verify-email?token=${encodeURIComponent(actionToken)}`, request.nextUrl.origin);
     if (user.email) {
       const email = verificationEmailTemplate({
+        email: user.email,
         name: user.displayName,
         url: verificationUrl.toString(),
       });
