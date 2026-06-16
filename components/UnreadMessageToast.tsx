@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 

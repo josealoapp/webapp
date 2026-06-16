@@ -1,7 +1,6 @@
 "use client";
 
-import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type LikeRecord = {
   id: string;
@@ -49,10 +48,6 @@ function writeLikeRegistry(rows: LikeRecord[]) {
   window.dispatchEvent(new CustomEvent(LIKES_EVENT));
 }
 
-function likeRef(actorId: string, listingId: string, bazarItemId?: string) {
-  return doc(db, "likes", likeIdFor(actorId, listingId, bazarItemId));
-}
-
 function cacheRemoteRows(rows: LikeRecord[]) {
   const current = readLikeRegistry();
   const ids = new Set(rows.map((row) => row.id));
@@ -97,10 +92,18 @@ export async function likeItem(input: Omit<LikeRecord, "id" | "createdAt">) {
   ) as LikeRecord;
 
   writeLikeRegistry([...current, record]);
-  await setDoc(likeRef(input.actorId, input.listingId, input.bazarItemId), {
-    ...firestoreRecord,
-    createdAtServer: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
+
+  const response = await fetch("/api/likes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(firestoreRecord),
   });
+  if (!response.ok) throw new Error("like/write-failed");
 }
 
 export async function unlikeItem(actorId: string, listingId: string, bazarItemId?: string) {
@@ -114,7 +117,18 @@ export async function unlikeItem(actorId: string, listingId: string, bazarItemId
         )
     )
   );
-  await deleteDoc(likeRef(actorId, listingId, bazarItemId));
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
+
+  const response = await fetch("/api/likes", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ listingId, bazarItemId }),
+  });
+  if (!response.ok) throw new Error("like/delete-failed");
 }
 
 export function subscribeLikesForUser(userId: string, onData: (rows: LikeRecord[]) => void) {
@@ -127,8 +141,9 @@ export function subscribeLikesForUser(userId: string, onData: (rows: LikeRecord[
   };
   const loadRemote = async () => {
     try {
-      const snap = await getDocs(query(collection(db, "likes"), where("actorId", "==", userId)));
-      const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LikeRecord, "id">) }));
+      const response = await fetch(`/api/likes?actorId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { likes?: LikeRecord[] } | null;
+      const rows = payload?.likes || [];
       cacheRemoteRows(rows);
       if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
     } catch {
@@ -163,9 +178,9 @@ export function subscribeIncomingLikesForOwner(userId: string, onData: (rows: Li
   };
   const loadRemote = async () => {
     try {
-      const snap = await getDocs(query(collection(db, "likes"), where("ownerId", "==", userId)));
-      const rows = snap.docs
-        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LikeRecord, "id">) }))
+      const response = await fetch(`/api/likes?ownerId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { likes?: LikeRecord[] } | null;
+      const rows = (payload?.likes || [])
         .filter((entry) => entry.actorId !== userId);
       cacheRemoteRows(rows);
       if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));

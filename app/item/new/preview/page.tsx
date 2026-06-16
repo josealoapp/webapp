@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import { createListing } from "@/lib/marketplace";
 import { getPostAuthDestination, getWhatsappContactSettings } from "@/lib/account-profile";

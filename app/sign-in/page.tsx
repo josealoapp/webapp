@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { getAdditionalUserInfo, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { getAdditionalUserInfo, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import LogoLoadAnimation from "@/components/LogoLoadAnimation";

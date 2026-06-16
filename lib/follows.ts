@@ -1,7 +1,6 @@
 "use client";
 
-import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type FollowRecord = {
   id: string;
@@ -36,10 +35,6 @@ function writeFollowRegistry(rows: FollowRecord[]) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(FOLLOWS_KEY, JSON.stringify(rows));
   window.dispatchEvent(new CustomEvent(FOLLOWS_EVENT));
-}
-
-function followRef(followerId: string, followeeId: string) {
-  return doc(db, "follows", followDocumentId(followerId, followeeId));
 }
 
 function cacheRemoteRows(rows: FollowRecord[]) {
@@ -89,10 +84,18 @@ export async function followUser(input: {
   };
 
   writeFollowRegistry([...current, record]);
-  await setDoc(followRef(input.followerId, input.followeeId), {
-    ...record,
-    createdAtServer: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
+
+  const response = await fetch("/api/follows", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(record),
   });
+  if (!response.ok) throw new Error("follow/write-failed");
 }
 
 export async function unfollowUser(followerId: string, followeeId: string) {
@@ -101,7 +104,18 @@ export async function unfollowUser(followerId: string, followeeId: string) {
       (entry) => !(entry.followerId === followerId && entry.followeeId === followeeId)
     )
   );
-  await deleteDoc(followRef(followerId, followeeId));
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
+
+  const response = await fetch("/api/follows", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ followeeId }),
+  });
+  if (!response.ok) throw new Error("follow/delete-failed");
 }
 
 export function subscribeFollowing(userId: string, onData: (rows: FollowRecord[]) => void) {
@@ -114,8 +128,9 @@ export function subscribeFollowing(userId: string, onData: (rows: FollowRecord[]
   };
   const loadRemote = async () => {
     try {
-      const snap = await getDocs(query(collection(db, "follows"), where("followerId", "==", userId)));
-      const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<FollowRecord, "id">) }));
+      const response = await fetch(`/api/follows?followerId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { follows?: FollowRecord[] } | null;
+      const rows = payload?.follows || [];
       cacheRemoteRows(rows);
       if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
     } catch {
@@ -144,8 +159,9 @@ export function subscribeFollowers(userId: string, onData: (rows: FollowRecord[]
   };
   const loadRemote = async () => {
     try {
-      const snap = await getDocs(query(collection(db, "follows"), where("followeeId", "==", userId)));
-      const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<FollowRecord, "id">) }));
+      const response = await fetch(`/api/follows?followeeId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { follows?: FollowRecord[] } | null;
+      const rows = payload?.follows || [];
       cacheRemoteRows(rows);
       if (!cancelled) onData(rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
     } catch {

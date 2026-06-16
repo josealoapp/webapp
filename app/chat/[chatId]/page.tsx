@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, CheckCheck, ImagePlus, LoaderCircle, MoreHorizontal, Repeat2, Send, X } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import {
   addChatMessage,

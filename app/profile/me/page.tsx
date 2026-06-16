@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Instagram, Settings, Star, X } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import AppBottomNav from "@/components/AppBottomNav";
 import CategoryStories from "@/components/CategoryStories";
 import ProfileAvatar from "@/components/ProfileAvatar";

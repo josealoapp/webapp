@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresAnalyticsEnabled } from "@/lib/postgres";
+import { getUserPresenceFromPostgres, updateUserPresenceInPostgres } from "@/lib/postgres-analytics";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,13 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get("userId")?.trim() || "";
     if (!userId) {
       return NextResponse.json({ error: "presence/user-required" }, { status: 400 });
+    }
+
+    if (isPostgresAnalyticsEnabled()) {
+      return NextResponse.json({
+        userId,
+        lastActiveAt: await getUserPresenceFromPostgres(userId),
+      });
     }
 
     const snapshot = await getAdminDb().collection("userPresence").doc(userId).get();
@@ -42,6 +51,11 @@ export async function POST(request: NextRequest) {
 
     if (userId !== decoded.uid) {
       return NextResponse.json({ error: "presence/user-mismatch" }, { status: 403 });
+    }
+
+    if (isPostgresAnalyticsEnabled()) {
+      await updateUserPresenceInPostgres(decoded.uid);
+      return NextResponse.json({ ok: true });
     }
 
     await getAdminDb().collection("userPresence").doc(decoded.uid).set(

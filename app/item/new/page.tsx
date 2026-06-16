@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { ArrowLeft, Car, Download, Footprints, ImagePlus, Info, Package, Plus, Search, Shirt, Upload, X } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { createListing, getListingById, updateListing, uploadListingImages, type BazarItem, type ListingCurrency } from "@/lib/marketplace";

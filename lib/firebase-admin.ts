@@ -1,6 +1,13 @@
 import { getApps, initializeApp, cert, getApp, App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { isPostgresAuthEnabled } from "@/lib/postgres";
+import {
+  deletePostgresAuthUser,
+  getAuthUserById,
+  listPostgresAuthUsers,
+  verifyPostgresAuthToken,
+} from "@/lib/postgres-auth";
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -29,7 +36,37 @@ function getFirebaseAdminApp(): App {
   });
 }
 
-export function getAdminAuth() {
+export function getAdminAuth(): any {
+  if (isPostgresAuthEnabled()) {
+    return {
+      async verifyIdToken(token: string) {
+        const user = await verifyPostgresAuthToken(token);
+        return {
+          uid: user.uid,
+          email: user.email || undefined,
+          name: user.displayName || undefined,
+          picture: user.photoURL || undefined,
+          email_verified: user.emailVerified,
+        };
+      },
+      async listUsers(maxResults = 1000) {
+        return listPostgresAuthUsers(maxResults);
+      },
+      async getUser(userId: string) {
+        const user = await getAuthUserById(userId);
+        if (!user) {
+          const error = new Error("auth/user-not-found") as Error & { code?: string };
+          error.code = "auth/user-not-found";
+          throw error;
+        }
+        return user;
+      },
+      async deleteUser(userId: string) {
+        await deletePostgresAuthUser(userId);
+      },
+    };
+  }
+
   return getAuth(getFirebaseAdminApp());
 }
 

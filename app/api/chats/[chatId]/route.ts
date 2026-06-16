@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresChatsEnabled } from "@/lib/postgres";
+import { deleteChatFromPostgres, getChatFromPostgres } from "@/lib/postgres-chats";
 
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
@@ -26,6 +28,18 @@ export async function DELETE(
 
     if (!chatId?.trim()) {
       return NextResponse.json({ error: "chat/invalid-id" }, { status: 400 });
+    }
+
+    if (isPostgresChatsEnabled()) {
+      const chat = await getChatFromPostgres(chatId);
+      if (!chat) return NextResponse.json({ ok: true });
+
+      if (chat.buyerId !== decoded.uid && chat.sellerId !== decoded.uid) {
+        return NextResponse.json({ error: "chat/forbidden" }, { status: 403 });
+      }
+
+      await deleteChatFromPostgres(chatId);
+      return NextResponse.json({ ok: true });
     }
 
     const adminDb = getAdminDb();

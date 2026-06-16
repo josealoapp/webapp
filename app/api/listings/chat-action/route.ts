@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresSalesEnabled } from "@/lib/postgres";
+import { updateListingChatActionInPostgres } from "@/lib/postgres-sales";
 
 export const runtime = "nodejs";
 
@@ -50,6 +52,24 @@ export async function POST(request: NextRequest) {
 
     if (!listingId || !action || (action !== "unreserve" && !chatId)) {
       return NextResponse.json({ error: "listing/invalid-chat-action" }, { status: 400 });
+    }
+
+    if (isPostgresSalesEnabled()) {
+      const result = await updateListingChatActionInPostgres({
+        listingId,
+        ...(chatId ? { chatId } : {}),
+        ownerId: decoded.uid,
+        action,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        status: result.status,
+        reservedForUserId: action === "reserve" ? result.buyerId : "",
+        reservedForUserName: action === "reserve" ? result.buyerName : "",
+        reservedAt: result.reservedAt,
+        soldAt: result.soldAt,
+      });
     }
 
     const adminDb = getAdminDb();

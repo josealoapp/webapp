@@ -2,9 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, signOut } from "@/lib/auth-client";
+import { auth } from "@/lib/firebase";
 
 export default function AccountStatusGuard() {
   const pathname = usePathname();
@@ -14,17 +13,25 @@ export default function AccountStatusGuard() {
   useEffect(() => {
     if (pathname?.startsWith("/admin")) return;
 
-    let unsubscribeProfile: () => void = () => undefined;
+    let stopProfilePolling: () => void = () => undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      unsubscribeProfile();
-      unsubscribeProfile = () => undefined;
+      stopProfilePolling();
+      stopProfilePolling = () => undefined;
 
       if (!user?.uid) return;
 
-      unsubscribeProfile = onSnapshot(doc(db, "userProfiles", user.uid), async (snapshot) => {
+      const checkStatus = async () => {
         if (signingOutRef.current) return;
 
-        const data = snapshot.data() as
+        const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(user.uid)}`, {
+          cache: "no-store",
+        }).catch(() => null);
+        const payload = response
+          ? ((await response.json().catch(() => null)) as
+              | { profile?: { supportStatus?: string; supportDeactivationReason?: string } | null }
+              | null)
+          : null;
+        const data = payload?.profile as
           | { supportStatus?: string; supportDeactivationReason?: string }
           | undefined;
 
@@ -43,11 +50,15 @@ export default function AccountStatusGuard() {
           ? `&reason=${encodeURIComponent(data.supportDeactivationReason)}`
           : "";
         router.replace(`/sign-in?account=deactivated${reason}`);
-      });
+      };
+
+      void checkStatus();
+      const intervalId = window.setInterval(checkStatus, 15000);
+      stopProfilePolling = () => window.clearInterval(intervalId);
     });
 
     return () => {
-      unsubscribeProfile();
+      stopProfilePolling();
       unsubscribeAuth();
     };
   }, [pathname, router]);

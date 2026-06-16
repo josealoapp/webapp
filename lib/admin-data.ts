@@ -1,6 +1,16 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import type { AdminReportDetails, AdminReportRow, AdminReportedListing } from "@/lib/admin-types";
+import { isPostgresAdminEnabled, pgQuery } from "@/lib/postgres";
+import {
+  createSupportNotificationInPostgres,
+  getReportFromPostgres,
+  listReportsForUserFromPostgres,
+  listReportsFromPostgres,
+  markReportHandledInPostgres,
+  setUserSupportStatusInPostgres,
+} from "@/lib/postgres-admin";
+import { getListingByIdInPostgres } from "@/lib/postgres-listings";
 
 const CRITICAL_ACCOUNT_REASONS = new Set(["Estafa", "Artículo robado"]);
 const APP_SALES_TIMEFRAMES = new Set([
@@ -51,6 +61,11 @@ async function createSupportNotification(input: {
   type: "item_removed" | "account_deactivated" | "account_reactivated";
   listingId?: string;
 }) {
+  if (isPostgresAdminEnabled()) {
+    await createSupportNotificationInPostgres(input);
+    return;
+  }
+
   await getAdminDb().collection("supportNotifications").add({
     ...input,
     read: false,
@@ -70,9 +85,20 @@ export type AdminUserRow = {
   businessVerificationStatus?: "pending" | "verified" | "";
 };
 
-async function listAllAuthUsers() {
+type AdminAuthUser = {
+  uid: string;
+  email?: string;
+  displayName?: string;
+  photoURL?: string;
+  disabled?: boolean;
+  metadata: {
+    creationTime?: string;
+  };
+};
+
+async function listAllAuthUsers(): Promise<AdminAuthUser[]> {
   const auth = getAdminAuth();
-  const users: Awaited<ReturnType<typeof auth.listUsers>>["users"] = [];
+  const users: AdminAuthUser[] = [];
   let nextPageToken: string | undefined;
 
   do {
@@ -363,6 +389,24 @@ export async function getAdminAppSalesSummary(timeframe = "all_time") {
 }
 
 export async function setUserVerified(userId: string, verified: boolean) {
+  if (isPostgresAdminEnabled()) {
+    const now = Date.now();
+    await setUserSupportStatusInPostgres(userId, { status: "active" });
+    await pgQuery(
+      `
+        insert into user_profiles (id, is_verified, profile, updated_at_ms)
+        values ($1, $2, $3::jsonb, $4)
+        on conflict (id) do update
+        set is_verified = excluded.is_verified,
+            profile = user_profiles.profile || excluded.profile,
+            updated_at_ms = excluded.updated_at_ms,
+            updated_at = now()
+      `,
+      [userId, verified, JSON.stringify({ isVerified: verified, verifiedAt: verified ? now : null, updatedAt: now }), now]
+    );
+    return;
+  }
+
   const db = getAdminDb();
   const privateProfileSnap = await db.collection("userPrivateProfiles").doc(userId).get();
   const privateProfile = privateProfileSnap.data() as { accountType?: string } | undefined;
@@ -403,6 +447,36 @@ export async function setUserVerified(userId: string, verified: boolean) {
 }
 
 export async function deleteListingById(listingId: string, reason = "Moderación de soporte") {
+  if (isPostgresAdminEnabled()) {
+    const listing = await getListingByIdInPostgres(listingId);
+    if (!listing) return;
+    const now = Date.now();
+    await pgQuery(
+      `
+        update listings
+        set status = 'removed_by_support',
+            updated_at_ms = $2,
+            updated_at = now()
+        where id = $1
+      `,
+      [listingId, now]
+    );
+    if (listing.ownerId) {
+      await createSupportNotification({
+        userId: listing.ownerId,
+        type: "item_removed",
+        title: "Un artículo fue removido de tu cuenta",
+        message: itemRemovalMessage(reason),
+        reason,
+        listingId,
+      });
+      if (CRITICAL_ACCOUNT_REASONS.has(reason)) {
+        await deactivateUserAccount(listing.ownerId, reason);
+      }
+    }
+    return;
+  }
+
   const ref = getAdminDb().collection("listings").doc(listingId);
   const snap = await ref.get();
   if (!snap.exists) return;
@@ -445,6 +519,11 @@ export async function markReportHandled(
 ) {
   if (!reportId) return;
 
+  if (isPostgresAdminEnabled()) {
+    await markReportHandledInPostgres(reportId, input);
+    return;
+  }
+
   await getAdminDb().collection("reports").doc(reportId).set(
     {
       status: "handled",
@@ -460,6 +539,29 @@ export async function markReportHandled(
 }
 
 export async function deactivateUserAccount(userId: string, reason = "Moderación de soporte") {
+  if (isPostgresAdminEnabled()) {
+    const now = Date.now();
+    await pgQuery(
+      `
+        update listings
+        set status = 'account_deactivated',
+            updated_at_ms = $2,
+            updated_at = now()
+        where owner_id = $1
+      `,
+      [userId, now]
+    );
+    await setUserSupportStatusInPostgres(userId, { status: "deactivated", reason });
+    await createSupportNotification({
+      userId,
+      type: "account_deactivated",
+      title: "Cuenta desactivada por soporte",
+      message: accountDeactivationMessage(reason),
+      reason,
+    });
+    return;
+  }
+
   const db = getAdminDb();
   const now = Date.now();
   const listingsSnap = await db.collection("listings").where("ownerId", "==", userId).get();
@@ -496,6 +598,29 @@ export async function deactivateUserAccount(userId: string, reason = "Moderació
 }
 
 export async function reactivateUserAccount(userId: string) {
+  if (isPostgresAdminEnabled()) {
+    const now = Date.now();
+    await setUserSupportStatusInPostgres(userId, { status: "active" });
+    await pgQuery(
+      `
+        update listings
+        set status = 'active',
+            updated_at_ms = $2,
+            updated_at = now()
+        where owner_id = $1 and status = 'account_deactivated'
+      `,
+      [userId, now]
+    );
+    await createSupportNotification({
+      userId,
+      type: "account_reactivated",
+      title: "Cuenta reactivada",
+      message: "Soporte reactivó tu cuenta. Ya puedes volver a usar Josealo.",
+      reason: "Reactivación de soporte",
+    });
+    return;
+  }
+
   const db = getAdminDb();
   const now = Date.now();
   await db.collection("userProfiles").doc(userId).set({
@@ -582,13 +707,35 @@ export async function hardDeleteUserAccount(userId: string) {
 
   await db.collection("userProfiles").doc(userId).delete().catch(() => undefined);
   await db.collection("userPrivateProfiles").doc(userId).delete().catch(() => undefined);
-  await getAdminAuth().deleteUser(userId).catch((error) => {
+  await getAdminAuth().deleteUser(userId).catch((error: { code?: string }) => {
     if (error?.code === "auth/user-not-found") return;
     throw error;
   });
 }
 
 export async function listAdminReports() {
+  if (isPostgresAdminEnabled()) {
+    const reports = await listReportsFromPostgres();
+    const listingIds = Array.from(new Set(reports.map((report) => report.listingId).filter(Boolean)));
+    const reportedUserIds = Array.from(new Set(reports.map((report) => getReportedUserId(report)).filter(Boolean)));
+    const [listingRows, authUsers] = await Promise.all([
+      listingIds.length
+        ? pgQuery<{ id: string; image: string }>("select id, image from listings where id = any($1::text[])", [listingIds])
+        : Promise.resolve({ rows: [] as { id: string; image: string }[] }),
+      Promise.all(reportedUserIds.map((userId) => getAdminAuth().getUser(userId).catch(() => null))),
+    ]);
+    const listingMap = new Map(listingRows.rows.map((row) => [row.id, row.image || ""]));
+    const reportedUserEmailMap = new Map<string, string>();
+    authUsers.forEach((user) => {
+      if (user?.uid) reportedUserEmailMap.set(user.uid, user.email || "");
+    });
+    return reports.map((report) => ({
+      ...report,
+      listingImage: listingMap.get(report.listingId) || "",
+      reportedUserEmail: reportedUserEmailMap.get(getReportedUserId(report)) || "",
+    }));
+  }
+
   const reportsSnap = await getAdminDb().collection("reports").orderBy("createdAt", "desc").get();
   const reports = reportsSnap.docs.map((docSnap) => ({
     id: docSnap.id,
@@ -637,6 +784,103 @@ function calculateAccountAgeDays(createdAt: number) {
 }
 
 export async function getAdminReportDetails(reportId: string): Promise<AdminReportDetails | null> {
+  if (isPostgresAdminEnabled()) {
+    const report = await getReportFromPostgres(reportId);
+    if (!report) return null;
+    const reportedUserId = getReportedUserId(report);
+    if (!reportedUserId) return null;
+
+    const [authUserResult, profileResult, privateProfileResult, listingsResult, relatedReports, chatCount, likesCount] =
+      await Promise.all([
+        getAdminAuth().getUser(reportedUserId).catch(() => null),
+        pgQuery<{ profile: Record<string, unknown>; display_name: string | null }>(
+          "select profile, display_name from user_profiles where id = $1",
+          [reportedUserId]
+        ),
+        pgQuery<{ profile: Record<string, unknown> }>("select profile from user_private_profiles where user_id = $1", [
+          reportedUserId,
+        ]),
+        pgQuery<{
+          id: string;
+          title: string;
+          price: string;
+          category: string;
+          location: string;
+          image: string;
+          status: string;
+          created_at_ms: string | number;
+        }>(
+          `
+            select id, title, price, category, location, image, status, created_at_ms
+            from listings
+            where owner_id = $1
+            order by created_at_ms desc
+          `,
+          [reportedUserId]
+        ),
+        listReportsForUserFromPostgres(reportedUserId),
+        pgQuery<{ count: number }>(
+          "select count(*)::int as count from chats where seller_id = $1 or buyer_id = $1",
+          [reportedUserId]
+        ),
+        pgQuery<{ count: number }>("select count(*)::int as count from likes where owner_id = $1", [reportedUserId]),
+      ]);
+
+    const listings = listingsResult.rows.map((row) => ({
+      id: row.id,
+      title: row.title || "Publicación sin título",
+      price: Number(row.price || 0),
+      category: row.category || "Sin categoría",
+      location: row.location || "",
+      image: row.image || "",
+      status: row.status || "active",
+      createdAt: Number(row.created_at_ms || 0),
+    })) as AdminReportedListing[];
+    const profile = profileResult.rows[0]?.profile || {};
+    const privateProfile = privateProfileResult.rows[0]?.profile || {};
+    const createdAt = authUserResult?.metadata.creationTime
+      ? new Date(authUserResult.metadata.creationTime).getTime()
+      : 0;
+    const location =
+      (privateProfile.location as { name?: string } | undefined)?.name ||
+      (privateProfile.businessProfile as { province?: string } | undefined)?.province ||
+      mostCommon(listings.map((listing) => listing.location)) ||
+      "No disponible";
+    const salesCategory =
+      mostCommon(listings.map((listing) => listing.category)) ||
+      (privateProfile.businessProfile as { categories?: string[] } | undefined)?.categories?.[0] ||
+      "No disponible";
+    report.listingImage = report.listingId
+      ? listings.find((listing) => listing.id === report.listingId)?.image || ""
+      : "";
+
+    return {
+      report,
+      user: {
+        uid: reportedUserId,
+        email: authUserResult?.email || "",
+        displayName:
+          report.targetUserName ||
+          String(profile.displayName || profileResult.rows[0]?.display_name || "") ||
+          authUserResult?.displayName ||
+          authUserResult?.email ||
+          "Usuario reportado",
+        createdAt,
+        location,
+        salesCategory,
+      },
+      metrics: {
+        reportCount: relatedReports.length,
+        interactionCount: Number(chatCount.rows[0]?.count || 0) + Number(likesCount.rows[0]?.count || 0),
+        accountAgeDays: calculateAccountAgeDays(createdAt),
+        location,
+        salesCategory,
+      },
+      listings,
+      relatedReports,
+    };
+  }
+
   const db = getAdminDb();
   const reportSnap = await db.collection("reports").doc(reportId).get();
   if (!reportSnap.exists) return null;

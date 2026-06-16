@@ -9,7 +9,7 @@ import HomeSplashScreen from "@/components/HomeSplashScreen";
 import { MapPin, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import { subscribeFollowingIds } from "@/lib/follows";
 import {

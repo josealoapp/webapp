@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
-import { sendEmailVerification } from "firebase/auth";
+import { sendEmailVerification } from "@/lib/auth-client";
 import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPostAuthDestination } from "@/lib/account-profile";

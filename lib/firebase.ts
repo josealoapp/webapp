@@ -1,6 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
+import { auth } from "@/lib/auth-client";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -17,7 +17,6 @@ const FIREBASE_CLIENT_VERSION = 2;
 type FirebaseClient = {
   version: number;
   app: FirebaseApp;
-  auth: Auth;
   db: Firestore;
 };
 
@@ -42,7 +41,6 @@ function createFirebaseClient(): FirebaseClient {
   return {
     version: FIREBASE_CLIENT_VERSION,
     app,
-    auth: getAuth(app),
     db,
   };
 }
@@ -54,5 +52,5 @@ const firebaseClient =
 globalThis.__josealoFirebaseClient = firebaseClient;
 
 export const app = firebaseClient.app;
-export const auth = firebaseClient.auth;
 export const db = firebaseClient.db;
+export { auth };

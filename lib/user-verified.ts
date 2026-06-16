@@ -1,12 +1,5 @@
 "use client";
 
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-
-function getUserProfileDoc(userId: string) {
-  return doc(db, "userProfiles", userId);
-}
-
 export function subscribeVerifiedUser(userId: string, onData: (verified: boolean) => void) {
   if (!userId) {
     onData(false);
@@ -17,10 +10,14 @@ export function subscribeVerifiedUser(userId: string, onData: (verified: boolean
 
   const load = async () => {
     try {
-      const snapshot = await getDoc(getUserProfileDoc(userId));
+      const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(userId)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { profile?: { isVerified?: boolean } | null }
+        | null;
       if (cancelled) return;
-      const data = snapshot.data() as { isVerified?: boolean } | undefined;
-      onData(Boolean(data?.isVerified));
+      onData(Boolean(payload?.profile?.isVerified));
     } catch {
       if (!cancelled) {
         onData(false);

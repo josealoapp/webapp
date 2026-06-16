@@ -18,9 +18,9 @@ import {
   Instagram,
   Tags,
 } from "lucide-react";
-import { signOut } from "firebase/auth";
+import { signOut } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { getPostAuthDestination } from "@/lib/account-profile";
 
 type Item = {

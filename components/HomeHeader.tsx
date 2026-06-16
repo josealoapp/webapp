@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { Heart, MapPin, Menu, Search } from "lucide-react";
 import LocationPickerModal from "./LocationPickerModal";
 import { auth } from "@/lib/firebase";

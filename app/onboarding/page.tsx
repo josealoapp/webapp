@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { Check, ChevronDown, ChevronUp, Circle, CircleCheck, Search, Store, X } from "lucide-react";
 import { Country, State } from "country-state-city";
 import { auth } from "@/lib/firebase";

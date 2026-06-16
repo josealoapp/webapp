@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { useThemeSetting } from "@/components/ThemeProvider";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination } from "@/lib/account-profile";

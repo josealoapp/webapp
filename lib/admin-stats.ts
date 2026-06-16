@@ -1,4 +1,10 @@
 import { getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresAnalyticsEnabled, isPostgresChatsEnabled, isPostgresListingsEnabled } from "@/lib/postgres";
+import {
+  getInteractionMapFromPostgres,
+  listListingsForStatsFromPostgres,
+  listSearchEventsForStatsFromPostgres,
+} from "@/lib/postgres-analytics";
 
 type RawBazarItem = {
   id?: string;
@@ -284,6 +290,10 @@ function getTopName(items: AdminSoldItem[], keyFor: (item: AdminSoldItem) => str
 }
 
 async function getInteractionMap() {
+  if (isPostgresAnalyticsEnabled() && isPostgresChatsEnabled()) {
+    return getInteractionMapFromPostgres();
+  }
+
   const [chatSnap, messageSnap] = await Promise.all([
     getAdminDb().collection("chats").get(),
     getAdminDb().collection("messages").limit(3000).get(),
@@ -351,6 +361,10 @@ function applyInteractions(items: AdminSoldItem[], interactionMap: Map<string, {
 }
 
 async function getSearchEvents() {
+  if (isPostgresAnalyticsEnabled()) {
+    return listSearchEventsForStatsFromPostgres();
+  }
+
   const snap = await getAdminDb()
     .collection("searchEvents")
     .orderBy("createdAt", "desc")
@@ -541,20 +555,25 @@ function flattenActiveListing(snapshotId: string, listing: RawListing) {
 }
 
 export async function getAdminMarketplaceStats(): Promise<AdminMarketplaceStats> {
-  const [snapshot, interactionMap, searchEvents] = await Promise.all([
-    getAdminDb().collection("listings").get(),
+  const [listingRows, interactionMap, searchEvents] = await Promise.all([
+    isPostgresAnalyticsEnabled() && isPostgresListingsEnabled()
+      ? listListingsForStatsFromPostgres()
+      : getAdminDb()
+          .collection("listings")
+          .get()
+          .then((snapshot) => snapshot.docs.map((docSnap) => ({ id: docSnap.id, data: docSnap.data() as RawListing }))),
     getInteractionMap(),
     getSearchEvents(),
   ]);
   const items = applySearchInterest(applyInteractions(
-    snapshot.docs
-    .flatMap((docSnap) => flattenSoldListing(docSnap.id, docSnap.data() as RawListing))
+    listingRows
+    .flatMap((row) => flattenSoldListing(row.id, row.data as RawListing))
       .sort((a, b) => b.soldAt - a.soldAt),
     interactionMap
   ), searchEvents);
   const activeItems = applySearchInterest(applyInteractions(
-    snapshot.docs
-    .flatMap((docSnap) => flattenActiveListing(docSnap.id, docSnap.data() as RawListing))
+    listingRows
+    .flatMap((row) => flattenActiveListing(row.id, row.data as RawListing))
       .sort((a, b) => b.createdAt - a.createdAt),
     interactionMap
   ), searchEvents);

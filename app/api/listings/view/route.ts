@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresAnalyticsEnabled } from "@/lib/postgres";
+import { recordListingViewInPostgres } from "@/lib/postgres-analytics";
 
 export const runtime = "nodejs";
 
@@ -33,6 +35,11 @@ export async function POST(request: NextRequest) {
     if (token) {
       const decoded = await getAdminAuth().verifyIdToken(token);
       viewerId = decoded.uid;
+    }
+
+    if (isPostgresAnalyticsEnabled()) {
+      const result = await recordListingViewInPostgres({ listingId, bazarItemId, viewerId });
+      return NextResponse.json({ ok: true, ...result });
     }
 
     const adminDb = getAdminDb();

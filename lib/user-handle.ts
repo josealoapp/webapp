@@ -1,7 +1,6 @@
 "use client";
 
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type StoredUserHandle = {
   uid: string;
@@ -51,8 +50,13 @@ async function loadRemoteHandle(uid: string) {
   if (!uid) return "";
 
   try {
-    const snapshot = await getDoc(doc(db, "userProfiles", uid));
-    return typeof snapshot.data()?.handle === "string" ? snapshot.data()?.handle : "";
+    const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(uid)}`, {
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { profile?: { handle?: string } | null }
+      | null;
+    return typeof payload?.profile?.handle === "string" ? payload.profile.handle : "";
   } catch {
     return "";
   }
@@ -63,15 +67,23 @@ function persistHandle(entry: StoredUserHandle) {
     return;
   }
 
-  void setDoc(
-    doc(db, "userProfiles", entry.uid),
-    {
-      displayName: entry.name,
-      handle: entry.handle,
-      updatedAt: Date.now(),
-      updatedAtServer: serverTimestamp(),
-    },
-    { merge: true }
+  void auth.currentUser?.getIdToken().then((token) =>
+    fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: entry.uid,
+        scope: "public",
+        profile: {
+          displayName: entry.name,
+          handle: entry.handle,
+          updatedAt: Date.now(),
+        },
+      }),
+    })
   ).catch(() => {
     // Local handle cache remains available if Firestore is offline.
   });

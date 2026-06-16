@@ -1,7 +1,6 @@
 "use client";
 
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export const DEFAULT_PROFILE_AVATAR = "/default-avatar.svg";
 
@@ -46,14 +45,22 @@ export function writeProfileAvatar(userId: string, value: string) {
 
   writeRegistry(registry);
 
-  void setDoc(
-    doc(db, "userProfiles", userId),
-    {
-      avatarUrl: value || "",
-      updatedAt: Date.now(),
-      updatedAtServer: serverTimestamp(),
-    },
-    { merge: true }
+  void auth.currentUser?.getIdToken().then((token) =>
+    fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId,
+        scope: "public",
+        profile: {
+          avatarUrl: value || "",
+          updatedAt: Date.now(),
+        },
+      }),
+    })
   ).catch(() => {
     // Local cache remains usable if Firestore is offline.
   });
@@ -63,8 +70,13 @@ export async function loadProfileAvatar(userId: string) {
   if (!userId) return "";
 
   try {
-    const snapshot = await getDoc(doc(db, "userProfiles", userId));
-    const avatarUrl = typeof snapshot.data()?.avatarUrl === "string" ? snapshot.data()?.avatarUrl : "";
+    const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(userId)}`, {
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { profile?: { avatarUrl?: string } | null }
+      | null;
+    const avatarUrl = typeof payload?.profile?.avatarUrl === "string" ? payload.profile.avatarUrl : "";
     if (avatarUrl) {
       const registry = readRegistry();
       registry[userId] = avatarUrl;

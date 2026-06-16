@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresProfilesEnabled, updateProfileAvatarInPostgres } from "@/lib/postgres-profiles";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,11 @@ export async function POST(request: NextRequest) {
 
     if (decoded.uid !== ownerId) {
       return NextResponse.json({ error: "profile/avatar-forbidden" }, { status: 403 });
+    }
+
+    if (isPostgresProfilesEnabled()) {
+      await updateProfileAvatarInPostgres(ownerId, ownerAvatar);
+      return NextResponse.json({ ok: true });
     }
 
     const db = getAdminDb();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresSalesEnabled } from "@/lib/postgres";
+import { markListingSoldInPostgres } from "@/lib/postgres-sales";
 
 export const runtime = "nodejs";
 
@@ -75,6 +77,19 @@ export async function POST(request: NextRequest) {
 
     if (!listingId) {
       return NextResponse.json({ error: "listing/missing-id" }, { status: 400 });
+    }
+
+    if (isPostgresSalesEnabled()) {
+      const result = await markListingSoldInPostgres({
+        listingId,
+        ...(bazarItemId ? { bazarItemId } : {}),
+        ownerId: decoded.uid,
+        ...(feedback || {}),
+        ...(soldToUserId ? { soldToUserId } : {}),
+        ...(soldToUserName ? { soldToUserName } : {}),
+      });
+
+      return NextResponse.json({ ok: true, ...result });
     }
 
     const adminDb = getAdminDb();

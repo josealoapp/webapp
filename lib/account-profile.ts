@@ -1,7 +1,6 @@
 "use client";
 
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type AccountType = "personal" | "business";
 
@@ -120,17 +119,24 @@ function normalizeAccountProfile(input: Partial<AccountProfile> | undefined): Ac
   };
 }
 
-function getCurrentProfileRef() {
-  const user = auth.currentUser;
-  return user ? doc(db, "userPrivateProfiles", user.uid) : null;
-}
-
 export async function loadAccountProfileFromBackend(userId = auth.currentUser?.uid) {
   if (!userId) return readAccountProfile();
 
   try {
-    const snapshot = await getDoc(doc(db, "userPrivateProfiles", userId));
-    if (!snapshot.exists()) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return readAccountProfile();
+
+    const response = await fetch(`/api/profile?scope=private&userId=${encodeURIComponent(userId)}`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { profile?: Partial<AccountProfile> | null }
+      | null;
+
+    if (!response.ok || !payload?.profile) {
       const localProfile = readAccountProfile();
       if (localProfile.userId === userId && localProfile.onboardingRequired && !localProfile.onboardingCompleted) {
         return localProfile;
@@ -147,7 +153,7 @@ export async function loadAccountProfileFromBackend(userId = auth.currentUser?.u
 
     const profile = normalizeAccountProfile({
       userId,
-      ...(snapshot.data() as Partial<AccountProfile>),
+      ...payload.profile,
     });
     cacheAccountProfile(profile);
     return profile;
@@ -164,16 +170,22 @@ export function writeAccountProfile(profile: AccountProfile) {
 
   cacheAccountProfile(payload);
 
-  const profileRef = getCurrentProfileRef();
-  if (!profileRef) return;
+  const user = auth.currentUser;
+  if (!user) return;
 
-  void setDoc(
-    profileRef,
-    {
-      ...payload,
-      updatedAtServer: serverTimestamp(),
-    },
-    { merge: true }
+  void user.getIdToken().then((token) =>
+    fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: user.uid,
+        scope: "private",
+        profile: payload,
+      }),
+    })
   ).catch(() => {
     // Local cache remains available if the network is temporarily unavailable.
   });

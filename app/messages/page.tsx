@@ -5,7 +5,7 @@ import AppBottomNav from "@/components/AppBottomNav";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MessageCircle, MoreVertical, Search } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import { getPostAuthDestination, readAccountProfile } from "@/lib/account-profile";
 import {

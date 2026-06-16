@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresSalesEnabled } from "@/lib/postgres";
+import { getSalesCountFromPostgres } from "@/lib/postgres-sales";
 
 export const runtime = "nodejs";
 
@@ -12,6 +14,11 @@ export async function GET(request: NextRequest) {
     const userId = cleanUserId(request.nextUrl.searchParams.get("userId"));
     if (!userId) {
       return NextResponse.json({ error: "profile/missing-user-id" }, { status: 400 });
+    }
+
+    if (isPostgresSalesEnabled()) {
+      const salesCount = await getSalesCountFromPostgres(userId);
+      return NextResponse.json({ salesCount });
     }
 
     const snapshot = await getAdminDb()

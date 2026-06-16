@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown, Instagram, Star, X } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import AppBottomNav from "@/components/AppBottomNav";
 import CategoryStories from "@/components/CategoryStories";
 import ProfileAvatar from "@/components/ProfileAvatar";
@@ -12,8 +12,6 @@ import ProfileTags from "@/components/ProfileTags";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { auth } from "@/lib/firebase";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
 import { followUser, subscribeFollowers, subscribeFollowing, unfollowUser } from "@/lib/follows";
 import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import { isListingVisibleInOwnerProfile, listOwnerListings, Listing } from "@/lib/marketplace";
@@ -220,9 +218,29 @@ export default function PublicProfilePage() {
       setSupportStatus("");
       return;
     }
-    return onSnapshot(doc(db, "userProfiles", userId), (snap) => {
-      setSupportStatus(String(snap.data()?.supportStatus || ""));
-    });
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(userId)}`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { profile?: { supportStatus?: string } | null }
+          | null;
+        if (!cancelled) setSupportStatus(String(payload?.profile?.supportStatus || ""));
+      } catch {
+        if (!cancelled) setSupportStatus("");
+      }
+    };
+
+    void load();
+    const intervalId = window.setInterval(load, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [userId]);
 
   useEffect(() => {

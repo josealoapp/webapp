@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresAdminEnabled } from "@/lib/postgres";
+import { createReportInPostgres } from "@/lib/postgres-admin";
 
 export const runtime = "nodejs";
 
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "report/self-report" }, { status: 400 });
     }
 
-    await getAdminDb().collection("reports").add({
+    const payload = {
       reportType,
       listingId,
       bazarItemId,
@@ -71,8 +73,17 @@ export async function POST(request: NextRequest) {
       reporterId: decoded.uid,
       reporterName: decoded.name || decoded.email || "Usuario",
       createdAt: Date.now(),
-      createdAtServer: FieldValue.serverTimestamp(),
       status: "open",
+    };
+
+    if (isPostgresAdminEnabled()) {
+      await createReportInPostgres(payload);
+      return NextResponse.json({ ok: true });
+    }
+
+    await getAdminDb().collection("reports").add({
+      ...payload,
+      createdAtServer: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ ok: true });

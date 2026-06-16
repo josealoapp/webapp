@@ -1,7 +1,6 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type ProfileTagType = "payment" | "delivery" | "schedule";
 export type TaxIdType = "cedula" | "rnc";
@@ -141,13 +140,29 @@ export function subscribeProfileTags(userId: string, onData: (tags: ProfileTag[]
     return () => undefined;
   }
 
-  return onSnapshot(
-    doc(db, "userProfiles", userId),
-    (snapshot) => {
-      onData(normalizeProfileTags(snapshot.data()?.profileTags));
-    },
-    () => onData([])
-  );
+  let cancelled = false;
+
+  const load = async () => {
+    try {
+      const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(userId)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { profile?: { profileTags?: unknown } | null }
+        | null;
+      if (!cancelled) onData(normalizeProfileTags(payload?.profile?.profileTags));
+    } catch {
+      if (!cancelled) onData([]);
+    }
+  };
+
+  void load();
+  const intervalId = window.setInterval(load, 15000);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export async function writeProfileTags(userId: string, tags: ProfileTag[]) {

@@ -3,6 +3,15 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { getBazarEndsAt, isValidBazarDuration } from "@/lib/bazar-duration";
 import { buildListingSearchTokens } from "@/lib/listing-search-tokens";
+import { isPostgresListingsEnabled } from "@/lib/postgres";
+import {
+  createListingInPostgres,
+  getListingByIdInPostgres,
+  getListingOwnerInPostgres,
+  isAccountDeactivatedInPostgres,
+  removeListingInPostgres,
+  updateListingInPostgres,
+} from "@/lib/postgres-listings";
 
 const PAYMENT_METHODS = new Set(["efectivo", "intercambio", "ambos", "transferencia"]);
 const CURRENCIES = new Set(["DOP", "USD"]);
@@ -224,6 +233,10 @@ function buildListingPayload(body: Record<string, unknown>, ownerId: string, mod
 }
 
 async function getVerifiedListingOwner(listingId: string) {
+  if (isPostgresListingsEnabled()) {
+    return getListingOwnerInPostgres(listingId);
+  }
+
   const snapshot = await getAdminDb().collection("listings").doc(listingId).get();
   if (!snapshot.exists) {
     return null;
@@ -234,6 +247,10 @@ async function getVerifiedListingOwner(listingId: string) {
 }
 
 async function isAccountDeactivated(userId: string) {
+  if (isPostgresListingsEnabled()) {
+    return isAccountDeactivatedInPostgres(userId);
+  }
+
   const snapshot = await getAdminDb().collection("userProfiles").doc(userId).get();
   return snapshot.data()?.supportStatus === "deactivated";
 }
@@ -263,12 +280,45 @@ export async function POST(request: NextRequest) {
       createdAtServer: FieldValue.serverTimestamp(),
     };
 
+    if (isPostgresListingsEnabled()) {
+      const id = await createListingInPostgres(payload);
+      return NextResponse.json({ id });
+    }
+
     const ref = await getAdminDb().collection("listings").add(payload);
     return NextResponse.json({ id: ref.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "listing/create-failed";
     const status = message.startsWith("listing/") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const listingId = request.nextUrl.searchParams.get("id")?.trim() || "";
+    if (!listingId) {
+      return NextResponse.json({ error: "listing/missing-id" }, { status: 400 });
+    }
+
+    if (isPostgresListingsEnabled()) {
+      const listing = await getListingByIdInPostgres(listingId);
+      if (!listing) {
+        return NextResponse.json({ error: "listing/not-found" }, { status: 404 });
+      }
+
+      return NextResponse.json({ listing });
+    }
+
+    const snapshot = await getAdminDb().collection("listings").doc(listingId).get();
+    if (!snapshot.exists) {
+      return NextResponse.json({ error: "listing/not-found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ listing: { id: snapshot.id, ...snapshot.data() } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "listing/read-failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -306,6 +356,11 @@ export async function PATCH(request: NextRequest) {
       updatedAtServer: FieldValue.serverTimestamp(),
     };
 
+    if (isPostgresListingsEnabled()) {
+      await updateListingInPostgres(listingId, payload);
+      return NextResponse.json({ ok: true });
+    }
+
     await getAdminDb().collection("listings").doc(listingId).update(payload);
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -341,6 +396,11 @@ export async function DELETE(request: NextRequest) {
 
     if (await isAccountDeactivated(decoded.uid)) {
       return NextResponse.json({ error: "user/account-deactivated" }, { status: 403 });
+    }
+
+    if (isPostgresListingsEnabled()) {
+      await removeListingInPostgres(listingId);
+      return NextResponse.json({ ok: true });
     }
 
     await getAdminDb().collection("listings").doc(listingId).update({

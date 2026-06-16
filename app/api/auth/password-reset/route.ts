@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createAuthActionToken,
+  getAuthActionToken,
+  getAuthUserByEmail,
+  resetPasswordWithPostgresToken,
+} from "@/lib/postgres-auth";
+
+export const runtime = "nodejs";
+
+function cleanText(value: unknown, maxLength = 320) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.nextUrl.searchParams.get("token")?.trim() || "";
+    const row = token ? await getAuthActionToken(token, "password_reset") : null;
+    if (!row?.email) return NextResponse.json({ error: "auth/invalid-action-code" }, { status: 400 });
+    return NextResponse.json({ email: row.email });
+  } catch {
+    return NextResponse.json({ error: "auth/invalid-action-code" }, { status: 400 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
+  const email = cleanText(body?.email).toLowerCase();
+  const user = email ? await getAuthUserByEmail(email) : null;
+  if (user) {
+    const token = await createAuthActionToken(user.id, "password_reset");
+    console.info(`Password reset link for ${email}: /forgot-password?mode=resetPassword&oobCode=${token}`);
+  }
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = (await request.json().catch(() => null)) as { token?: unknown; password?: unknown } | null;
+    const token = cleanText(body?.token, 1000);
+    const password = cleanText(body?.password, 1000);
+    if (!token || password.length < 8) {
+      return NextResponse.json({ error: "auth/invalid-payload" }, { status: 400 });
+    }
+    await resetPasswordWithPostgresToken(token, password);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "auth/reset-failed";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}

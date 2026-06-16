@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresSalesEnabled } from "@/lib/postgres";
+import {
+  completeReviewRequestInPostgres,
+  createDirectReviewInPostgres,
+  listPendingReviewRequestsFromPostgres,
+  listReviewsForSellerFromPostgres,
+  skipReviewRequestInPostgres,
+} from "@/lib/postgres-sales";
 
 export const runtime = "nodejs";
 
@@ -18,6 +26,11 @@ export async function GET(request: NextRequest) {
   try {
     const sellerId = request.nextUrl.searchParams.get("sellerId")?.trim() || "";
     if (sellerId) {
+      if (isPostgresSalesEnabled()) {
+        const reviews = await listReviewsForSellerFromPostgres(sellerId);
+        return NextResponse.json({ reviews });
+      }
+
       const snap = await getAdminDb()
         .collection("userRatings")
         .where("sellerId", "==", sellerId)
@@ -34,6 +47,12 @@ export async function GET(request: NextRequest) {
     const token = getBearerToken(request);
     if (!token) return NextResponse.json({ error: "auth/missing-token" }, { status: 401 });
     const decoded = await getAdminAuth().verifyIdToken(token);
+
+    if (isPostgresSalesEnabled()) {
+      const requests = await listPendingReviewRequestsFromPostgres(decoded.uid);
+      return NextResponse.json({ requests });
+    }
+
     const snap = await getAdminDb()
       .collection("purchaseReviewRequests")
       .where("buyerId", "==", decoded.uid)
@@ -80,6 +99,19 @@ export async function POST(request: NextRequest) {
       }
 
       const comment = cleanText(body?.comment, 500);
+      if (isPostgresSalesEnabled()) {
+        await createDirectReviewInPostgres({
+          sellerId: directSellerId,
+          sellerName: cleanText(body?.sellerName, 180) || "Vendedor",
+          buyerId: decoded.uid,
+          buyerName: decoded.name || decoded.email || "Usuario",
+          rating,
+          comment,
+        });
+
+        return NextResponse.json({ ok: true });
+      }
+
       const now = Date.now();
       const reviewId = `direct_${directSellerId}_${decoded.uid}`;
       const db = getAdminDb();
@@ -124,6 +156,27 @@ export async function POST(request: NextRequest) {
     }
 
     if (!requestId) return NextResponse.json({ error: "reviews/missing-request" }, { status: 400 });
+
+    if (isPostgresSalesEnabled()) {
+      if (action === "skip") {
+        await skipReviewRequestInPostgres(requestId, decoded.uid);
+        return NextResponse.json({ ok: true });
+      }
+
+      const rating = Number(body?.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return NextResponse.json({ error: "reviews/invalid-rating" }, { status: 400 });
+      }
+      await completeReviewRequestInPostgres({
+        requestId,
+        buyerId: decoded.uid,
+        buyerName: decoded.name || decoded.email || "Usuario",
+        rating,
+        comment: cleanText(body?.comment, 500),
+      });
+
+      return NextResponse.json({ ok: true });
+    }
 
     const db = getAdminDb();
     const requestRef = db.collection("purchaseReviewRequests").doc(requestId);

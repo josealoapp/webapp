@@ -1,9 +1,8 @@
 "use client";
 
 import { Country, State } from "country-state-city";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { DEFAULT_BUSINESS_PROFILE, readAccountProfile } from "@/lib/account-profile";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 const USER_LOCATION_KEY = "josealo_user_location";
 const USER_LOCATION_EVENT = "josealo:user-location-changed";
@@ -174,14 +173,22 @@ export function writeStoredUserLocation(location: StoredUserLocation) {
   const user = auth.currentUser;
   if (!user) return;
 
-  void setDoc(
-    doc(db, "userPrivateProfiles", user.uid),
-    {
-      location,
-      updatedAt: Date.now(),
-      updatedAtServer: serverTimestamp(),
-    },
-    { merge: true }
+  void user.getIdToken().then((token) =>
+    fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: user.uid,
+        scope: "private",
+        profile: {
+          location,
+          updatedAt: Date.now(),
+        },
+      }),
+    })
   ).catch(() => {
     // Keep local cache if Firestore is unavailable.
   });
@@ -191,8 +198,19 @@ export async function loadStoredUserLocationFromBackend(userId = auth.currentUse
   if (!userId) return readStoredUserLocation();
 
   try {
-    const snapshot = await getDoc(doc(db, "userPrivateProfiles", userId));
-    const location = snapshot.data()?.location as Partial<StoredUserLocation> | undefined;
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return readStoredUserLocation();
+
+    const response = await fetch(`/api/profile?scope=private&userId=${encodeURIComponent(userId)}`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const responsePayload = (await response.json().catch(() => null)) as
+      | { profile?: { location?: Partial<StoredUserLocation> } | null }
+      | null;
+    const location = responsePayload?.profile?.location;
     if (!location?.name || typeof location.name !== "string") return readStoredUserLocation();
 
     const payload: StoredUserLocation = {

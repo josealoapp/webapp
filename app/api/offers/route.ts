@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresChatsEnabled } from "@/lib/postgres";
+import { createOfferChatInPostgres } from "@/lib/postgres-chats";
 
 type OfferRequest = {
   listingId?: string;
@@ -67,6 +69,31 @@ export async function POST(request: NextRequest) {
     const buyerName = decoded.name || decoded.email || "Comprador";
     const now = Date.now();
     const chatId = chatIdFor(listingId, decoded.uid);
+
+    if (isPostgresChatsEnabled()) {
+      const chatId = await createOfferChatInPostgres({
+        listingId,
+        listingTitle,
+        listingPrice,
+        ...(tradeListingId && tradeListingTitle && Number.isFinite(tradeListingPrice) && tradeListingPrice > 0
+          ? {
+              tradeListingId,
+              tradeListingTitle,
+              tradeListingPrice,
+              tradeListingImage: tradeListingImage || "",
+              tradeListingCurrency: tradeListingCurrency || "DOP",
+            }
+          : {}),
+        sellerId,
+        sellerName,
+        buyerId: decoded.uid,
+        buyerName,
+        message,
+      });
+
+      return NextResponse.json({ chatId });
+    }
+
     const adminDb = getAdminDb();
     const chatRef = adminDb.collection("chats").doc(chatId);
     const messageRef = adminDb.collection("messages").doc();

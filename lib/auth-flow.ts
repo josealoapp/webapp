@@ -1,8 +1,7 @@
 "use client";
 
-import { doc, getDoc } from "firebase/firestore";
-import { signOut, type User } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { signOut, type User } from "@/lib/auth-client";
+import { auth } from "@/lib/firebase";
 import {
   getPostAuthDestination,
   loadAccountProfileFromBackend,
@@ -25,14 +24,21 @@ export function getDeactivatedAccountMessage(reason: string) {
 }
 
 export async function assertAccountIsActive(user: User) {
-  const profileSnap = await getDoc(doc(db, "userProfiles", user.uid)).catch(() => null);
-  const supportStatus = profileSnap?.data()?.supportStatus;
+  const response = await fetch(`/api/profile?scope=public&userId=${encodeURIComponent(user.uid)}`, {
+    cache: "no-store",
+  }).catch(() => null);
+  const payload = response
+    ? ((await response.json().catch(() => null)) as
+        | { profile?: { supportStatus?: string; supportDeactivationReason?: string } | null }
+        | null)
+    : null;
+  const supportStatus = payload?.profile?.supportStatus;
 
   if (supportStatus !== "deactivated") {
     return;
   }
 
-  const reason = String(profileSnap?.data()?.supportDeactivationReason || "");
+  const reason = String(payload?.profile?.supportDeactivationReason || "");
   await signOut(auth).catch(() => undefined);
   throw new Error(`account/deactivated|${reason}`);
 }

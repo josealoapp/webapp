@@ -5,6 +5,12 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { moderateImageBuffer } from "@/lib/image-moderation";
 import { uploadListingImageObject, validateListingImage } from "@/lib/s3";
 import type { MarketplaceAd } from "@/lib/marketplace-ads";
+import { isPostgresAdsEnabled } from "@/lib/postgres";
+import {
+  createMarketplaceAdInPostgres,
+  deleteMarketplaceAdFromPostgres,
+  listMarketplaceAdsFromPostgres,
+} from "@/lib/postgres-ads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +41,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (isPostgresAdsEnabled()) {
+      const ads = await listMarketplaceAdsFromPostgres();
+      return NextResponse.json(
+        { ads },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
+    }
+
     const snap = await getAdminDb().collection("marketplaceAds").orderBy("createdAt", "desc").get();
     const ads = snap.docs.map((docSnap) => ({
       id: docSnap.id,
@@ -95,6 +113,26 @@ export async function POST(request: NextRequest) {
     });
 
     const now = Date.now();
+    if (isPostgresAdsEnabled()) {
+      const ad = await createMarketplaceAdInPostgres({
+        campaignName,
+        imageUrl: upload.fileUrl,
+        linkUrl,
+        startDate,
+        endDate,
+        createdAt: now,
+      });
+
+      return NextResponse.json(
+        { ad },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
+    }
+
     const ref = await getAdminDb().collection("marketplaceAds").add({
       campaignName,
       imageUrl: upload.fileUrl,
@@ -141,6 +179,11 @@ export async function DELETE(request: NextRequest) {
     const adId = body?.adId?.trim() || "";
     if (!adId) {
       return NextResponse.json({ error: "ads/id-required" }, { status: 400 });
+    }
+
+    if (isPostgresAdsEnabled()) {
+      await deleteMarketplaceAdFromPostgres(adId);
+      return NextResponse.json({ ok: true });
     }
 
     await getAdminDb().collection("marketplaceAds").doc(adId).delete();

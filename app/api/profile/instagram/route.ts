@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import {
+  getPublicProfileFromPostgres,
+  isPostgresProfilesEnabled,
+  upsertPublicProfileInPostgres,
+} from "@/lib/postgres-profiles";
 
 export const runtime = "nodejs";
 
@@ -36,6 +41,13 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: "profile/instagram-missing-user-id" }, { status: 400 });
+    }
+
+    if (isPostgresProfilesEnabled()) {
+      const data = (await getPublicProfileFromPostgres(userId)) as { instagramUsername?: string } | null;
+      return NextResponse.json({
+        instagramUsername: normalizeInstagramUsername(data?.instagramUsername || ""),
+      });
     }
 
     const snapshot = await getAdminDb().collection("userProfiles").doc(userId).get();
@@ -75,6 +87,15 @@ export async function POST(request: NextRequest) {
 
     if (decoded.uid !== userId) {
       return NextResponse.json({ error: "profile/instagram-forbidden" }, { status: 403 });
+    }
+
+    if (isPostgresProfilesEnabled()) {
+      await upsertPublicProfileInPostgres(userId, {
+        instagramUsername,
+        updatedAt: Date.now(),
+      });
+
+      return NextResponse.json({ ok: true });
     }
 
     await getAdminDb().collection("userProfiles").doc(userId).set(

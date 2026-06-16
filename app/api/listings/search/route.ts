@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldPath } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { normalizeListingSearchText, tokenizeListingSearch } from "@/lib/listing-search-tokens";
+import { isPostgresListingsEnabled } from "@/lib/postgres";
+import { searchListingsInPostgres } from "@/lib/postgres-listings";
 
 export const runtime = "nodejs";
 
@@ -183,6 +185,30 @@ export async function GET(request: NextRequest) {
     const limit = cleanLimit(params.get("limit"));
     const cursor = parseCursor(params.get("cursor"));
     const scanLimit = searchQuery ? Math.min(MAX_SCAN_LIMIT, limit * 4) : limit;
+    const locationValues = locationQueryValues(location);
+    const categoryValues = categoryQueryValues(category);
+
+    if (isPostgresListingsEnabled()) {
+      const result = await searchListingsInPostgres({
+        searchQuery,
+        searchTokens,
+        categoryValues,
+        locationValues,
+        status,
+        type,
+        ownerId,
+        limit,
+        cursor,
+      });
+      const nextCursor = result.nextCursorSource
+        ? makeCursor(Number(result.nextCursorSource.created_at_ms || 0), result.nextCursorSource.id)
+        : null;
+
+      return NextResponse.json({
+        items: result.items,
+        nextCursor,
+      });
+    }
 
     let query: FirebaseFirestore.Query = getAdminDb().collection("listings");
 
@@ -194,14 +220,12 @@ export async function GET(request: NextRequest) {
       query = query.where("searchTokens", "array-contains-any", searchTokens.slice(0, 10));
     }
 
-    const locationValues = locationQueryValues(location);
     if (locationValues.length === 1) {
       query = query.where("location", "==", locationValues[0]);
     } else if (locationValues.length > 1) {
       query = query.where("location", "in", locationValues);
     }
 
-    const categoryValues = categoryQueryValues(category);
     if (categoryValues.length === 1) {
       query = query.where("category", "==", categoryValues[0]);
     } else if (categoryValues.length > 1) {

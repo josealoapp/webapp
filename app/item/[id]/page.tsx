@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 
 import AppBottomNav from "@/components/AppBottomNav";
 import InterestModal from "@/components/InterestModal";
@@ -967,7 +967,13 @@ export default function ItemDetailsPage() {
             ) : (
               <span className="inline-flex items-center gap-1">
                 {item.sellerUsesWhatsapp && item.sellerWhatsappNumber?.trim() ? (
-                  <Image src="/whatsapp.svg" alt="" width={20} height={20} className="h-5 w-5" />
+                  <Image
+                    src="/whatsapp.svg"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className={theme === "light" ? "h-5 w-5 brightness-0 invert" : "h-5 w-5 brightness-0"}
+                  />
                 ) : null}
                 <span>Estoy interesado</span>
               </span>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { useThemeSetting } from "@/components/ThemeProvider";

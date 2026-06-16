@@ -445,15 +445,8 @@ export async function deleteChat(chatId: string) {
 }
 
 export async function listListings() {
-  const snap = await getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), firestoreLimit(120)));
-  const rows = snap.docs
-    .map((d) => {
-      const data = d.data() as Omit<Listing, "id">;
-      return { id: d.id, ...data } as Listing;
-    })
-    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-
-  return rows;
+  const result = await searchListings({ limit: 120 });
+  return result.items;
 }
 
 function subscribeWithPolling(load: () => Promise<void>, intervalMs = 15000) {
@@ -475,23 +468,24 @@ function subscribeWithPolling(load: () => Promise<void>, intervalMs = 15000) {
 
 export function subscribeListings(onData: (listings: Listing[]) => void) {
   return subscribeWithPolling(async () => {
-    const snap = await getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), firestoreLimit(120)));
-    const rows = snap.docs
-      .map((d) => {
-        const data = d.data() as Omit<Listing, "id">;
-        return { id: d.id, ...data } as Listing;
-      })
-      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-
-    onData(rows);
+    const result = await searchListings({ limit: 120 });
+    onData(result.items);
   });
 }
 
 export async function getListingById(id: string) {
-  const snap = await getDoc(doc(db, "listings", id));
-  if (!snap.exists()) return null;
-  const data = snap.data() as Omit<Listing, "id">;
-  return { id: snap.id, ...data } as Listing;
+  const response = await fetch(`/api/listings?id=${encodeURIComponent(id)}`, {
+    cache: "no-store",
+  });
+
+  if (response.status === 404) return null;
+
+  const payload = (await response.json().catch(() => null)) as { listing?: Listing; error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "listing/read-failed");
+  }
+
+  return payload?.listing || null;
 }
 
 export async function listOwnerListings(ownerId: string, cursor?: string | null, pageSize = 30): Promise<ListingSearchResult> {
@@ -647,23 +641,7 @@ export async function upsertChatFromOffer(input: {
   buyerId: string;
   buyerName: string;
 }) {
-  const id = getOfferChatId(input.listingId, input.buyerId);
-  const now = Date.now();
-  const chatRef = doc(db, "chats", id);
-
-  await setDoc(
-    chatRef,
-    {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-      createdAtServer: serverTimestamp(),
-      updatedAtServer: serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return id;
+  return getOfferChatId(input.listingId, input.buyerId);
 }
 
 export async function addChatMessage(input: {
@@ -673,41 +651,57 @@ export async function addChatMessage(input: {
   text: string;
   imageUrl?: string;
 }) {
-  const createdAt = Date.now();
-  const chat = await getChatById(input.chatId);
-  const recipientId =
-    chat && input.senderId === chat.sellerId ? chat.buyerId : chat?.sellerId;
-  const lastMessage = input.text.trim() || (input.imageUrl ? "Imagen" : "");
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
 
-  await addDoc(collection(db, "messages"), {
-    ...input,
-    createdAt,
-    createdAtServer: serverTimestamp(),
+  const response = await fetch("/api/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
   });
-
-  await updateDoc(doc(db, "chats", input.chatId), {
-    updatedAt: createdAt,
-    updatedAtServer: serverTimestamp(),
-    lastMessage,
-    lastMessageSenderId: input.senderId,
-    ...(recipientId ? { [`unreadBy.${recipientId}`]: increment(1) } : {}),
-  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || "message/write-failed");
+  }
 }
 
 export async function markChatRead(chatId: string, userId: string) {
   if (!chatId || !userId) return;
 
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unreadBy.${userId}`]: 0,
-    [`readBy.${userId}`]: Date.now(),
-    updatedAtServer: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) return;
+
+  await fetch("/api/messages", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ chatId }),
   });
 }
 
 export async function getChatById(chatId: string) {
-  const snap = await getDoc(doc(db, "chats", chatId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...(snap.data() as Omit<ChatRecord, "id">) } as ChatRecord;
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) return null;
+
+  const response = await fetch(`/api/chats?userId=${encodeURIComponent(auth.currentUser?.uid || "")}&role=buyer&limit=100`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const buyerPayload = (await response.json().catch(() => null)) as { chats?: ChatRecord[] } | null;
+  const buyerChat = buyerPayload?.chats?.find((chat) => chat.id === chatId);
+  if (buyerChat) return buyerChat;
+
+  const sellerResponse = await fetch(`/api/chats?userId=${encodeURIComponent(auth.currentUser?.uid || "")}&role=seller&limit=100`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const sellerPayload = (await sellerResponse.json().catch(() => null)) as { chats?: ChatRecord[] } | null;
+  return sellerPayload?.chats?.find((chat) => chat.id === chatId) || null;
 }
 
 export async function getExistingOfferChat(listingId: string, buyerId: string) {
@@ -720,21 +714,22 @@ export function subscribeChatById(
   onData: (chat: ChatRecord | null) => void,
   onError?: (code?: string) => void
 ) {
-  return onSnapshot(
-    doc(db, "chats", chatId),
-    (snap) => {
-      if (!snap.exists()) {
-        onData(null);
-        return;
-      }
-
-      onData({ id: snap.id, ...(snap.data() as Omit<ChatRecord, "id">) } as ChatRecord);
-    },
-    (error) => {
-      onError?.(error.code);
-      onData(null);
+  let cancelled = false;
+  const load = async () => {
+    try {
+      const chat = await getChatById(chatId);
+      if (!cancelled) onData(chat);
+    } catch {
+      onError?.("chat/load-failed");
+      if (!cancelled) onData(null);
     }
-  );
+  };
+  void load();
+  const intervalId = window.setInterval(load, 5000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export function subscribeMessagesForChat(
@@ -742,23 +737,21 @@ export function subscribeMessagesForChat(
   onData: (messages: MessageRecord[]) => void,
   onError?: (code?: string) => void
 ) {
-  const q = query(collection(db, "messages"), where("chatId", "==", chatId));
-
-  return onSnapshot(
-    q,
-    (snap) => {
-      const rows = snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<MessageRecord, "id">),
-        }))
-        .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
-        .slice(-50);
-
-      onData(rows as MessageRecord[]);
-    },
-    (error) => onError?.(error.code)
-  );
+  let cancelled = false;
+  const load = async () => {
+    try {
+      const result = await listMessagesForChat(chatId, null, 50);
+      if (!cancelled) onData(result.messages);
+    } catch {
+      onError?.("messages/load-failed");
+    }
+  };
+  void load();
+  const intervalId = window.setInterval(load, 5000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export function subscribeChatsForUser(
@@ -767,26 +760,22 @@ export function subscribeChatsForUser(
   onData: (chats: ChatRecord[]) => void,
   onError?: (code?: string) => void
 ) {
-  const field = role === "buyer" ? "buyerId" : "sellerId";
-  const q = query(collection(db, "chats"), where(field, "==", userId));
-
-  return onSnapshot(
-    q,
-    (snap) => {
-      const rows = snap.docs
-      .map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<ChatRecord, "id">),
-      }))
-      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
-
-      onData(rows as ChatRecord[]);
-    },
-    (error) => {
-      onError?.(error.code);
-      onData([]);
+  let cancelled = false;
+  const load = async () => {
+    try {
+      const result = await listChatsForUser(userId, role, null, 100);
+      if (!cancelled) onData(result.chats);
+    } catch {
+      onError?.("chats/load-failed");
+      if (!cancelled) onData([]);
     }
-  );
+  };
+  void load();
+  const intervalId = window.setInterval(load, 5000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export function subscribeInboxChatsForUser(
@@ -833,34 +822,23 @@ export async function listMessagesForChat(
   cursor?: number | null,
   pageSize = 50
 ): Promise<MessagePageResult> {
-  const parts = [
-    collection(db, "messages"),
-    where("chatId", "==", chatId),
-    orderBy("createdAt", "desc"),
-    ...(cursor ? [startAfter(cursor)] : []),
-    firestoreLimit(pageSize),
-  ] as const;
-  let snap;
-  try {
-    snap = await getDocs(query(...parts));
-  } catch (error) {
-    if (!isMissingFirestoreIndexError(error)) throw error;
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
 
-    snap = await getDocs(
-      query(collection(db, "messages"), where("chatId", "==", chatId), firestoreLimit(pageSize))
-    );
-  }
-  const rows = snap.docs
-    .map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<MessageRecord, "id">),
-    }))
-    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)) as MessageRecord[];
-  const last = snap.docs[snap.docs.length - 1];
-
+  const params = new URLSearchParams({
+    chatId,
+    limit: String(pageSize),
+  });
+  if (cursor) params.set("cursor", String(cursor));
+  const response = await fetch(`/api/messages?${params.toString()}`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = (await response.json().catch(() => null)) as MessagePageResult & { error?: string };
+  if (!response.ok) throw new Error(payload?.error || "messages/list-failed");
   return {
-    messages: rows,
-    nextCursor: snap.docs.length === pageSize ? Number(last?.get("createdAt") || 0) : null,
+    messages: payload.messages || [],
+    nextCursor: payload.nextCursor || null,
   };
 }
 
@@ -870,36 +848,24 @@ export async function listChatsForUser(
   cursor?: number | null,
   pageSize = 25
 ): Promise<ChatPageResult> {
-  const field = role === "buyer" ? "buyerId" : "sellerId";
-  const parts = [
-    collection(db, "chats"),
-    where(field, "==", userId),
-    orderBy("updatedAt", "desc"),
-    ...(cursor ? [startAfter(cursor)] : []),
-    firestoreLimit(pageSize),
-  ] as const;
-  let snap;
-  let usedFallback = false;
-  try {
-    snap = await getDocs(query(...parts));
-  } catch (error) {
-    if (!isMissingFirestoreIndexError(error)) throw error;
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
 
-    usedFallback = true;
-    snap = await getDocs(query(collection(db, "chats"), where(field, "==", userId), firestoreLimit(100)));
-  }
-
-  const rows = snap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as Omit<ChatRecord, "id">),
-  }))
-    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
-    .slice(0, pageSize) as ChatRecord[];
-  const last = snap.docs[snap.docs.length - 1];
-
+  const params = new URLSearchParams({
+    userId,
+    role,
+    limit: String(pageSize),
+  });
+  if (cursor) params.set("cursor", String(cursor));
+  const response = await fetch(`/api/chats?${params.toString()}`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = (await response.json().catch(() => null)) as ChatPageResult & { error?: string };
+  if (!response.ok) throw new Error(payload?.error || "chats/list-failed");
   return {
-    chats: rows,
-    nextCursor: !usedFallback && snap.docs.length === pageSize ? Number(last?.get("updatedAt") || 0) : null,
+    chats: payload.chats || [],
+    nextCursor: payload.nextCursor || null,
   };
 }
 

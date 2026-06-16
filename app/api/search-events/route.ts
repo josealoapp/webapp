@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresAnalyticsEnabled } from "@/lib/postgres";
+import { createSearchEventInPostgres } from "@/lib/postgres-analytics";
 
 export const runtime = "nodejs";
 
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "search-event/empty" }, { status: 400 });
     }
 
-    await getAdminDb().collection("searchEvents").add({
+    const event = {
       query,
       normalizedQuery,
       category,
@@ -67,6 +69,15 @@ export async function POST(request: NextRequest) {
       userId,
       source,
       createdAt: Date.now(),
+    };
+
+    if (isPostgresAnalyticsEnabled()) {
+      await createSearchEventInPostgres(event);
+      return NextResponse.json({ ok: true });
+    }
+
+    await getAdminDb().collection("searchEvents").add({
+      ...event,
       createdAtServer: FieldValue.serverTimestamp(),
     });
 

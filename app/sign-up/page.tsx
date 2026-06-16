@@ -10,7 +10,7 @@ import {
   sendEmailVerification,
   signInWithPopup,
   updateProfile,
-} from "firebase/auth";
+} from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";
 import { readAccountProfile, writeAccountProfile } from "@/lib/account-profile";

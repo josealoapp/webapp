@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { GalleryHorizontalEnd, Heart, MapPin, Share2, StretchHorizontal, X } from "lucide-react";
 import AppBottomNav from "@/components/AppBottomNav";
 import ItemCard from "@/components/ItemCard";

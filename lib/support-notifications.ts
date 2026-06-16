@@ -1,7 +1,6 @@
 "use client";
 
-import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export type SupportNotification = {
   id: string;
@@ -21,26 +20,41 @@ export function subscribeSupportNotifications(userId: string, onData: (rows: Sup
     return () => undefined;
   }
 
-  const q = query(collection(db, "supportNotifications"), where("userId", "==", userId));
+  let cancelled = false;
+  const load = async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("auth/missing-token");
+      const response = await fetch(`/api/support-notifications?userId=${encodeURIComponent(userId)}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { notifications?: SupportNotification[] }
+        | null;
+      if (!cancelled) onData(payload?.notifications || []);
+    } catch {
+      if (!cancelled) onData([]);
+    }
+  };
 
-  return onSnapshot(
-    q,
-    (snap) => {
-      onData(
-        snap.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<SupportNotification, "id">),
-        })).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
-      );
-    },
-    () => onData([])
-  );
+  void load();
+  const intervalId = window.setInterval(load, 15000);
+  return () => {
+    cancelled = true;
+    window.clearInterval(intervalId);
+  };
 }
 
 export async function markSupportNotificationRead(notificationId: string) {
-  await updateDoc(doc(db, "supportNotifications", notificationId), {
-    read: true,
-    readAt: Date.now(),
-    readAtServer: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("auth/missing-token");
+  await fetch("/api/support-notifications", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ notificationId }),
   });
 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import { ArrowLeft, Bell, Heart, Search, Sparkles } from "lucide-react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import SellerAvatar from "@/components/SellerAvatar";
 import { auth } from "@/lib/firebase";
 import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";

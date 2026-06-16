@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "@/lib/auth-client";
 import { MapPin } from "lucide-react";
 import AppBottomNav from "@/components/AppBottomNav";
 import Navbar from "@/components/Navbar";

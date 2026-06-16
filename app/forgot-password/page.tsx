@@ -7,7 +7,7 @@ import {
   confirmPasswordReset,
   sendPasswordResetEmail,
   verifyPasswordResetCode,
-} from "firebase/auth";
+} from "@/lib/auth-client";
 import { ArrowLeft, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { AppSkeleton } from "@/components/AppSkeleton";

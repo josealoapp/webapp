@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { isPostgresProfilesEnabled, upsertPublicProfileInPostgres } from "@/lib/postgres-profiles";
 
 export const runtime = "nodejs";
 
@@ -128,6 +129,15 @@ export async function POST(request: NextRequest) {
     const profileTags = normalizeProfileTags(body?.profileTags);
     if (!profileTags.length) {
       return NextResponse.json({ error: "profile/tags-invalid-payload" }, { status: 400 });
+    }
+
+    if (isPostgresProfilesEnabled()) {
+      await upsertPublicProfileInPostgres(userId, {
+        profileTags,
+        updatedAt: Date.now(),
+      });
+
+      return NextResponse.json({ ok: true });
     }
 
     await getAdminDb().collection("userProfiles").doc(userId).set(
