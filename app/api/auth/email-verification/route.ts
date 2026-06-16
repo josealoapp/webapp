@@ -4,6 +4,7 @@ import {
   verifyEmailWithPostgresToken,
   verifyPostgresAuthToken,
 } from "@/lib/postgres-auth";
+import { sendEmail, verificationEmailTemplate } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,21 @@ export async function POST(request: NextRequest) {
     if (!token) return NextResponse.json({ error: "auth/missing-token" }, { status: 401 });
     const user = await verifyPostgresAuthToken(token);
     const actionToken = await createAuthActionToken(user.uid, "email_verification");
-    console.info(`Email verification link for ${user.email || user.uid}: /verify-email?token=${actionToken}`);
+    const verificationUrl = new URL(`/verify-email?token=${encodeURIComponent(actionToken)}`, request.nextUrl.origin);
+    if (user.email) {
+      const email = verificationEmailTemplate({
+        name: user.displayName,
+        url: verificationUrl.toString(),
+      });
+      await sendEmail({
+        to: user.email,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    } else {
+      console.info(`Email verification link for ${user.uid}: ${verificationUrl.toString()}`);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "auth/email-verification-failed";

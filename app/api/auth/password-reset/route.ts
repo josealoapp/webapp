@@ -5,6 +5,7 @@ import {
   getAuthUserByEmail,
   resetPasswordWithPostgresToken,
 } from "@/lib/postgres-auth";
+import { passwordResetEmailTemplate, sendEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,17 @@ export async function POST(request: NextRequest) {
   const user = email ? await getAuthUserByEmail(email) : null;
   if (user) {
     const token = await createAuthActionToken(user.id, "password_reset");
-    console.info(`Password reset link for ${email}: /forgot-password?mode=resetPassword&oobCode=${token}`);
+    const resetUrl = new URL(
+      `/forgot-password?mode=resetPassword&oobCode=${encodeURIComponent(token)}`,
+      request.nextUrl.origin
+    );
+    const emailTemplate = passwordResetEmailTemplate({ url: resetUrl.toString() });
+    await sendEmail({
+      to: email,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text,
+    });
   }
   return NextResponse.json({ ok: true });
 }
