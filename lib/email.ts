@@ -118,10 +118,10 @@ export function verificationEmailTemplate(input: { email?: string | null; name?:
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:#ffffff;padding:28px 0;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;margin:0 auto;overflow:hidden;background-color:#fff1e8;background-image:url('${backgroundUrl}');background-repeat:no-repeat;background-position:center bottom;background-size:100% auto;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;margin:0 auto;overflow:hidden;background-color:#fff1e8;">
             <tr>
               <td align="center" style="padding:28px 20px 24px;background:#ffffff;text-align:center;">
-                <img src="${logoUrl}" width="150" alt="Josealo" style="max-width:150px;height:auto;display:inline-block;border:0;outline:none;text-decoration:none;">
+                <img src="${logoUrl}" width="150" height="23" alt="Josealo" style="width:150px;max-width:150px;height:auto;display:inline-block;border:0;outline:none;text-decoration:none;">
               </td>
             </tr>
             <tr>
@@ -147,7 +147,7 @@ export function verificationEmailTemplate(input: { email?: string | null; name?:
                     </td>
                   </tr>
                   <tr>
-                    <td align="center" style="padding:30px 20px 235px;text-align:center;background:transparent;border-top:1px solid rgba(255,255,255,0.85);">
+                    <td align="center" style="padding:30px 20px 24px;text-align:center;background:transparent;border-top:1px solid rgba(255,255,255,0.85);">
                       <p style="margin:0;font-size:16px;line-height:1.55;color:#374151;">
                         Gracias por formar parte de Josealo!<br>
                         El equipo de Josealo
@@ -155,6 +155,11 @@ export function verificationEmailTemplate(input: { email?: string | null; name?:
                     </td>
                   </tr>
                 </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:0;text-align:center;font-size:0;line-height:0;">
+                <img src="${backgroundUrl}" width="600" alt="" style="width:100%;max-width:600px;height:auto;display:block;border:0;outline:none;text-decoration:none;">
               </td>
             </tr>
           </table>
