@@ -2,7 +2,7 @@
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ImagePlus, Link as LinkIcon, Trash2 } from "lucide-react";
+import { ImagePlus, Link as LinkIcon, Pencil, Trash2, X } from "lucide-react";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ export default function AdminAdsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [editingAdId, setEditingAdId] = useState("");
+  const [editingImageUrl, setEditingImageUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -55,9 +57,11 @@ export default function AdminAdsPage() {
   }, [selectedFile]);
 
   const canPublish = useMemo(
-    () => Boolean(selectedFile && campaignName.trim() && startDate && endDate && linkUrl.trim() && !submitting),
-    [campaignName, endDate, linkUrl, selectedFile, startDate, submitting]
+    () => Boolean((selectedFile || editingImageUrl) && campaignName.trim() && startDate && endDate && linkUrl.trim() && !submitting),
+    [campaignName, editingImageUrl, endDate, linkUrl, selectedFile, startDate, submitting]
   );
+
+  const activePreviewUrl = previewUrl || editingImageUrl;
 
   const handleFile = (file?: File | null) => {
     if (!file) return;
@@ -81,37 +85,59 @@ export default function AdminAdsPage() {
     setStartDate("");
     setEndDate("");
     setLinkUrl("");
+    setEditingAdId("");
+    setEditingImageUrl("");
     setSelectedFile(null);
     setError("");
   };
 
+  const editAd = (ad: MarketplaceAd) => {
+    setEditingAdId(ad.id);
+    setEditingImageUrl(ad.imageUrl);
+    setCampaignName(ad.campaignName);
+    setStartDate(ad.startDate);
+    setEndDate(ad.endDate);
+    setLinkUrl(ad.linkUrl);
+    setSelectedFile(null);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const publishAd = async () => {
-    if (!canPublish || !selectedFile) return;
+    if (!canPublish) return;
     setSubmitting(true);
     setError("");
 
     try {
-      const optimizedFile = await optimizeListingImage(selectedFile, 0);
       const formData = new FormData();
-      formData.append("image", optimizedFile);
+      if (editingAdId) {
+        formData.append("adId", editingAdId);
+      }
+      if (selectedFile) {
+        const optimizedFile = await optimizeListingImage(selectedFile, 0);
+        formData.append("image", optimizedFile);
+      }
       formData.append("campaignName", campaignName.trim());
       formData.append("startDate", startDate);
       formData.append("endDate", endDate);
       formData.append("linkUrl", linkUrl.trim());
 
       const response = await fetch("/api/admin/ads", {
-        method: "POST",
+        method: editingAdId ? "PUT" : "POST",
         body: formData,
       });
       const payload = (await response.json().catch(() => null)) as { ad?: MarketplaceAd; error?: string } | null;
       if (!response.ok || !payload?.ad) {
-        throw new Error(payload?.error || "No pudimos publicar la campaña.");
+        throw new Error(payload?.error || (editingAdId ? "No pudimos actualizar la campaña." : "No pudimos publicar la campaña."));
       }
 
-      setAds((current) => [payload.ad as MarketplaceAd, ...current]);
+      setAds((current) => {
+        const ad = payload.ad as MarketplaceAd;
+        return editingAdId ? current.map((item) => (item.id === ad.id ? ad : item)) : [ad, ...current];
+      });
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos publicar la campaña.");
+      setError(err instanceof Error ? err.message : editingAdId ? "No pudimos actualizar la campaña." : "No pudimos publicar la campaña.");
     } finally {
       setSubmitting(false);
     }
@@ -124,6 +150,9 @@ export default function AdminAdsPage() {
       body: JSON.stringify({ adId }),
     });
     setAds((current) => current.filter((ad) => ad.id !== adId));
+    if (editingAdId === adId) {
+      resetForm();
+    }
   };
 
   return (
@@ -137,8 +166,22 @@ export default function AdminAdsPage() {
 
       <main className="mx-auto grid max-w-5xl gap-6 px-4 pb-28 pt-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/40 p-5">
-          <div className="text-lg font-semibold">Nueva campaña</div>
-          <div className="mt-1 text-sm text-neutral-400">La imagen publicada se reflejará en el carousel del marketplace.</div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold">{editingAdId ? "Editar campaña" : "Nueva campaña"}</div>
+              <div className="mt-1 text-sm text-neutral-400">La imagen publicada se reflejará en el carousel del marketplace.</div>
+            </div>
+            {editingAdId ? (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-700 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"
+                aria-label="Cancelar edición"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
 
           <button
             type="button"
@@ -154,8 +197,8 @@ export default function AdminAdsPage() {
               dragging ? "border-orange-400" : "border-neutral-700 hover:border-orange-400",
             ].join(" ")}
           >
-            {previewUrl ? (
-              <img src={previewUrl} alt="Vista previa" className="h-full w-full object-cover" />
+            {activePreviewUrl ? (
+              <img src={activePreviewUrl} alt="Vista previa" className="h-full w-full object-cover" />
             ) : (
               <>
                 <ImagePlus className="h-8 w-8 text-orange-400" />
@@ -220,7 +263,7 @@ export default function AdminAdsPage() {
             disabled={!canPublish}
             className="mt-5 h-12 w-full rounded-2xl bg-orange-400 text-black hover:bg-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
           >
-            {submitting ? "Publicando..." : "Publicar"}
+            {submitting ? (editingAdId ? "Actualizando..." : "Publicando...") : editingAdId ? "Actualizar y publicar" : "Publicar"}
           </Button>
         </section>
 
@@ -242,8 +285,16 @@ export default function AdminAdsPage() {
                   </a>
                   <button
                     type="button"
+                    onClick={() => editAd(ad)}
+                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-orange-400/50 bg-orange-400/10 text-sm font-semibold text-orange-200"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => removeAd(ad.id)}
-                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-300"
+                    className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-300"
                   >
                     <Trash2 className="h-4 w-4" />
                     Remover

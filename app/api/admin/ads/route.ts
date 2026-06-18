@@ -9,7 +9,9 @@ import { isPostgresAdsEnabled } from "@/lib/postgres";
 import {
   createMarketplaceAdInPostgres,
   deleteMarketplaceAdFromPostgres,
+  getMarketplaceAdFromPostgres,
   listMarketplaceAdsFromPostgres,
+  updateMarketplaceAdInPostgres,
 } from "@/lib/postgres-ads";
 
 export const runtime = "nodejs";
@@ -163,6 +165,120 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "admin/ads-create-failed";
+    const status = message.startsWith("ads/") || message.startsWith("upload/") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  const session = assertAdminRequest(request);
+  if (!session) {
+    return NextResponse.json({ error: "admin/unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const formData = await request.formData();
+    const adId = cleanText(formData.get("adId"), 120);
+    const file = formData.get("image");
+    const campaignName = cleanText(formData.get("campaignName"));
+    const startDate = cleanText(formData.get("startDate"), 20);
+    const endDate = cleanText(formData.get("endDate"), 20);
+    const linkUrl = cleanUrl(cleanText(formData.get("linkUrl"), 1200));
+
+    if (!adId) {
+      return NextResponse.json({ error: "ads/id-required" }, { status: 400 });
+    }
+    if (!campaignName || !isValidDateKey(startDate) || !isValidDateKey(endDate) || !linkUrl) {
+      return NextResponse.json({ error: "ads/invalid-payload" }, { status: 400 });
+    }
+    if (startDate > endDate) {
+      return NextResponse.json({ error: "ads/invalid-date-range" }, { status: 400 });
+    }
+
+    let currentAd: MarketplaceAd | null = null;
+    if (isPostgresAdsEnabled()) {
+      currentAd = await getMarketplaceAdFromPostgres(adId);
+    } else {
+      const snap = await getAdminDb().collection("marketplaceAds").doc(adId).get();
+      if (snap.exists) {
+        currentAd = {
+          id: snap.id,
+          ...(snap.data() as Omit<MarketplaceAd, "id">),
+        } as MarketplaceAd;
+      }
+    }
+
+    if (!currentAd) {
+      return NextResponse.json({ error: "ads/not-found" }, { status: 404 });
+    }
+
+    let imageUrl = currentAd.imageUrl;
+    if (file instanceof File && file.size > 0) {
+      validateListingImage({ name: file.name || "ad.jpg", type: file.type || "image/jpeg", size: file.size || 0 });
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const moderation = await moderateImageBuffer(buffer);
+      if (moderation.blocked) {
+        return NextResponse.json({ error: "ads/unsafe-image" }, { status: 400 });
+      }
+
+      const upload = await uploadListingImageObject({
+        fileName: file.name || "ad.jpg",
+        contentType: file.type || "image/jpeg",
+        userId: "admin-ads",
+        index: 0,
+        body: buffer,
+      });
+      imageUrl = upload.fileUrl;
+    }
+
+    const nextAd: MarketplaceAd = {
+      ...currentAd,
+      campaignName,
+      imageUrl,
+      linkUrl,
+      startDate,
+      endDate,
+    };
+
+    if (isPostgresAdsEnabled()) {
+      const ad = await updateMarketplaceAdInPostgres(nextAd);
+      if (!ad) {
+        return NextResponse.json({ error: "ads/not-found" }, { status: 404 });
+      }
+
+      return NextResponse.json(
+        { ad },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
+    }
+
+    await getAdminDb().collection("marketplaceAds").doc(adId).set(
+      {
+        campaignName,
+        imageUrl,
+        linkUrl,
+        startDate,
+        endDate,
+        updatedAt: Date.now(),
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json(
+      { ad: nextAd },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "admin/ads-update-failed";
     const status = message.startsWith("ads/") || message.startsWith("upload/") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

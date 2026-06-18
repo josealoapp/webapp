@@ -45,7 +45,7 @@ export default function HomeHero() {
   }, [slides.length]);
 
   return (
-    <section className="relative h-[15vh] min-h-[180px] w-full overflow-hidden rounded-3xl bg-neutral-950">
+    <section className="relative aspect-[16/7] min-h-[160px] w-full overflow-hidden rounded-3xl bg-neutral-950 md:aspect-[32/9] md:min-h-0">
       {slides.map((item, i) => (
         <div
           key={item.id}
@@ -55,14 +55,8 @@ export default function HomeHero() {
         >
           <img
             src={item.imageUrl}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 hidden h-full w-full scale-110 object-cover blur-xl md:block"
-          />
-          <img
-            src={item.imageUrl}
             alt={item.label}
-            className="relative h-full w-full object-cover md:object-contain"
+            className="h-full w-full object-cover object-center"
           />
         </div>
       ))}

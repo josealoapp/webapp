@@ -64,6 +64,38 @@ export async function createMarketplaceAdInPostgres(input: Omit<MarketplaceAd, "
   } satisfies MarketplaceAd;
 }
 
+export async function getMarketplaceAdFromPostgres(adId: string) {
+  const result = await pgQuery<MarketplaceAdRow>("select * from marketplace_ads where id = $1 limit 1", [adId]);
+  return result.rows[0] ? adFromRow(result.rows[0]) : null;
+}
+
+export async function updateMarketplaceAdInPostgres(input: MarketplaceAd) {
+  const result = await pgQuery<MarketplaceAdRow>(
+    `
+      update marketplace_ads
+      set campaign_name = $2,
+          image_url = $3,
+          link_url = $4,
+          start_date = $5,
+          end_date = $6,
+          data = $7::jsonb
+      where id = $1
+      returning *
+    `,
+    [
+      input.id,
+      input.campaignName,
+      input.imageUrl,
+      input.linkUrl,
+      input.startDate,
+      input.endDate,
+      JSON.stringify(input),
+    ]
+  );
+
+  return result.rows[0] ? adFromRow(result.rows[0]) : null;
+}
+
 export async function deleteMarketplaceAdFromPostgres(adId: string) {
   await pgQuery("delete from marketplace_ads where id = $1", [adId]);
 }
