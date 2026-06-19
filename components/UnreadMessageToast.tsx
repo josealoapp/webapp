@@ -15,6 +15,7 @@ export default function UnreadMessageToast() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const previousUnreadRef = useRef<number | null>(null);
+  const lastNotifiedUnreadRef = useRef(0);
   const lastToastUserRef = useRef("");
 
   useEffect(() => {
@@ -23,13 +24,14 @@ export default function UnreadMessageToast() {
       setCurrentUserId(userId);
       setChats([]);
       previousUnreadRef.current = null;
+      lastNotifiedUnreadRef.current = 0;
       lastToastUserRef.current = "";
     });
   }, []);
 
   useEffect(() => {
     if (!currentUserId) return;
-    return subscribeInboxChatsForUser(currentUserId, setChats, () => setChats([]));
+    return subscribeInboxChatsForUser(currentUserId, setChats);
   }, [currentUserId]);
 
   const unreadMessages = useMemo(() => {
@@ -45,14 +47,21 @@ export default function UnreadMessageToast() {
 
     const previousUnread = previousUnreadRef.current;
     previousUnreadRef.current = unreadMessages;
+    if (unreadMessages < lastNotifiedUnreadRef.current) {
+      lastNotifiedUnreadRef.current = unreadMessages;
+    }
 
     const hasUnreadAfterSignIn = previousUnread === null && unreadMessages > 0;
-    const hasNewUnread = previousUnread !== null && unreadMessages > previousUnread;
+    const hasNewUnread =
+      previousUnread !== null &&
+      unreadMessages > previousUnread &&
+      unreadMessages > lastNotifiedUnreadRef.current;
     const alreadyNotifiedOnSignIn = lastToastUserRef.current === currentUserId;
 
     if ((!hasUnreadAfterSignIn || alreadyNotifiedOnSignIn) && !hasNewUnread) return;
 
     lastToastUserRef.current = currentUserId;
+    lastNotifiedUnreadRef.current = unreadMessages;
     toast("Tienes un mensaje", {
       id: "unread-message-toast",
       icon: <MessageCircle className="h-4 w-4" />,

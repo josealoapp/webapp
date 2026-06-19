@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
   const email = cleanText(body?.email).toLowerCase();
   const user = email ? await getAuthUserByEmail(email) : null;
+  let devResetUrl = "";
   if (user) {
     const token = await createAuthActionToken(user.id, "password_reset");
     const resetUrl = new URL(
@@ -35,14 +36,21 @@ export async function POST(request: NextRequest) {
       request.nextUrl.origin
     );
     const emailTemplate = passwordResetEmailTemplate({ url: resetUrl.toString() });
-    await sendEmail({
+    const result = await sendEmail({
       to: email,
       subject: emailTemplate.subject,
       html: emailTemplate.html,
       text: emailTemplate.text,
     });
+    if (result.skipped && process.env.NODE_ENV !== "production") {
+      devResetUrl = resetUrl.toString();
+      console.info(`Password reset email skipped. Local reset URL: ${devResetUrl}`);
+    }
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    ...(devResetUrl ? { devResetUrl } : {}),
+  });
 }
 
 export async function PATCH(request: NextRequest) {

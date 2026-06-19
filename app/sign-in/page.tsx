@@ -116,6 +116,8 @@ function SignInContent() {
         setError("Credenciales incorrectas. Revisa tu email y contraseña.");
       } else if (code === "auth/user-not-found") {
         setError("No existe una cuenta con ese email. Ve a 'Sign up'.");
+      } else if (code === "auth/password-reset-required") {
+        setError("Esta cuenta necesita crear una contraseña local. Usa 'Forgot password' para configurar una nueva.");
       } else if (code === "auth/too-many-requests") {
         setError("Demasiados intentos. Intenta de nuevo en unos minutos.");
       } else {

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
-import { ArrowLeft, Bell, Heart, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, Heart, Search, Share2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { onAuthStateChanged } from "@/lib/auth-client";
 import SellerAvatar from "@/components/SellerAvatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { auth } from "@/lib/firebase";
 import { subscribeFollowers, subscribeFollowing } from "@/lib/follows";
 import {
@@ -58,6 +60,7 @@ export default function ActivityPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [supportNotifications, setSupportNotifications] = useState<SupportNotification[]>([]);
+  const [selectedLikeIds, setSelectedLikeIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -230,6 +233,57 @@ export default function ActivityPage() {
     );
   }, [likes, query]);
 
+  const selectedLikes = useMemo(
+    () => likes.filter((entry) => selectedLikeIds.has(entry.id)),
+    [likes, selectedLikeIds]
+  );
+
+  useEffect(() => {
+    setSelectedLikeIds((current) => {
+      if (current.size === 0) return current;
+      const visibleIds = new Set(likes.map((entry) => entry.id));
+      const next = new Set(Array.from(current).filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [likes]);
+
+  const toggleLikeSelection = (likeId: string) => {
+    setSelectedLikeIds((current) => {
+      const next = new Set(current);
+      if (next.has(likeId)) {
+        next.delete(likeId);
+      } else {
+        next.add(likeId);
+      }
+      return next;
+    });
+  };
+
+  const shareSelectedLikes = async () => {
+    if (!selectedLikes.length || typeof window === "undefined") return;
+
+    const tokens = selectedLikes.map((entry) =>
+      entry.bazarItemId ? `${entry.listingId}:${entry.bazarItemId}` : entry.listingId
+    );
+    const params = new URLSearchParams({ items: tokens.join(",") });
+    const url = `${window.location.origin}/shared-likes/${encodeURIComponent(currentUserId)}?${params.toString()}`;
+    const title = `${currentUserName}: Me gustas`;
+    const text = `Mira los artículos que le gustaron a ${currentUserName} en Josealo.`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      toast("Link copiado", { description: "Comparte este enlace con quien quieras." });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error("No pudimos compartir el enlace.");
+    }
+  };
+
   if (!authResolved || !currentUserId) {
     return <div className="min-h-screen bg-neutral-950 text-neutral-50" />;
   }
@@ -291,7 +345,7 @@ export default function ActivityPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-5">
+      <main className="mx-auto max-w-3xl px-4 pb-32 pt-5">
         {activeTab === "activity" ? (
           filteredActivity.length === 0 ? (
             <EmptyState
@@ -343,6 +397,12 @@ export default function ActivityPage() {
                 key={entry.id}
                 className="flex items-center gap-3 rounded-3xl border border-neutral-800 bg-neutral-900/40 px-4 py-4"
               >
+                <Checkbox
+                  checked={selectedLikeIds.has(entry.id)}
+                  onCheckedChange={() => toggleLikeSelection(entry.id)}
+                  className="h-6 w-6 rounded-md border-neutral-500 bg-transparent data-[state=unchecked]:bg-transparent"
+                  aria-label={`Seleccionar ${entry.itemTitle}`}
+                />
                 <Link href={entry.href} className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-900">
                     {entry.image ? (
@@ -373,6 +433,24 @@ export default function ActivityPage() {
           </div>
         )}
       </main>
+
+      {activeTab === "likes" && selectedLikes.length > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-neutral-800 bg-neutral-950/95 px-4 py-4 backdrop-blur">
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
+            <div className="min-w-0 flex-1 text-sm text-neutral-300">
+              {selectedLikes.length} seleccionado{selectedLikes.length === 1 ? "" : "s"}
+            </div>
+            <button
+              type="button"
+              onClick={shareSelectedLikes}
+              className="flex h-12 min-w-40 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 text-sm font-semibold text-black transition hover:bg-orange-400"
+            >
+              <Share2 className="h-4 w-4" />
+              Compartir
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

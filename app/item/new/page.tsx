@@ -1354,7 +1354,7 @@ export default function NewListingPage() {
                 onClick={() => setListingType(tab.id as "article" | "bazar")}
                 className={[
                   "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                  isActive ? "bg-orange-400 text-white" : "text-neutral-300 hover:text-white",
+                  isActive ? "bg-orange-400 text-white dark:text-black" : "text-neutral-300 hover:text-white",
                 ].join(" ")}
               >
                 {tab.label}

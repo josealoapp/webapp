@@ -193,11 +193,14 @@ export async function sendEmailVerification(user: User) {
 }
 
 export async function sendPasswordResetEmail(_auth: typeof auth, email: string) {
-  await fetch("/api/auth/password-reset", {
+  const response = await fetch("/api/auth/password-reset", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+  const payload = (await response.json().catch(() => null)) as { devResetUrl?: string; error?: string } | null;
+  if (!response.ok) throw new Error(payload?.error || "auth/password-reset-failed");
+  return { devResetUrl: payload?.devResetUrl || "" };
 }
 
 export async function verifyPasswordResetCode(_auth: typeof auth, token: string) {

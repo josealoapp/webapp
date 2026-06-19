@@ -13,6 +13,7 @@ export function Toaster(props: ToasterProps) {
     <SonnerToaster
       theme={theme}
       position="top-center"
+      duration={2000}
       richColors
       closeButton
       {...props}

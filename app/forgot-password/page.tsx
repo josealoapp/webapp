@@ -48,6 +48,7 @@ function ForgotPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [devResetUrl, setDevResetUrl] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +76,7 @@ function ForgotPasswordContent() {
   const requestReset = async () => {
     setError("");
     setNotice("");
+    setDevResetUrl("");
 
     const trimmed = email.trim();
     if (!trimmed || !isValidEmail(trimmed)) {
@@ -84,8 +86,13 @@ function ForgotPasswordContent() {
 
     try {
       setLoading(true);
-      await sendPasswordResetEmail(auth, trimmed);
-      setNotice("Enviamos un correo con instrucciones para restablecer tu contraseña.");
+      const result = await sendPasswordResetEmail(auth, trimmed);
+      setDevResetUrl(result.devResetUrl);
+      setNotice(
+        result.devResetUrl
+          ? "Resend no está configurado en local. Usa el enlace local para restablecer tu contraseña."
+          : "Enviamos un correo con instrucciones para restablecer tu contraseña."
+      );
     } catch {
       setError("No se pudo enviar el correo. Verifica el email e intenta de nuevo.");
     } finally {
@@ -243,6 +250,11 @@ function ForgotPasswordContent() {
               ].join(" ")}
             >
               {error || notice}
+              {devResetUrl ? (
+                <Link href={devResetUrl} className="mt-3 block font-semibold underline underline-offset-4">
+                  Open local reset link
+                </Link>
+              ) : null}
             </div>
           )}
         </div>
