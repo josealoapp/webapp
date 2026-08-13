@@ -64,7 +64,7 @@ export default function ItemCard({ item }: { item: Item }) {
         <div className="relative z-10 -mt-20 rounded-t-3xl bg-neutral-950 px-4 pb-4 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-base font-semibold">
+              <h3 className="listing-title truncate text-base font-medium">
                 {item.title}
               </h3>
 
@@ -75,7 +75,7 @@ export default function ItemCard({ item }: { item: Item }) {
               </div>
             </div>
 
-            <div className="shrink-0 text-lg font-bold text-orange-400">
+            <div className="listing-price shrink-0 text-lg font-bold text-orange-400">
               ${item.price}
             </div>
           </div>

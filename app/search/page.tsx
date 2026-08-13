@@ -218,11 +218,11 @@ export default function SearchPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-base font-semibold text-neutral-100">{item.title}</div>
+                    <div className="listing-title truncate text-base font-medium text-neutral-100">{item.title}</div>
                     <div className="mt-1 text-sm text-neutral-400">{item.location}</div>
                     <div className="mt-1 text-xs text-neutral-500">{item.category}</div>
                   </div>
-                  <div className="shrink-0 text-sm font-semibold text-orange-400">RD${item.price.toLocaleString()}</div>
+                  <div className="listing-price shrink-0 text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
                 </Link>
               ))}
             </div>

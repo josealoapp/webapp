@@ -638,13 +638,13 @@ function SwipeCard({
       <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[2rem] bg-neutral-950 px-6 pb-6 pt-7">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="line-clamp-2 text-2xl font-bold text-black dark:text-white">{item.title}</h2>
+            <h2 className="listing-title line-clamp-2 text-2xl font-medium text-black dark:text-white">{item.title}</h2>
             <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
               <MapPin className="h-4 w-4 text-neutral-500" />
               <span className="truncate">{item.location || "Santo Domingo"}</span>
             </div>
           </div>
-          <div className="shrink-0 text-2xl font-bold text-orange-400">
+          <div className="listing-price shrink-0 text-2xl font-bold text-orange-400">
             RD${Number(item.price).toLocaleString()}
           </div>
         </div>

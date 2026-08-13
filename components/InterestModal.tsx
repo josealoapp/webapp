@@ -383,8 +383,8 @@ export default function InterestModal({
               {usesWhatsapp ? "Contacta por WhatsApp" : "¿Cómo piensas pagar?"}
             </div>
             <div className="mt-1 text-sm text-neutral-400">
-              {item.title} ·{" "}
-              <span className="text-neutral-200">
+              <span className="listing-title font-medium">{item.title}</span> ·{" "}
+              <span className="listing-price font-bold text-neutral-200">
                 {formatMoney(item.price, itemCurrency)}
               </span>
             </div>
@@ -552,8 +552,8 @@ export default function InterestModal({
                           <div className="h-12 w-12 rounded-xl bg-neutral-800" />
                         )}
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-neutral-100">{listing.title}</div>
-                          <div className="mt-1 text-xs text-neutral-400">{formatMoney(Number(listing.price || 0), listing.currency || "DOP")}</div>
+                          <div className="listing-title truncate text-sm font-medium text-neutral-100">{listing.title}</div>
+                          <div className="listing-price mt-1 text-xs font-bold text-neutral-400">{formatMoney(Number(listing.price || 0), listing.currency || "DOP")}</div>
                         </div>
                       </button>
                     ))}

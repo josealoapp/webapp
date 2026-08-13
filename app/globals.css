@@ -152,8 +152,34 @@ html[data-theme="light"] .text-neutral-100,
 html[data-theme="light"] .text-neutral-200,
 html[data-theme="light"] .text-neutral-300 { color: #0f172a !important; }
 html[data-theme="light"] .text-neutral-400 { color: #334155 !important; }
+html[data-theme="light"] .text-neutral-500 { color: #64748b !important; }
 html[data-theme="light"] .border-neutral-800 { border-color: #e2e8f0 !important; }
 html[data-theme="light"] .shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important; }
+
+html[data-theme="light"] .bg-red-950\/30,
+html[data-theme="light"] .bg-red-500\/10 {
+  background-color: #fef2f2 !important;
+}
+
+html[data-theme="light"] .border-red-900\/40,
+html[data-theme="light"] .border-red-500\/40 {
+  border-color: #fca5a5 !important;
+}
+
+html[data-theme="light"] .text-red-200,
+html[data-theme="light"] .text-red-300,
+html[data-theme="light"] .text-red-400 {
+  color: #b91c1c !important;
+}
+
+.listing-title {
+  font-weight: 500 !important;
+}
+
+html[data-theme="light"] .listing-price {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
 
 html[data-theme="light"] .app-bottom-nav {
   background-color: rgba(255, 255, 255, 0.94) !important;
@@ -377,6 +403,15 @@ html[data-theme="light"] .home-page header[data-scrolled="true"] svg.text-white\
 
 html[data-theme="light"] .home-page header[data-scrolled="true"] .drop-shadow {
   filter: drop-shadow(0 8px 18px rgba(124, 45, 18, 0.28)) !important;
+}
+
+html[data-theme="light"] .listing-price,
+html[data-theme="light"] .listing-price.text-orange-300,
+html[data-theme="light"] .listing-price.text-orange-400,
+html[data-theme="light"] .home-page .listing-price,
+html[data-theme="light"] .home-page .listing-price.text-orange-400 {
+  color: #0f172a !important;
+  font-weight: 700 !important;
 }
 
 .stats-dark-scroll {

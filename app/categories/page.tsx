@@ -67,7 +67,7 @@ export default function CategoriesPage() {
                   href={`/categories/${cat.id}`}
                   className="group flex flex-col items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-3 py-4 text-center transition hover:border-orange-400"
                 >
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-neutral-800/80">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-black/10 dark:bg-neutral-800/80">
                     <img src={cat.image} alt={cat.name} className="h-20 w-20 rounded-full object-cover" />
                   </div>
                   <div className="text-sm font-semibold text-neutral-100 group-hover:text-orange-300">{cat.name}</div>

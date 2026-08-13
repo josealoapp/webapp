@@ -551,8 +551,8 @@ export default function HomePage() {
                         {isSelling ? "vendiendo" : "comprando"}
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{chat.listingTitle}</div>
-                    <div className="mt-1 text-sm font-semibold text-orange-400">
+                    <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{chat.listingTitle}</div>
+                    <div className="listing-price mt-1 text-sm font-bold text-orange-400">
                       RD${price.toLocaleString()}
                     </div>
                     <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
@@ -617,11 +617,11 @@ export default function HomePage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{item.title}</div>
+                    <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{item.title}</div>
                     {item.type === "bazar" ? (
                       <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">Bazar</div>
                     ) : null}
-                    <div className="mt-1 text-sm font-semibold text-orange-400">
+                    <div className="listing-price mt-1 text-sm font-bold text-orange-400">
                       RD${displayPrice.toLocaleString()}
                     </div>
                     <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
@@ -743,8 +743,8 @@ export default function HomePage() {
                           <div className="h-full w-full bg-neutral-800" />
                         )}
                       </div>
-                      <div className="text-xs text-neutral-300 line-clamp-2 font-semibold">{item.title}</div>
-                      <div className="mt-1 text-sm font-semibold text-orange-400">
+                      <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{item.title}</div>
+                      <div className="listing-price mt-1 text-sm font-bold text-orange-400">
                         RD${item.price.toLocaleString()}
                       </div>
                       <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">

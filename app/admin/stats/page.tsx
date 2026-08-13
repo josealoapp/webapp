@@ -1305,7 +1305,7 @@ function SoldItemRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-neutral-100">{item.title}</div>
+          <div className="listing-title truncate text-sm font-medium text-neutral-100">{item.title}</div>
           <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-neutral-400">
             <span>{item.category}</span>
             <span>{item.brand}</span>
@@ -1313,7 +1313,7 @@ function SoldItemRow({
             <span>{item.location}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-orange-300">{formatCurrency(item.price)}</span>
+            <span className="listing-price text-sm font-bold text-orange-300">{formatCurrency(item.price)}</span>
             <span className="text-xs text-neutral-500">
               {item.status === "active" ? "En venta" : item.daysToSell ? `${item.daysToSell} días` : "Sin tiempo"}
             </span>

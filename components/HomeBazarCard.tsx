@@ -63,7 +63,7 @@ export default function HomeBazarCard({
             />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold text-neutral-100">{item.title}</div>
+            <div className="listing-title truncate text-base font-medium text-neutral-100">{item.title}</div>
             <div className="flex items-center gap-1 text-xs text-neutral-400">
               <span>{item.ownerName}</span>
               {isVerified ? <VerifiedBadge className="h-3.5 w-3.5" /> : null}
@@ -114,11 +114,11 @@ export default function HomeBazarCard({
                 <img src={bazarItem.image} alt={bazarItem.title} className="h-full w-full object-cover" />
               ) : null}
             </div>
-            <div className="mt-2 text-xs text-neutral-300 line-clamp-2 font-semibold">{bazarItem.title}</div>
+            <div className="listing-title mt-2 text-xs text-neutral-300 line-clamp-2 font-medium">{bazarItem.title}</div>
             <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
               {item.bazarCategory || item.category}
             </div>
-            <div className="mt-1 text-sm font-semibold text-orange-400">
+            <div className="listing-price mt-1 text-sm font-bold text-orange-400">
               RD${Number(bazarItem.price).toLocaleString()}
             </div>
             <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">

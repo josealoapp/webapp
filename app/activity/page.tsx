@@ -238,15 +238,6 @@ export default function ActivityPage() {
     [likes, selectedLikeIds]
   );
 
-  useEffect(() => {
-    setSelectedLikeIds((current) => {
-      if (current.size === 0) return current;
-      const visibleIds = new Set(likes.map((entry) => entry.id));
-      const next = new Set(Array.from(current).filter((id) => visibleIds.has(id)));
-      return next.size === current.size ? current : next;
-    });
-  }, [likes]);
-
   const toggleLikeSelection = (likeId: string) => {
     setSelectedLikeIds((current) => {
       const next = new Set(current);
@@ -285,28 +276,28 @@ export default function ActivityPage() {
   };
 
   if (!authResolved || !currentUserId) {
-    return <div className="min-h-screen bg-neutral-950 text-neutral-50" />;
+    return <div className="min-h-screen bg-neutral-50 text-slate-950 dark:bg-neutral-950 dark:text-neutral-50" />;
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur">
+    <div className="min-h-screen bg-neutral-50 text-slate-950 dark:bg-neutral-950 dark:text-neutral-50">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
         <div className="mx-auto max-w-3xl px-4 py-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-100"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:shadow-none"
               aria-label="Volver"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="min-w-0">
-              <div className="text-base font-semibold text-white">Activity</div>
-              <div className="text-xs text-neutral-400">@{getOrCreateUserHandle({ uid: currentUserId, name: currentUserName })}</div>
+              <div className="text-base font-semibold text-slate-950 dark:text-white">Activity</div>
+              <div className="text-xs text-slate-500 dark:text-neutral-400">@{getOrCreateUserHandle({ uid: currentUserId, name: currentUserName })}</div>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 p-1">
+          <div className="mt-4 flex items-center gap-2 rounded-full border border-slate-200 bg-transparent p-1 dark:border-neutral-800 dark:bg-neutral-900">
             {([
               { id: "activity", label: "Activity", icon: Bell },
               { id: "likes", label: "Likes", icon: Heart },
@@ -322,8 +313,8 @@ export default function ActivityPage() {
                   className={[
                     "flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition",
                     isActive
-                      ? "bg-orange-500 text-black"
-                      : "text-neutral-300 hover:bg-neutral-800 hover:text-white",
+                      ? "border border-orange-500 bg-orange-500 text-black"
+                      : "border border-slate-200 bg-transparent text-slate-700 hover:bg-black/5 hover:text-slate-950 dark:border-transparent dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white",
                   ].join(" ")}
                 >
                   <Icon className="h-4 w-4" />
@@ -334,12 +325,12 @@ export default function ActivityPage() {
           </div>
 
           <div className="relative mt-4">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-neutral-500" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={activeTab === "activity" ? "Buscar en actividad" : "Buscar en likes"}
-              className="w-full rounded-full border border-neutral-800 bg-neutral-950 py-3 pl-11 pr-4 text-sm outline-none placeholder:text-neutral-500 focus:border-orange-400"
+              className="w-full rounded-full border border-slate-200 bg-transparent py-3 pl-11 pr-4 text-sm text-slate-950 outline-none placeholder:text-slate-500 focus:border-orange-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
           </div>
         </div>
@@ -359,7 +350,7 @@ export default function ActivityPage() {
                 <Link
                   key={entry.id}
                   href={entry.href}
-                  className="flex items-center gap-3 rounded-3xl border border-neutral-800 bg-neutral-900/40 px-4 py-4 transition hover:bg-neutral-900/70"
+                  className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-transparent px-4 py-4 transition hover:bg-black/5 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:bg-neutral-900/70"
                 >
                   <SellerAvatar
                     userId={entry.avatarUserId}
@@ -369,15 +360,15 @@ export default function ActivityPage() {
                     imageClassName="object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
                       {entry.unread ? (
                         <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" aria-label="Nueva notificación" />
                       ) : null}
                       <span>{entry.title}</span>
                     </div>
-                    <div className="mt-1 truncate text-sm text-neutral-400">{entry.subtitle}</div>
+                    <div className="mt-1 truncate text-sm font-normal text-slate-700 dark:text-neutral-400">{entry.subtitle}</div>
                   </div>
-                  <div className="shrink-0 text-xs text-neutral-500">
+                  <div className="shrink-0 text-xs text-slate-500 dark:text-neutral-500">
                     {formatRelativeDate(entry.createdAt)}
                   </div>
                 </Link>
@@ -395,28 +386,28 @@ export default function ActivityPage() {
             {filteredLikes.map((entry) => (
               <div
                 key={entry.id}
-                className="flex items-center gap-3 rounded-3xl border border-neutral-800 bg-neutral-900/40 px-4 py-4"
+                className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-transparent px-4 py-4 dark:border-neutral-800 dark:bg-neutral-900/40"
               >
                 <Checkbox
                   checked={selectedLikeIds.has(entry.id)}
                   onCheckedChange={() => toggleLikeSelection(entry.id)}
-                  className="h-6 w-6 rounded-md border-neutral-500 bg-transparent data-[state=unchecked]:bg-transparent"
+                  className="h-6 w-6 rounded-md border-slate-300 bg-transparent data-[state=unchecked]:bg-transparent dark:border-neutral-500"
                   aria-label={`Seleccionar ${entry.itemTitle}`}
                 />
                 <Link href={entry.href} className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-900">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100 dark:bg-neutral-900">
                     {entry.image ? (
                       <img src={entry.image} alt={entry.itemTitle} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">
+                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500 dark:text-neutral-500">
                         Sin foto
                       </div>
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white">{entry.itemTitle}</div>
-                    <div className="mt-1 truncate text-xs text-neutral-400">{entry.ownerName}</div>
-                    <div className="mt-1 text-xs font-semibold text-orange-400">
+                    <div className="listing-title truncate text-sm font-medium text-slate-950 dark:text-white">{entry.itemTitle}</div>
+                    <div className="mt-1 truncate text-xs font-normal text-slate-600 dark:text-neutral-400">{entry.ownerName}</div>
+                    <div className="listing-price mt-1 text-xs font-bold text-orange-400">
                       RD${Number(entry.price || 0).toLocaleString()}
                     </div>
                   </div>
@@ -424,7 +415,7 @@ export default function ActivityPage() {
                 <button
                   type="button"
                   onClick={() => unlikeItem(currentUserId, entry.listingId, entry.bazarItemId)}
-                  className="shrink-0 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-xs font-semibold text-neutral-100 transition hover:border-orange-400 hover:text-white"
+                  className="shrink-0 rounded-2xl border border-slate-200 bg-transparent px-4 py-3 text-xs font-semibold text-slate-950 transition hover:border-orange-400 hover:bg-black/5 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:text-white"
                 >
                   Quitar like
                 </button>
@@ -435,9 +426,9 @@ export default function ActivityPage() {
       </main>
 
       {activeTab === "likes" && selectedLikes.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-neutral-800 bg-neutral-950/95 px-4 py-4 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
-            <div className="min-w-0 flex-1 text-sm text-neutral-300">
+            <div className="min-w-0 flex-1 text-sm text-slate-700 dark:text-neutral-300">
               {selectedLikes.length} seleccionado{selectedLikes.length === 1 ? "" : "s"}
             </div>
             <button
@@ -514,12 +505,12 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-3xl border border-neutral-800 bg-neutral-900/30 px-5 py-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-300">
+    <div className="rounded-3xl border border-slate-200 bg-transparent px-5 py-8 text-center dark:border-neutral-800 dark:bg-neutral-900/30">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-transparent text-slate-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
         <Icon className="h-5 w-5" />
       </div>
-      <div className="mt-4 text-sm font-semibold text-white">{title}</div>
-      <div className="mt-2 text-sm leading-6 text-neutral-400">{description}</div>
+      <div className="mt-4 text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+      <div className="mt-2 text-sm font-normal leading-6 text-slate-600 dark:text-neutral-400">{description}</div>
     </div>
   );
 }

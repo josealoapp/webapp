@@ -55,8 +55,14 @@ export default function HomeHero() {
         >
           <img
             src={item.imageUrl}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+          />
+          <img
+            src={item.imageUrl}
             alt={item.label}
-            className="h-full w-full object-cover object-center"
+            className="relative h-full w-full object-cover object-center"
           />
         </div>
       ))}

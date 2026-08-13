@@ -143,13 +143,13 @@ export default function AdminReportDetailsPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-neutral-100">{item.title}</div>
+                        <div className="listing-title truncate text-sm font-medium text-neutral-100">{item.title}</div>
                         <div className="mt-1 text-xs text-neutral-400">
                           {item.category} · {item.location || "Sin ubicación"}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <div className="text-sm font-semibold text-orange-300">RD${item.price.toLocaleString()}</div>
+                        <div className="listing-price text-sm font-bold text-orange-300">RD${item.price.toLocaleString()}</div>
                         <div className="mt-1 text-xs capitalize text-neutral-500">{item.status}</div>
                       </div>
                     </Link>

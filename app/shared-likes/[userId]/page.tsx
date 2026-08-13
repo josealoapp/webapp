@@ -186,9 +186,9 @@ export default function SharedLikesPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-white">{item.title}</div>
+                  <div className="listing-title truncate text-sm font-medium text-white">{item.title}</div>
                   <div className="mt-1 truncate text-xs text-neutral-400">{item.sellerName}</div>
-                  <div className="mt-1 text-sm font-semibold text-orange-400">
+                  <div className="listing-price mt-1 text-sm font-bold text-orange-400">
                     {formatMoney(item.price, item.currency)}
                   </div>
                 </div>

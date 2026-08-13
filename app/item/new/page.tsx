@@ -1945,8 +1945,8 @@ export default function NewListingPage() {
                         <img src={item.previewUrl} alt={item.title} className="h-full w-full object-cover" />
                       </div>
                       <div className="min-w-0 flex-1 pr-8">
-                        <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
-                        <div className="mt-1 text-sm font-semibold text-orange-400">
+                        <div className="listing-title text-sm font-medium text-neutral-100">{item.title}</div>
+                        <div className="listing-price mt-1 text-sm font-bold text-orange-400">
                           {formatMoney(Number(item.price), item.currency)}
                         </div>
                         <p className="mt-1 text-xs leading-5 text-neutral-400">{item.description}</p>

@@ -782,12 +782,12 @@ export default function ItemDetailsPage() {
                       ) : null}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-neutral-100">{bazarItem.title}</div>
+                      <div className="listing-title text-sm font-medium text-neutral-100">{bazarItem.title}</div>
                       <p className="mt-1 text-xs leading-5 text-neutral-400">{bazarItem.description}</p>
                       {isSoldItem ? (
                         <div className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Vendido</div>
                       ) : null}
-                      <div className="mt-2 text-sm font-semibold text-orange-400">
+                      <div className="listing-price mt-2 text-sm font-bold text-orange-400">
                         {formatMoney(Number(bazarItem.price), bazarItem.currency || item.currency || "DOP")}
                       </div>
                     </div>

@@ -186,7 +186,7 @@ export default function HomeHeader({
               <Heart
                 className={[
                   "h-6 w-6 border-current",
-                  scrolled ? "text-white" : "text-orange-500",
+                  theme === "light" && !scrolled ? "text-orange-500" : "text-white",
                 ].join(" ")}
               />
               {hasUnreadActivity ? (
@@ -234,7 +234,7 @@ export default function HomeHeader({
                       <div className="min-w-0 flex-1">
                         <div
                           className={[
-                            "truncate text-sm font-semibold",
+                            "listing-title truncate text-sm font-medium",
                             theme === "light" && scrolled
                               ? "text-black"
                               : "text-white",
@@ -244,7 +244,7 @@ export default function HomeHeader({
                         </div>
                         <div className="mt-1 text-xs text-neutral-400">{item.location}</div>
                       </div>
-                      <div className="text-sm font-semibold text-orange-400">RD${item.price.toLocaleString()}</div>
+                      <div className="listing-price text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
                     </button>
                   ))}
                 </div>

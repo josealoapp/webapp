@@ -119,8 +119,8 @@ export default function HistoricPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
-                  <div className="mt-1 text-sm text-orange-400">RD${item.price.toLocaleString()}</div>
+                  <div className="listing-title text-sm font-medium text-neutral-100">{item.title}</div>
+                  <div className="listing-price mt-1 text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
                   <div className="mt-2 text-xs text-neutral-400">{item.category} · {item.location}</div>
                   <div className="mt-1 text-xs text-neutral-500">
                     {isBazar && isBazarExpired(item) ? "Bazar finalizado" : "Vendida"}{" "}

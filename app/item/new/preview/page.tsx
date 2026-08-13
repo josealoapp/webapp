@@ -171,13 +171,13 @@ function NewListingPreviewContent() {
           )}
           <div
             className={[
-              "mt-2 text-lg font-semibold",
+              "listing-title mt-2 text-lg font-medium",
               theme === "light" ? "text-black" : "text-white",
             ].join(" ")}
           >
             {data.title || "Sin título"}
           </div>
-          <div className="mt-1 text-orange-400">
+          <div className="listing-price mt-1 font-bold text-orange-400">
             {data.isPriceValid ? formatMoney(data.price, data.currency) : "Precio inválido"}
           </div>
           <div className="mt-2 text-sm text-neutral-300">

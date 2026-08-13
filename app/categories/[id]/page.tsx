@@ -385,8 +385,8 @@ export default function CategoryDetailPage() {
                     <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
                   )}
                 </div>
-                <div className="text-sm font-semibold text-neutral-100">{item.title}</div>
-                <div className="text-sm text-orange-400 font-semibold">RD${item.price.toLocaleString()}</div>
+                <div className="listing-title text-sm font-medium text-neutral-100">{item.title}</div>
+                <div className="listing-price text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{item.location || "Santo Domingo"}</span>

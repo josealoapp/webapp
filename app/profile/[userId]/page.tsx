@@ -43,6 +43,9 @@ export default function PublicProfilePage() {
   const [activeCategoryId, setActiveCategoryId] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Usuario");
+  const [publicProfileName, setPublicProfileName] = useState("");
+  const [publicProfileHandle, setPublicProfileHandle] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isShakingFollow, setIsShakingFollow] = useState(false);
   const [isAnimatingFollowingText, setIsAnimatingFollowingText] = useState(false);
@@ -86,6 +89,45 @@ export default function PublicProfilePage() {
       router.replace("/profile/me");
     }
   }, [currentUserId, router, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setPublicProfileName("");
+      setPublicProfileHandle("");
+      setProfileDescription("");
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/profile?scope=public&userId=${encodeURIComponent(userId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("profile/load-failed");
+        const payload = (await response.json()) as {
+          profile?: {
+            displayName?: string;
+            name?: string;
+            handle?: string;
+            description?: string;
+            profileDescription?: string;
+          } | null;
+        };
+        if (cancelled) return;
+        setPublicProfileName(payload.profile?.displayName?.trim() || payload.profile?.name?.trim() || "");
+        setPublicProfileHandle(payload.profile?.handle?.trim() || "");
+        setProfileDescription((payload.profile?.profileDescription || payload.profile?.description || "").slice(0, 120));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPublicProfileName("");
+          setPublicProfileHandle("");
+          setProfileDescription("");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -260,15 +302,16 @@ export default function PublicProfilePage() {
   const fallbackName = searchParams.get("name")?.trim() || "Usuario";
   const profileName = useMemo(() => {
     return (
+      publicProfileName ||
       publicListings[0]?.ownerName ||
       followers[0]?.profileName ||
       following[0]?.sourceName ||
       fallbackName
     );
-  }, [fallbackName, followers, following, publicListings]);
+  }, [fallbackName, followers, following, publicListings, publicProfileName]);
   const profileHandle = useMemo(
-    () => getOrCreateUserHandle({ uid: userId || "user", name: profileName }),
-    [profileName, userId]
+    () => publicProfileHandle || getOrCreateUserHandle({ uid: userId || "user", name: profileName }),
+    [profileName, publicProfileHandle, userId]
   );
   const accountAgeLabel = useMemo(() => getAccountAgeLabel(accountCreatedAt), [accountCreatedAt]);
   const isFollowing = followers.some((entry) => entry.profileId === currentUserId);
@@ -470,6 +513,11 @@ export default function PublicProfilePage() {
           <span>{profileName}</span>
           {isVerified ? <VerifiedBadge /> : null}
         </div>
+        {profileDescription ? (
+          <p className="mt-1 max-w-xs text-center text-sm font-normal leading-6 text-neutral-400">
+            {profileDescription}
+          </p>
+        ) : null}
         <div className="mt-1 flex flex-col items-center gap-1">
           <span className={accountAgeLabel.isNew ? "text-sm font-semibold text-sky-400" : "text-sm text-neutral-500"}>
             {accountAgeLabel.text}
@@ -481,7 +529,7 @@ export default function PublicProfilePage() {
               setReviewSuccess(false);
               setOpenReviewModal(true);
             }}
-            className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-orange-300 hover:bg-neutral-900"
+            className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-orange-300 hover:bg-black/10 dark:hover:bg-neutral-900"
             aria-label="Ver reseñas"
           >
             {[1, 2, 3, 4, 5].map((value) => (
@@ -664,7 +712,7 @@ export default function PublicProfilePage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-base font-semibold">Reseñas</div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
+                <div className="mt-1 flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400">
                   <span>{profileName}</span>
                   <span className="flex items-center gap-1 text-orange-300">
                     <Star className="h-3.5 w-3.5 fill-orange-400 text-orange-400" />
@@ -676,7 +724,7 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => setOpenReviewModal(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-neutral-300 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-950 hover:text-slate-600 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-white"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -684,8 +732,8 @@ export default function PublicProfilePage() {
             </div>
 
             {currentUserId && currentUserId !== userId ? (
-              <div className="mt-5 rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4">
-                <div className="text-sm font-semibold text-neutral-100">Calificar vendedor</div>
+              <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+                <div className="text-sm font-semibold text-slate-950 dark:text-neutral-100">Calificar vendedor</div>
                 <div className="mt-4 flex justify-center gap-2">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
@@ -695,7 +743,7 @@ export default function PublicProfilePage() {
                         setReviewRating(value);
                         setReviewSuccess(false);
                       }}
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-800 bg-neutral-950 text-neutral-400"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-400"
                       aria-label={`${value} estrellas`}
                     >
                       <Star className={value <= reviewRating ? "h-5 w-5 fill-orange-400 text-orange-400" : "h-5 w-5"} />
@@ -709,7 +757,7 @@ export default function PublicProfilePage() {
                     setReviewSuccess(false);
                   }}
                   placeholder="Comparte tu experiencia con este vendedor."
-                  className="mt-5 min-h-28 w-full rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-orange-400"
+                  className="mt-5 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-500 focus:border-orange-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                 />
                 {reviewSuccess ? (
                   <div className="mt-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm leading-6 text-orange-100">
@@ -731,9 +779,9 @@ export default function PublicProfilePage() {
                 </Button>
               </div>
             ) : !currentUserId ? (
-              <div className="mt-5 rounded-3xl border border-neutral-800 bg-neutral-900/50 p-4">
-                <div className="text-sm font-semibold text-neutral-100">Calificar vendedor</div>
-                <div className="mt-2 text-sm leading-6 text-neutral-400">
+              <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+                <div className="text-sm font-semibold text-slate-950 dark:text-neutral-100">Calificar vendedor</div>
+                <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-neutral-400">
                   Inicia sesión para dejar una reseña sobre este vendedor.
                 </div>
                 <Button
@@ -751,17 +799,17 @@ export default function PublicProfilePage() {
             )}
 
             <div className="mt-6">
-              <div className="text-sm font-semibold text-neutral-100">Todas las reseñas</div>
+              <div className="text-sm font-semibold text-slate-950 dark:text-neutral-100">Todas las reseñas</div>
               {reviews.length ? (
                 <div className="mt-3 space-y-3">
                   {reviews.map((review) => (
-                    <div key={review.id} className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+                    <div key={review.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900/40">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-neutral-100">
+                          <div className="truncate text-sm font-semibold text-slate-950 dark:text-neutral-100">
                             {review.buyerName || "Usuario"}
                           </div>
-                          <div className="mt-1 text-xs text-neutral-500">
+                          <div className="mt-1 text-xs text-slate-500 dark:text-neutral-500">
                             {formatReviewDate(review.createdAt)}
                           </div>
                         </div>
@@ -771,15 +819,15 @@ export default function PublicProfilePage() {
                         </div>
                       </div>
                       {review.comment ? (
-                        <div className="mt-3 text-sm leading-6 text-neutral-300">{review.comment}</div>
+                        <div className="mt-3 text-sm leading-6 text-slate-700 dark:text-neutral-300">{review.comment}</div>
                       ) : (
-                        <div className="mt-3 text-sm leading-6 text-neutral-500">Sin comentario.</div>
+                        <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-neutral-500">Sin comentario.</div>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="mt-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-4 py-5 text-sm text-neutral-400">
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm text-slate-600 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400">
                   Aún no hay reseñas.
                 </div>
               )}

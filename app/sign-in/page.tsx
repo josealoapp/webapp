@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 
 import { getAdditionalUserInfo, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "@/lib/auth-client";
 import { auth } from "@/lib/firebase";
@@ -153,7 +153,7 @@ function SignInContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-neutral-950 px-4 py-10 text-neutral-100">
+    <div className="min-h-[100dvh] bg-neutral-50 px-4 py-10 text-slate-950 dark:bg-neutral-950 dark:text-neutral-100">
       {loading ? <LogoLoadAnimation fullscreen /> : null}
       {googleLoading ? <LogoLoadAnimation fullscreen /> : null}
 
@@ -163,7 +163,7 @@ function SignInContent() {
           variant="ghost"
           size="icon"
           aria-label="Atrás"
-          className="mb-5 h-11 w-11 rounded-full border border-neutral-800 bg-neutral-950 text-neutral-200 hover:bg-neutral-900 hover:text-white"
+          className="mb-5 h-11 w-11 rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm hover:bg-slate-50 hover:text-slate-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:shadow-none dark:hover:bg-neutral-900 dark:hover:text-white"
           onClick={() => {
             if (window.history.length > 1) {
               router.back();
@@ -176,10 +176,10 @@ function SignInContent() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
 
-        <Card className="border-neutral-800 bg-neutral-950">
+        <Card className="border-slate-200 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.10)] dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-sm">
           <CardHeader>
             <CardTitle className="text-xl">Iniciar sesión</CardTitle>
-            <CardDescription className="text-neutral-400">
+            <CardDescription className="text-slate-600 dark:text-neutral-400">
               Entra para enviar tu oferta y chatear con el vendedor.
             </CardDescription>
           </CardHeader>
@@ -187,34 +187,35 @@ function SignInContent() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="user">Email</Label>
+                <Label htmlFor="user" className="text-slate-950 dark:text-neutral-100">Email</Label>
                 <Input
                   id="user"
                   value={emailOrUser}
                   onChange={(e) => setEmailOrUser(e.target.value)}
                   placeholder="ej: luis@gmail.com"
-                  className="border-neutral-800 bg-neutral-950"
+                  className="h-12 rounded-2xl border-slate-200 bg-white text-slate-950 placeholder:text-slate-500 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                   autoComplete="email"
                   inputMode="email"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="pass">Contraseña</Label>
+                <Label htmlFor="pass" className="text-slate-950 dark:text-neutral-100">Contraseña</Label>
                 <Input
                   id="pass"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="border-neutral-800 bg-neutral-950"
+                  className="h-12 rounded-2xl border-slate-200 bg-white text-slate-950 placeholder:text-slate-500 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                   autoComplete="current-password"
                 />
               </div>
 
               {error && (
-                <div className="rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
-                  {error}
+                <div className="flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 shadow-sm dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200 dark:shadow-none">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -226,17 +227,17 @@ function SignInContent() {
                 {loading ? "Ingresando..." : "Sign in"}
               </Button>
 
-              <div className="flex items-center gap-3 text-xs text-neutral-500">
-                <div className="h-px flex-1 bg-neutral-800" />
+              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-neutral-500">
+                <div className="h-px flex-1 bg-slate-200 dark:bg-neutral-800" />
                 <span>o</span>
-                <div className="h-px flex-1 bg-neutral-800" />
+                <div className="h-px flex-1 bg-slate-200 dark:bg-neutral-800" />
               </div>
 
               <Button
                 type="button"
                 variant="outline"
                 onClick={signInWithGoogle}
-                className="w-full border-neutral-800 bg-neutral-950 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                className="w-full border-slate-200 bg-white text-slate-950 shadow-sm hover:bg-slate-50 hover:text-slate-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:shadow-none dark:hover:bg-neutral-900 dark:hover:text-white"
                 disabled={loading || googleLoading}
               >
                 <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-neutral-900">
@@ -248,13 +249,13 @@ function SignInContent() {
               <div className="flex items-center justify-between text-sm">
                 <Link
                   href={forgotPasswordHref}
-                  className="text-neutral-300 hover:text-white underline underline-offset-4"
+                  className="text-slate-950 underline underline-offset-4 hover:text-slate-600 dark:text-neutral-300 dark:hover:text-white"
                 >
                   Forgot password
                 </Link>
                 <Link
                   href={signUpHref}
-                  className="text-neutral-300 hover:text-white underline underline-offset-4"
+                  className="text-slate-950 underline underline-offset-4 hover:text-slate-600 dark:text-neutral-300 dark:hover:text-white"
                 >
                   Sign up
                 </Link>
@@ -263,7 +264,7 @@ function SignInContent() {
           </CardContent>
         </Card>
 
-        <div className="mt-4 text-center text-xs text-neutral-500">
+        <div className="mt-4 text-center text-xs text-slate-500 dark:text-neutral-500">
           By continuing you agree to our terms.
         </div>
       </div>

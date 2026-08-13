@@ -452,8 +452,8 @@ export default function ChatPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-neutral-100">{itemTitle}</div>
-                    <div className="mt-1 truncate text-sm font-bold text-orange-400">
+                    <div className="listing-title truncate text-sm font-medium text-neutral-100">{itemTitle}</div>
+                    <div className="listing-price mt-1 truncate text-sm font-bold text-orange-400">
                       {formatMoney(itemPrice, listing?.currency || "DOP")}
                     </div>
                   </div>
@@ -709,10 +709,10 @@ function TradeHeaderCard({
           )}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-neutral-100 sm:text-sm">
+          <div className="listing-title block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-neutral-100 sm:text-sm">
             {listing.title}
           </div>
-          <div className="mt-1 truncate text-xs font-bold text-orange-400 sm:text-sm">
+          <div className="listing-price mt-1 truncate text-xs font-bold text-orange-400 sm:text-sm">
             {formatMoney(Number(listing.price || 0), listing.currency || "DOP")}
           </div>
         </div>
