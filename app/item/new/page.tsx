@@ -1354,7 +1354,7 @@ export default function NewListingPage() {
                 onClick={() => setListingType(tab.id as "article" | "bazar")}
                 className={[
                   "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                  isActive ? "bg-orange-400 text-white dark:text-black" : "text-neutral-300 hover:text-white",
+                  isActive ? "bg-orange-400 text-black" : "text-neutral-300 hover:text-white",
                 ].join(" ")}
               >
                 {tab.label}
@@ -1730,7 +1730,7 @@ export default function NewListingPage() {
             <div className="mx-auto max-w-md px-6 py-4">
               <button
                 type="button"
-                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-white shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-black shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300"
                 onClick={handleArticleContinue}
                 disabled={uploadingArticle}
               >
@@ -1981,7 +1981,7 @@ export default function NewListingPage() {
             <div className="mx-auto max-w-md px-6 py-4">
               <button
                 type="button"
-                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-white shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
+                className="h-12 w-full rounded-2xl bg-orange-400 px-6 text-sm font-semibold text-black shadow hover:bg-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
                 onClick={handlePublishBazar}
                 disabled={publishingBazar}
               >

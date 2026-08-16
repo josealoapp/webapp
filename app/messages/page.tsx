@@ -244,7 +244,7 @@ export default function MessagesPage() {
                     <span
                       className={[
                         "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold leading-none",
-                        activeTab === tab ? "bg-orange-400 text-white dark:text-black" : "bg-neutral-800 text-neutral-200",
+                        activeTab === tab ? "bg-orange-400 text-black" : "bg-neutral-800 text-neutral-200",
                       ].join(" ")}
                     >
                       {formatUnreadCount(tabUnreadCounts[tab])}
@@ -324,7 +324,7 @@ export default function MessagesPage() {
                             {roleLabel}
                           </span>
                           {unreadCount > 0 ? (
-                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold leading-none text-white dark:text-black">
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-bold leading-none text-black">
                               {unreadCount > 99 ? "+99" : unreadCount}
                             </span>
                           ) : null}

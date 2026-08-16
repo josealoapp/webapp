@@ -631,7 +631,7 @@ export default function InterestModal({
               type="button"
               onClick={handleContinue}
               disabled={submitting}
-              className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+              className="w-full rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-black hover:opacity-90 disabled:opacity-60"
             >
               {submitting ? "Enviando..." : "Ofertar"}
             </button>

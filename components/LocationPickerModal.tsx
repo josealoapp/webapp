@@ -129,7 +129,7 @@ export default function LocationPickerModal({
                   Buscar en todas las ubicaciones y mostrar primero las más cercanas.
                 </div>
                 {!currentLocation && (
-                  <div className="mt-2 inline-flex rounded-full bg-orange-400 px-3 py-1 text-xs font-medium text-white">
+                  <div className="mt-2 inline-flex rounded-full bg-orange-400 px-3 py-1 text-xs font-medium text-black">
                     Actual
                   </div>
                 )}

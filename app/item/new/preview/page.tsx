@@ -234,7 +234,7 @@ function NewListingPreviewContent() {
                 data.isPriceValid && !publishing
                   ? [
                       "bg-orange-400 hover:bg-orange-300",
-                      theme === "light" ? "text-white" : "text-black",
+                      "text-black",
                     ].join(" ")
                   : "bg-neutral-700 text-neutral-300",
               ].join(" ")}

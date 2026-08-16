@@ -865,7 +865,7 @@ export default function ItemDetailsPage() {
               {isOwnListing ? (
                 <div className="space-y-3">
                   <p>
-                    Reservaste este {reservedItemNoun} para {reservedForName}. Si {reservedForName} ya no está interesado haz click en "Remover reservación".
+                    Reservaste este {reservedItemNoun} para {reservedForName}. Si {reservedForName} ya no está interesado haz click en &quot;Remover reservación&quot;.
                   </p>
                   <button
                     type="button"
@@ -900,7 +900,7 @@ export default function ItemDetailsPage() {
           <Button
             className={[
               "h-12 rounded-2xl px-5 bg-orange-400 hover:bg-orange-300",
-              theme === "light" ? "text-white" : "text-black",
+              "text-black",
             ].join(" ")}
             onClick={() => {
               if (isOwnListing) {

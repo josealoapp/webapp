@@ -8,7 +8,6 @@ import SellerAvatar from "@/components/SellerAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { formatListingAge } from "@/lib/relative-time";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
-import { useThemeSetting } from "@/components/ThemeProvider";
 
 type Item = {
   id: string;
@@ -27,7 +26,6 @@ type Item = {
 
 export default function ItemCard({ item }: { item: Item }) {
   const [open, setOpen] = useState(false);
-  const { theme } = useThemeSetting();
   const ageLabel = formatListingAge(Number(item.createdAt || 0));
 
   return (
@@ -88,7 +86,7 @@ export default function ItemCard({ item }: { item: Item }) {
           <div className="mt-4 flex gap-2">
             <Link
               href={item.href || `/item/${item.id}`}
-              className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-center text-sm hover:bg-neutral-900"
+              className="w-full rounded-2xl border border-neutral-800 px-4 py-3 text-center text-sm transition hover:bg-black/5 dark:hover:bg-neutral-900"
             >
               Detalles
             </Link>
@@ -97,7 +95,7 @@ export default function ItemCard({ item }: { item: Item }) {
               onClick={() => setOpen(true)}
               className={[
                 "w-full rounded-2xl bg-primary px-4 py-3 text-sm font-semibold hover:bg-primary/90",
-                theme === "light" ? "text-white" : "text-black",
+                "text-black",
               ].join(" ")}
             >
               Me interesa
@@ -142,10 +140,7 @@ function SellerBadge({
   const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
-    if (!sellerId) {
-      setIsVerified(false);
-      return;
-    }
+    if (!sellerId) return;
 
     const unsub = subscribeVerifiedUser(sellerId, setIsVerified);
     return () => unsub();
