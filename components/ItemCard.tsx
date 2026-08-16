@@ -21,6 +21,7 @@ type Item = {
   sellerName?: string;
   sellerAvatar?: string;
   createdAt?: number;
+  type?: "article" | "bazar";
   paymentMethod?: "efectivo" | "intercambio" | "ambos" | "transferencia";
 };
 
@@ -60,21 +61,26 @@ export default function ItemCard({ item }: { item: Item }) {
 
         {/* Content */}
         <div className="relative z-10 -mt-20 rounded-t-3xl bg-neutral-950 px-4 pb-4 pt-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="listing-title truncate text-base font-medium">
-                {item.title}
-              </h3>
-
-              <div className="mt-1 flex items-center gap-1 text-xs text-neutral-400">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{item.location}</span>
-                {ageLabel ? <span className="shrink-0 text-neutral-500">· {ageLabel}</span> : null}
-              </div>
+          <div className="min-w-0">
+            <div className="listing-price text-lg font-bold text-orange-400">
+              RD${Number(item.price || 0).toLocaleString()}
             </div>
 
-            <div className="listing-price shrink-0 text-lg font-bold text-orange-400">
-              ${item.price}
+            <div className="mt-1 flex min-w-0 items-center gap-2">
+              {item.type === "bazar" ? (
+                <span className="shrink-0 text-sm font-bold uppercase text-blue-400">Bazar</span>
+              ) : null}
+              <h3 className="listing-title min-w-0 truncate text-base font-medium">
+                {item.title}
+              </h3>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-neutral-400">
+              <div className="flex min-w-0 items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                <span className="truncate">{item.location}</span>
+              </div>
+              {ageLabel ? <span className="shrink-0 text-neutral-500">{ageLabel}</span> : null}
             </div>
           </div>
 

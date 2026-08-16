@@ -47,6 +47,7 @@ type CategoryResult = {
   href: string;
   title: string;
   price: number;
+  type?: "article" | "bazar";
   image: string;
   location: string;
   category: string;
@@ -101,6 +102,7 @@ function flattenCategoryListings(listings: Listing[], categoryName: string): Cat
         href: `/item/${listing.id}?bazarItemId=${encodeURIComponent(item.id)}`,
         title: item.title,
         price: Number(item.price || 0),
+        type: "bazar",
         image: item.image || listing.image || "",
         location: listing.location,
         category: listing.bazarCategory || listing.category,
@@ -117,6 +119,7 @@ function flattenCategoryListings(listings: Listing[], categoryName: string): Cat
         href: `/item/${listing.id}`,
         title: listing.title,
         price: Number(listing.price || 0),
+        type: listing.type || "article",
         image: listing.image || "",
         location: listing.location,
         category: listing.category,
@@ -385,12 +388,19 @@ export default function CategoryDetailPage() {
                     <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
                   )}
                 </div>
-                <div className="listing-title text-sm font-medium text-neutral-100">{item.title}</div>
                 <div className="listing-price text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
-                <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{item.location || "Santo Domingo"}</span>
-                  {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
+                <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                  {item.type === "bazar" ? (
+                    <span className="shrink-0 text-xs font-bold uppercase text-blue-400">Bazar</span>
+                  ) : null}
+                  <span className="listing-title min-w-0 truncate text-sm font-medium text-neutral-100">{item.title}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-neutral-500">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{item.location || "Santo Domingo"}</span>
+                  </div>
+                  {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
                 </div>
               </Link>
                 );

@@ -28,11 +28,11 @@ export default function HomeBazarCard({
   const router = useRouter();
   const [isShakingFollow, setIsShakingFollow] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const visibleItems = getActiveBazarItems(item);
   const canFollow = Boolean(currentUserId && currentUserId !== item.ownerId && !isFollowing);
-  const timeLeftLabel = item.bazarEndsAt ? formatBazarTimeLeft(item.bazarEndsAt, now) : "En vivo";
-  const ageLabel = formatListingAge(item.createdAt, now);
+  const timeLeftLabel = item.bazarEndsAt && now ? formatBazarTimeLeft(item.bazarEndsAt, now) : "En vivo";
+  const ageLabel = now ? formatListingAge(item.createdAt, now) : "";
 
   useEffect(() => {
     const unsub = subscribeVerifiedUser(item.ownerId, setIsVerified);
@@ -114,17 +114,21 @@ export default function HomeBazarCard({
                 <img src={bazarItem.image} alt={bazarItem.title} className="h-full w-full object-cover" />
               ) : null}
             </div>
-            <div className="listing-title mt-2 text-xs text-neutral-300 line-clamp-2 font-medium">{bazarItem.title}</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-              {item.bazarCategory || item.category}
-            </div>
-            <div className="listing-price mt-1 text-sm font-bold text-orange-400">
+            <div className="listing-price mt-2 text-sm font-bold text-orange-400">
               RD${Number(bazarItem.price).toLocaleString()}
             </div>
-            <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{item.location || "Santo Domingo"}</span>
-              {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
+            <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-blue-300">Bazar</span>
+              <span className="listing-title min-w-0 truncate text-xs font-medium text-neutral-300">
+                {bazarItem.title}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">
+              <div className="flex min-w-0 items-center gap-1">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{item.location || "Santo Domingo"}</span>
+              </div>
+              {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
             </div>
           </button>
         ))}

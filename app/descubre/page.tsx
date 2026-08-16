@@ -16,6 +16,7 @@ import { normalizeCategoryName } from "@/lib/categories";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser } from "@/lib/likes";
 import { getActiveBazarItems, Listing, searchListings } from "@/lib/marketplace";
+import { formatListingAge } from "@/lib/relative-time";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 
 type DiscoverItem = {
@@ -25,6 +26,7 @@ type DiscoverItem = {
   href: string;
   title: string;
   price: number;
+  type?: "article" | "bazar";
   category: string;
   location: string;
   image?: string;
@@ -142,6 +144,7 @@ export default function DiscoverPage() {
               href: `/item/${item.id}?bazarItemId=${bazarItem.id}`,
               title: bazarItem.title,
               price: bazarItem.price,
+              type: "bazar",
               category: listingCategory,
               location: item.location,
               image: bazarItem.image,
@@ -170,6 +173,7 @@ export default function DiscoverPage() {
             href: `/item/${item.id}`,
             title: item.title,
             price: item.price,
+            type: item.type || "article",
             category: item.category,
             location: item.location,
             image: item.image,
@@ -442,7 +446,7 @@ function ConfigureInterestsEmptyState() {
         href="/settings/interests"
         className="mt-6 rounded-2xl bg-orange-400 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-300"
       >
-        Configurar "Para ti"
+        Configurar &quot;Para ti&quot;
       </Link>
     </div>
   );
@@ -577,6 +581,7 @@ function SwipeCard({
   onShare: () => void;
 }) {
   const [sellerVerified, setSellerVerified] = useState(false);
+  const ageLabel = formatListingAge(Number(item.createdAt || 0));
 
   useEffect(() => {
     const unsub = subscribeVerifiedUser(item.sellerId, setSellerVerified);
@@ -636,17 +641,21 @@ function SwipeCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-black/20" />
 
       <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[2rem] bg-neutral-950 px-6 pb-6 pt-7">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="listing-title line-clamp-2 text-2xl font-medium text-black dark:text-white">{item.title}</h2>
-            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-400">
-              <MapPin className="h-4 w-4 text-neutral-500" />
-              <span className="truncate">{item.location || "Santo Domingo"}</span>
-            </div>
+        <div className="listing-price text-2xl font-bold text-orange-400">
+          RD${Number(item.price).toLocaleString()}
+        </div>
+        <div className="mt-2 flex min-w-0 items-center gap-3">
+          {item.type === "bazar" ? (
+            <span className="shrink-0 text-xl font-bold uppercase text-blue-400">Bazar</span>
+          ) : null}
+          <h2 className="listing-title min-w-0 truncate text-2xl font-medium text-black dark:text-white">{item.title}</h2>
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-neutral-400">
+          <div className="flex min-w-0 items-center gap-2">
+            <MapPin className="h-4 w-4 shrink-0 text-neutral-500" />
+            <span className="truncate">{item.location || "Santo Domingo"}</span>
           </div>
-          <div className="listing-price shrink-0 text-2xl font-bold text-orange-400">
-            RD${Number(item.price).toLocaleString()}
-          </div>
+          {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
         </div>
         <p className="mt-4 line-clamp-2 text-sm leading-6 text-neutral-400">
           {item.description || "High quality goods"}

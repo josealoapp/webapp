@@ -469,7 +469,7 @@ export default function HomePage() {
         {activeReview ? (
           <section className="rounded-[22px] border border-neutral-800 bg-neutral-900/60 p-4">
             <div className="text-base font-semibold text-neutral-100">
-              ¿Cómo valoras tu experiencia comprando el "{activeReview.itemTitle}" con {activeReview.sellerName}?
+              ¿Cómo valoras tu experiencia comprando el &quot;{activeReview.itemTitle}&quot; con {activeReview.sellerName}?
             </div>
             <div className="mt-3 flex gap-2">
               {[1, 2, 3, 4, 5].map((value) => (
@@ -551,14 +551,16 @@ export default function HomePage() {
                         {isSelling ? "vendiendo" : "comprando"}
                       </span>
                     </div>
-                    <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{chat.listingTitle}</div>
-                    <div className="listing-price mt-1 text-sm font-bold text-orange-400">
+                    <div className="listing-price text-sm font-bold text-orange-400">
                       RD${price.toLocaleString()}
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{location}</span>
-                      {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
+                    <div className="listing-title mt-1 truncate text-xs font-medium text-neutral-300">{chat.listingTitle}</div>
+                    <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{location}</span>
+                      </div>
+                      {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
                     </div>
                   </Link>
                 );
@@ -617,17 +619,23 @@ export default function HomePage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{item.title}</div>
-                    {item.type === "bazar" ? (
-                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-blue-300">Bazar</div>
-                    ) : null}
-                    <div className="listing-price mt-1 text-sm font-bold text-orange-400">
+                    <div className="listing-price text-sm font-bold text-orange-400">
                       RD${displayPrice.toLocaleString()}
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{item.location || "Santo Domingo"}</span>
-                      {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
+                    {item.type === "bazar" ? (
+                      <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-blue-300">Bazar</span>
+                        <span className="listing-title min-w-0 truncate text-xs font-medium text-neutral-300">{item.title}</span>
+                      </div>
+                    ) : (
+                      <div className="listing-title mt-1 truncate text-xs font-medium text-neutral-300">{item.title}</div>
+                    )}
+                    <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{item.location || "Santo Domingo"}</span>
+                      </div>
+                      {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
                     </div>
                   </Link>
                     );
@@ -743,14 +751,16 @@ export default function HomePage() {
                           <div className="h-full w-full bg-neutral-800" />
                         )}
                       </div>
-                      <div className="listing-title text-xs text-neutral-300 line-clamp-2 font-medium">{item.title}</div>
-                      <div className="listing-price mt-1 text-sm font-bold text-orange-400">
+                      <div className="listing-price text-sm font-bold text-orange-400">
                         RD${item.price.toLocaleString()}
                       </div>
-                      <div className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{item.location || "Santo Domingo"}</span>
-                        {ageLabel ? <span className="shrink-0">· {ageLabel}</span> : null}
+                      <div className="listing-title mt-1 truncate text-xs font-medium text-neutral-300">{item.title}</div>
+                      <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">
+                        <div className="flex min-w-0 items-center gap-1">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{item.location || "Santo Domingo"}</span>
+                        </div>
+                        {ageLabel ? <span className="shrink-0">{ageLabel}</span> : null}
                       </div>
                     </Link>
                     );

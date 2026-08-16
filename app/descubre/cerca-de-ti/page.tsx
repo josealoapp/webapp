@@ -18,7 +18,7 @@ import { isListingVisibleInMarketplace, Listing, subscribeListings } from "@/lib
 export default function NearbyDiscoverPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState(getDefaultListingLocation());
+  const [selectedLocation, setSelectedLocation] = useState(() => readStoredUserLocation()?.name || getDefaultListingLocation());
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
@@ -27,7 +27,6 @@ export default function NearbyDiscoverPage() {
   useEffect(() => {
     const storedLocation = readStoredUserLocation();
     if (storedLocation?.name) {
-      setSelectedLocation(storedLocation.name);
       return;
     }
 
@@ -53,6 +52,7 @@ export default function NearbyDiscoverPage() {
         id: item.id,
         title: item.title,
         price: item.price,
+        type: item.type || "article",
         location: item.location,
         image: item.image,
         sellerId: item.ownerId,
