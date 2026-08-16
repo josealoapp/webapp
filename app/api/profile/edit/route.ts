@@ -144,6 +144,7 @@ export async function PATCH(request: NextRequest) {
           description,
           profileDescription: description,
           userIdUpdatedAt: countsAsUserIdChange ? now : lastUserIdUpdate,
+          userIdChangeCount: countsAsUserIdChange ? userIdChangeCount + 1 : userIdChangeCount,
         },
       });
     }
@@ -195,6 +196,7 @@ export async function PATCH(request: NextRequest) {
         description,
         profileDescription: description,
         userIdUpdatedAt: countsAsUserIdChange ? now : lastUserIdUpdate,
+        userIdChangeCount: countsAsUserIdChange ? userIdChangeCount + 1 : userIdChangeCount,
       },
     });
   } catch (error) {

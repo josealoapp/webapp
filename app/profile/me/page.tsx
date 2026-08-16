@@ -45,6 +45,7 @@ export default function MyProfilePage() {
   const [profileHandle, setProfileHandle] = useState("");
   const [profileDescription, setProfileDescription] = useState("");
   const [userIdUpdatedAt, setUserIdUpdatedAt] = useState(0);
+  const [userIdChangeCount, setUserIdChangeCount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
   const [listingsCursor, setListingsCursor] = useState<string | null>(null);
@@ -114,6 +115,7 @@ export default function MyProfilePage() {
       setProfileHandle("");
       setProfileDescription("");
       setUserIdUpdatedAt(0);
+      setUserIdChangeCount(0);
       return;
     }
 
@@ -130,6 +132,7 @@ export default function MyProfilePage() {
             profileDescription?: string;
             userIdUpdatedAt?: number;
             handleUpdatedAt?: number;
+            userIdChangeCount?: number;
           } | null;
         };
         if (cancelled) return;
@@ -139,12 +142,14 @@ export default function MyProfilePage() {
         setProfileHandle(profile?.handle?.trim() || "");
         setProfileDescription((profile?.profileDescription || profile?.description || "").slice(0, 120));
         setUserIdUpdatedAt(Number(profile?.userIdUpdatedAt || profile?.handleUpdatedAt || 0));
+        setUserIdChangeCount(Number(profile?.userIdChangeCount || 0));
       })
       .catch(() => {
         if (!cancelled) {
           setProfileHandle("");
           setProfileDescription("");
           setUserIdUpdatedAt(0);
+          setUserIdChangeCount(0);
         }
       });
 
@@ -301,7 +306,7 @@ export default function MyProfilePage() {
     : myListings;
   const isSignedIn = Boolean(currentUserId);
   const userIdCanUpdateAt = userIdUpdatedAt ? userIdUpdatedAt + 365 * 24 * 60 * 60 * 1000 : 0;
-  const userIdLocked = Boolean(userIdCanUpdateAt && Date.now() < userIdCanUpdateAt);
+  const userIdLocked = Boolean(userIdChangeCount > 0 && userIdCanUpdateAt && Date.now() < userIdCanUpdateAt);
   const openEditProfile = () => {
     setEditUsername(currentUserName);
     setEditUserId(userHandle);
@@ -341,7 +346,7 @@ export default function MyProfilePage() {
         body: JSON.stringify({ username, userIdHandle, description }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { profile?: { handle?: string; userIdUpdatedAt?: number }; error?: string }
+        | { profile?: { handle?: string; userIdUpdatedAt?: number; userIdChangeCount?: number }; error?: string }
         | null;
 
       if (!response.ok) {
@@ -356,6 +361,7 @@ export default function MyProfilePage() {
       setProfileHandle(payload?.profile?.handle || userIdHandle);
       setProfileDescription(description);
       setUserIdUpdatedAt(Number(payload?.profile?.userIdUpdatedAt ?? userIdUpdatedAt));
+      setUserIdChangeCount(Number(payload?.profile?.userIdChangeCount ?? userIdChangeCount));
       setOpenEditModal(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
