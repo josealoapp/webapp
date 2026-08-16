@@ -94,13 +94,22 @@ export async function PATCH(request: NextRequest) {
 
     if (isPostgresProfilesEnabled()) {
       const current = (await getPublicProfileFromPostgres(userId)) as
-        | { displayName?: string; name?: string; handle?: string; userIdUpdatedAt?: number; handleUpdatedAt?: number }
+        | {
+            displayName?: string;
+            name?: string;
+            handle?: string;
+            userIdUpdatedAt?: number;
+            handleUpdatedAt?: number;
+            userIdChangeCount?: number;
+          }
         | null;
       const currentHandle = normalizeUserIdHandle(String(current?.handle || ""));
       const handleChanged = requestedHandle !== currentHandle;
       const lastUserIdUpdate = Number(current?.userIdUpdatedAt || current?.handleUpdatedAt || 0);
+      const userIdChangeCount = Number(current?.userIdChangeCount || 0);
+      const countsAsUserIdChange = Boolean(currentHandle && handleChanged);
 
-      if (handleChanged && lastUserIdUpdate && now - lastUserIdUpdate < USER_ID_UPDATE_INTERVAL_MS) {
+      if (countsAsUserIdChange && userIdChangeCount > 0 && lastUserIdUpdate && now - lastUserIdUpdate < USER_ID_UPDATE_INTERVAL_MS) {
         return NextResponse.json({ error: "profile/user-id-update-too-soon" }, { status: 409 });
       }
 
@@ -114,7 +123,11 @@ export async function PATCH(request: NextRequest) {
         handle: requestedHandle,
         description,
         profileDescription: description,
-        ...(handleChanged ? { userIdUpdatedAt: now, handleUpdatedAt: now } : {}),
+        ...(countsAsUserIdChange
+          ? { userIdUpdatedAt: now, handleUpdatedAt: now, userIdChangeCount: userIdChangeCount + 1 }
+          : handleChanged
+            ? { userIdInitializedAt: now }
+            : {}),
         updatedAt: now,
       });
 
@@ -130,7 +143,7 @@ export async function PATCH(request: NextRequest) {
           handle: requestedHandle,
           description,
           profileDescription: description,
-          userIdUpdatedAt: handleChanged ? now : lastUserIdUpdate,
+          userIdUpdatedAt: countsAsUserIdChange ? now : lastUserIdUpdate,
         },
       });
     }
@@ -138,13 +151,15 @@ export async function PATCH(request: NextRequest) {
     const profileRef = getAdminDb().collection("userProfiles").doc(userId);
     const profileSnap = await profileRef.get();
     const current = profileSnap.data() as
-      | { handle?: string; userIdUpdatedAt?: number; handleUpdatedAt?: number }
+      | { handle?: string; userIdUpdatedAt?: number; handleUpdatedAt?: number; userIdChangeCount?: number }
       | undefined;
     const currentHandle = normalizeUserIdHandle(String(current?.handle || ""));
     const handleChanged = requestedHandle !== currentHandle;
     const lastUserIdUpdate = Number(current?.userIdUpdatedAt || current?.handleUpdatedAt || 0);
+    const userIdChangeCount = Number(current?.userIdChangeCount || 0);
+    const countsAsUserIdChange = Boolean(currentHandle && handleChanged);
 
-    if (handleChanged && lastUserIdUpdate && now - lastUserIdUpdate < USER_ID_UPDATE_INTERVAL_MS) {
+    if (countsAsUserIdChange && userIdChangeCount > 0 && lastUserIdUpdate && now - lastUserIdUpdate < USER_ID_UPDATE_INTERVAL_MS) {
       return NextResponse.json({ error: "profile/user-id-update-too-soon" }, { status: 409 });
     }
 
@@ -160,7 +175,11 @@ export async function PATCH(request: NextRequest) {
         handleLower: requestedHandle,
         description,
         profileDescription: description,
-        ...(handleChanged ? { userIdUpdatedAt: now, handleUpdatedAt: now } : {}),
+        ...(countsAsUserIdChange
+          ? { userIdUpdatedAt: now, handleUpdatedAt: now, userIdChangeCount: userIdChangeCount + 1 }
+          : handleChanged
+            ? { userIdInitializedAt: now }
+            : {}),
         updatedAt: now,
       },
       { merge: true }
@@ -175,7 +194,7 @@ export async function PATCH(request: NextRequest) {
         handle: requestedHandle,
         description,
         profileDescription: description,
-        userIdUpdatedAt: handleChanged ? now : lastUserIdUpdate,
+        userIdUpdatedAt: countsAsUserIdChange ? now : lastUserIdUpdate,
       },
     });
   } catch (error) {
