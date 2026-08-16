@@ -6,8 +6,10 @@ export type FollowRecord = {
   id: string;
   followerId: string;
   followerName: string;
+  followerHandle?: string;
   followeeId: string;
   followeeName: string;
+  followeeHandle?: string;
   createdAt: number;
 };
 

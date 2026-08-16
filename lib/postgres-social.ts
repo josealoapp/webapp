@@ -4,8 +4,10 @@ export type SocialLikeRecord = {
   id: string;
   actorId: string;
   actorName: string;
+  actorHandle?: string;
   ownerId: string;
   ownerName: string;
+  ownerHandle?: string;
   listingId: string;
   bazarItemId?: string;
   itemTitle: string;
@@ -20,8 +22,10 @@ export type SocialFollowRecord = {
   id: string;
   followerId: string;
   followerName: string;
+  followerHandle?: string;
   followeeId: string;
   followeeName: string;
+  followeeHandle?: string;
   createdAt: number;
 };
 
@@ -54,8 +58,10 @@ function likeFromRow(row: LikeRow): SocialLikeRecord {
     id: row.id,
     actorId: row.actor_id,
     actorName: String(data.actorName || ""),
+    actorHandle: typeof data.actorHandle === "string" ? data.actorHandle : undefined,
     ownerId: row.owner_id,
     ownerName: String(data.ownerName || ""),
+    ownerHandle: typeof data.ownerHandle === "string" ? data.ownerHandle : undefined,
     listingId: row.listing_id,
     bazarItemId: row.bazar_item_id || undefined,
     itemTitle: String(data.itemTitle || ""),
@@ -73,8 +79,10 @@ function followFromRow(row: FollowRow): SocialFollowRecord {
     id: row.id,
     followerId: row.follower_id,
     followerName: String(data.followerName || ""),
+    followerHandle: typeof data.followerHandle === "string" ? data.followerHandle : undefined,
     followeeId: row.followee_id,
     followeeName: String(data.followeeName || ""),
+    followeeHandle: typeof data.followeeHandle === "string" ? data.followeeHandle : undefined,
     createdAt: toNumber(row.created_at_ms),
   };
 }

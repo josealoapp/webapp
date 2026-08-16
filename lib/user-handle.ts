@@ -133,7 +133,6 @@ export function getOrCreateUserHandle(input: { uid: string; name: string }) {
       writeHandleRegistry(updated);
     }
 
-    persistHandle({ ...existing, name: input.name.trim(), updatedAt: Date.now() });
     return existing.handle;
   }
 

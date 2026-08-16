@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { isPostgresAuthEnabled, pgQuery } from "@/lib/postgres";
 import { updatePostgresAuthUserProfile } from "@/lib/postgres-auth";
+import { syncPublicIdentityReferences } from "@/lib/profile-identity-sync";
 import {
   getPublicProfileFromPostgres,
   isPostgresProfilesEnabled,
@@ -121,6 +122,8 @@ export async function PATCH(request: NextRequest) {
         await updatePostgresAuthUserProfile(userId, { displayName: username });
       }
 
+      await syncPublicIdentityReferences({ userId, displayName: username, handle: requestedHandle });
+
       return NextResponse.json({
         profile: {
           displayName: username,
@@ -164,6 +167,7 @@ export async function PATCH(request: NextRequest) {
     );
 
     await getAdminAuth().updateUser(userId, { displayName: username });
+    await syncPublicIdentityReferences({ userId, displayName: username, handle: requestedHandle });
 
     return NextResponse.json({
       profile: {

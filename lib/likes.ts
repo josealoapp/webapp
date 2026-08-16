@@ -6,8 +6,10 @@ export type LikeRecord = {
   id: string;
   actorId: string;
   actorName: string;
+  actorHandle?: string;
   ownerId: string;
   ownerName: string;
+  ownerHandle?: string;
   listingId: string;
   bazarItemId?: string;
   itemTitle: string;

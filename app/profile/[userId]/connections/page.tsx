@@ -12,6 +12,7 @@ type ConnectionRow = {
   id: string;
   profileId: string;
   profileName: string;
+  profileHandle?: string;
   createdAt: number;
 };
 
@@ -37,6 +38,7 @@ export default function ProfileConnectionsPage() {
                 id: item.id,
                 profileId: item.followerId,
                 profileName: item.followerName,
+                profileHandle: item.followerHandle,
                 createdAt: item.createdAt,
               }))
             )
@@ -47,6 +49,7 @@ export default function ProfileConnectionsPage() {
                 id: item.id,
                 profileId: item.followeeId,
                 profileName: item.followeeName,
+                profileHandle: item.followeeHandle,
                 createdAt: item.createdAt,
               }))
             )
@@ -56,10 +59,7 @@ export default function ProfileConnectionsPage() {
   }, [tab, userId]);
 
   useEffect(() => {
-    if (!userId) {
-      setViewerFollowingIds(new Set());
-      return;
-    }
+    if (!userId) return;
 
     const unsub = subscribeFollowingIds(userId, setViewerFollowingIds);
     return () => unsub();
@@ -70,7 +70,7 @@ export default function ProfileConnectionsPage() {
     if (!normalizedQuery) return rows;
 
     return rows.filter((row) => {
-      const handle = getOrCreateUserHandle({ uid: row.profileId, name: row.profileName }).toLowerCase();
+      const handle = (row.profileHandle || getOrCreateUserHandle({ uid: row.profileId, name: row.profileName })).toLowerCase();
       return row.profileName.toLowerCase().includes(normalizedQuery) || handle.includes(normalizedQuery);
     });
   }, [query, rows]);
@@ -117,7 +117,7 @@ export default function ProfileConnectionsPage() {
         ) : (
           <div className="space-y-3">
             {filteredRows.map((row) => {
-              const handle = getOrCreateUserHandle({ uid: row.profileId, name: row.profileName });
+              const handle = row.profileHandle || getOrCreateUserHandle({ uid: row.profileId, name: row.profileName });
 
               return (
                 <div

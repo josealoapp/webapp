@@ -138,7 +138,7 @@ export default function ActivityPage() {
       href: entry.href,
       createdAt: entry.createdAt,
       type: "like",
-      title: `@${getOrCreateUserHandle({ uid: entry.actorId, name: entry.actorName })} le dio like a tu publicación`,
+      title: `@${entry.actorHandle || getOrCreateUserHandle({ uid: entry.actorId, name: entry.actorName })} le dio like a tu publicación`,
       subtitle: entry.itemTitle,
       avatarUserId: entry.actorId,
       avatarName: entry.actorName,
@@ -151,17 +151,23 @@ export default function ActivityPage() {
         if (!followRecord) return false;
         return (listing.createdAt ?? 0) >= (followRecord.createdAt ?? 0);
       })
-      .map((listing) => ({
-        id: `listing:${listing.id}`,
-        href: `/item/${listing.id}`,
-        createdAt: listing.createdAt ?? 0,
-        type: "listing",
-        title: `@${getOrCreateUserHandle({ uid: listing.ownerId, name: listing.ownerName })} publicó un nuevo artículo`,
-        subtitle: listing.title,
-        avatarUserId: listing.ownerId,
-        avatarName: listing.ownerName,
-        avatarUrl: listing.ownerAvatar,
-      }));
+      .map((listing) => {
+        const followRecord = following.find((entry) => entry.followeeId === listing.ownerId);
+        const ownerHandle =
+          followRecord?.followeeHandle || getOrCreateUserHandle({ uid: listing.ownerId, name: listing.ownerName });
+
+        return {
+          id: `listing:${listing.id}`,
+          href: `/item/${listing.id}`,
+          createdAt: listing.createdAt ?? 0,
+          type: "listing",
+          title: `@${ownerHandle} publicó un nuevo artículo`,
+          subtitle: listing.title,
+          avatarUserId: listing.ownerId,
+          avatarName: listing.ownerName,
+          avatarUrl: listing.ownerAvatar,
+        };
+      });
 
     const messageEntries: ActivityEntry[] = chats.map((chat) => {
       const counterpartId = chat.sellerId === currentUserId ? chat.buyerId : chat.sellerId;
@@ -451,6 +457,7 @@ function subscribeFollowingRows(
     id: string;
     followeeId: string;
     followeeName: string;
+    followeeHandle?: string;
     createdAt: number;
   }>
 ) {
@@ -458,6 +465,7 @@ function subscribeFollowingRows(
     id: row.id,
     followeeId: row.followeeId,
     followeeName: row.followeeName,
+    followeeHandle: row.followeeHandle,
     createdAt: row.createdAt,
   }));
 }
@@ -467,6 +475,7 @@ function subscribeFollowerRows(
     id: string;
     followerId: string;
     followerName: string;
+    followerHandle?: string;
     createdAt: number;
   }>
 ) {
@@ -474,6 +483,7 @@ function subscribeFollowerRows(
     id: row.id,
     followerId: row.followerId,
     followerName: row.followerName,
+    followerHandle: row.followerHandle,
     createdAt: row.createdAt,
   }));
 }
@@ -483,12 +493,15 @@ function buildFollowerActivityEntry(
   currentUserId: string,
   currentUserName: string
 ): ActivityEntry {
+  const followerHandle =
+    entry.followerHandle || getOrCreateUserHandle({ uid: entry.followerId, name: entry.followerName });
+
   return {
     id: `follower:${entry.id}`,
     href: `/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`,
     createdAt: entry.createdAt,
     type: "message",
-    title: `${entry.followerName} empezó a seguirte`,
+    title: `@${followerHandle} empezó a seguirte`,
     subtitle: "Nuevo seguidor",
     avatarUserId: entry.followerId,
     avatarName: entry.followerName,
