@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { onAuthStateChanged } from "@/lib/auth-client";
 import { Home, MessageCircle, Navigation, PlusSquare, User } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -12,9 +13,14 @@ type AppBottomNavTab = "home" | "discover" | "create" | "messages" | "profile";
 
 export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
   const { theme } = useThemeSetting();
+  const [mounted, setMounted] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const createHref = currentUserId ? "/item/new" : `/sign-in?next=${encodeURIComponent("/item/new")}`;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -33,10 +39,10 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
     return chats.reduce((total, chat) => total + getUnreadCount(chat, currentUserId), 0);
   }, [chats, currentUserId]);
 
-  return (
+  const nav = (
     <nav
       className={[
-        "app-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur",
+        "app-bottom-nav fixed inset-x-0 bottom-0 z-[2000] border-t backdrop-blur",
         theme === "light"
           ? "border-slate-200 bg-white shadow-[0_-12px_30px_rgba(249,115,22,0.08)]"
           : "border-neutral-800 bg-neutral-950/90",
@@ -58,6 +64,9 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
       </div>
     </nav>
   );
+
+  if (!mounted || typeof document === "undefined") return nav;
+  return createPortal(nav, document.body);
 }
 
 function getUnreadCount(chat: ChatRecord, userId: string) {

@@ -187,6 +187,17 @@ html[data-theme="light"] .app-bottom-nav {
   box-shadow: 0 -12px 30px rgba(var(--brand-primary-rgb), 0.08) !important;
 }
 
+.app-bottom-nav {
+  position: fixed !important;
+  inset-inline: 0 !important;
+  bottom: 0 !important;
+  z-index: 2000 !important;
+  padding-bottom: env(safe-area-inset-bottom);
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 html[data-theme="light"] .app-bottom-nav .text-neutral-400 {
   color: #475569 !important;
 }
