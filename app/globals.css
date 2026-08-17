@@ -188,6 +188,7 @@ html[data-theme="light"] .app-bottom-nav {
 }
 
 .app-bottom-nav {
+  --app-bottom-nav-height: 64px;
   position: fixed !important;
   inset-inline: 0 !important;
   bottom: 0 !important;
@@ -196,6 +197,13 @@ html[data-theme="light"] .app-bottom-nav {
   backface-visibility: hidden;
   transform: translateZ(0);
   will-change: transform;
+}
+
+.app-bottom-nav-spacer {
+  display: block;
+  flex: 0 0 auto;
+  height: calc(var(--app-bottom-nav-height, 64px) + env(safe-area-inset-bottom));
+  pointer-events: none;
 }
 
 html[data-theme="light"] .app-bottom-nav .text-neutral-400 {

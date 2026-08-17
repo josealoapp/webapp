@@ -48,7 +48,7 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
           : "border-neutral-800 bg-neutral-950/90",
       ].join(" ")}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-around px-4 py-3 text-xs">
+      <div className="mx-auto flex min-h-[var(--app-bottom-nav-height)] max-w-6xl items-center justify-around px-4 py-3 text-xs">
         <NavIcon icon={Home} label="Inicio" href="/" active={active === "home"} isLight={theme === "light"} />
         <NavIcon icon={Navigation} label="Descubre" href="/descubre" active={active === "discover"} isLight={theme === "light"} />
         <NavIcon icon={PlusSquare} label="Crear" href={createHref} active={active === "create"} isLight={theme === "light"} />
@@ -65,8 +65,12 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
     </nav>
   );
 
-  if (!mounted || typeof document === "undefined") return nav;
-  return createPortal(nav, document.body);
+  return (
+    <>
+      <div className="app-bottom-nav-spacer" aria-hidden="true" />
+      {!mounted || typeof document === "undefined" ? nav : createPortal(nav, document.body)}
+    </>
+  );
 }
 
 function getUnreadCount(chat: ChatRecord, userId: string) {
