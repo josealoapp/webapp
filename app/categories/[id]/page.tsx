@@ -425,7 +425,7 @@ export default function CategoryDetailPage() {
       </main>
 
       {isFilterOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/70 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[3000] bg-black/70 px-4 py-6 backdrop-blur-sm">
           <div className="mx-auto flex h-full max-w-md flex-col rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-800 px-5 py-4">
               <div>

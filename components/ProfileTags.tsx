@@ -285,7 +285,7 @@ function ProfileTagCreateModal({
   const update = (patch: Partial<Draft>) => onDraftChange({ ...draft, ...patch });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
       <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
         <div className="flex items-center justify-between">
           <div>
@@ -538,7 +538,7 @@ function SelectField({
         <SelectTrigger className="h-12 min-w-0 rounded-2xl border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 shadow-none focus-visible:border-orange-400 focus-visible:ring-orange-400/20 [&_[data-slot=select-value]]:truncate">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent className="z-[70] max-h-72 border-neutral-800 bg-neutral-950 text-neutral-100">
+        <SelectContent className="z-[3100] max-h-72 border-neutral-800 bg-neutral-950 text-neutral-100">
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value} className="focus:bg-neutral-900 focus:text-white">
               {option.label}
@@ -630,7 +630,7 @@ function ProfileTagDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
       <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-base font-semibold">

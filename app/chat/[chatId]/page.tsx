@@ -603,7 +603,7 @@ export default function ChatPage() {
       </div>
 
       {listingActionOpen && chat ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60 px-4 pb-4">
           <button
             type="button"
             className="absolute inset-0"
@@ -643,7 +643,7 @@ export default function ChatPage() {
       ) : null}
 
       {showSoldListingOverlay ? (
-        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0"

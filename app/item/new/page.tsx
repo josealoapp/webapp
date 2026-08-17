@@ -1377,7 +1377,7 @@ export default function NewListingPage() {
       </header>
 
       {importOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/70 px-4 py-5 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[3000] bg-black/70 px-4 py-5 backdrop-blur-sm">
           <div className="mx-auto flex h-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-2xl">
             <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
               <div className="min-w-0">

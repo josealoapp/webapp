@@ -1002,7 +1002,7 @@ export default function ItemDetailsPage() {
       />
 
       {openOwnerActions ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 px-4 pb-4">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60 px-4 pb-4">
           <button
             type="button"
             className="absolute inset-0"
@@ -1046,7 +1046,7 @@ export default function ItemDetailsPage() {
       ) : null}
 
       {openSoldModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
             <div className="text-lg font-semibold">Marcar como vendido</div>
             <p className="mt-2 text-sm leading-6 text-neutral-400">
@@ -1208,7 +1208,7 @@ export default function ItemDetailsPage() {
       ) : null}
 
       {openBazarMenu ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
           <div className="w-full max-w-sm rounded-3xl border border-neutral-800 bg-neutral-950 p-4 text-neutral-100 shadow-2xl">
             <button
               type="button"
@@ -1231,7 +1231,7 @@ export default function ItemDetailsPage() {
       ) : null}
 
       {openReportModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
             <div className="text-lg font-semibold">Razon de reporte</div>
             <div className="mt-1 text-sm text-neutral-400">

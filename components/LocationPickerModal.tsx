@@ -42,7 +42,7 @@ export default function LocationPickerModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] bg-neutral-950 text-neutral-50">
+    <div className="fixed inset-0 z-[3000] bg-neutral-950 text-neutral-50">
       <div className="mx-auto flex h-full w-full max-w-md flex-col px-4 pb-5 pt-4">
         <header className="flex items-center gap-3">
           <button

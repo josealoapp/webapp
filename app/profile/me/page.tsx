@@ -530,7 +530,7 @@ export default function MyProfilePage() {
       </main>
 
       {openEditModal ? (
-        <div className="fixed inset-0 z-50 bg-neutral-50 text-slate-950 dark:bg-neutral-950 dark:text-neutral-50">
+        <div className="fixed inset-0 z-[3000] bg-neutral-50 text-slate-950 dark:bg-neutral-950 dark:text-neutral-50">
           <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
             <header className="relative flex items-center justify-center px-4 pb-6 pt-9">
               <button
@@ -615,7 +615,7 @@ export default function MyProfilePage() {
               ) : null}
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+            <div className="fixed inset-x-0 bottom-0 z-[3010] border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
               <div className="mx-auto max-w-md">
                 <Button
                   type="button"
@@ -632,7 +632,7 @@ export default function MyProfilePage() {
       ) : null}
 
       {openReviewModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
           <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50">
             <div className="flex items-start justify-between gap-4">
               <div>

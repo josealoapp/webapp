@@ -637,7 +637,7 @@ export default function PublicProfilePage() {
       </main>
 
       {openReportModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
           <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -666,7 +666,7 @@ export default function PublicProfilePage() {
                     <SelectTrigger className="h-12 rounded-2xl border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 shadow-none focus-visible:border-orange-400 focus-visible:ring-orange-400/20">
                       <SelectValue placeholder="Selecciona una razón" />
                     </SelectTrigger>
-                    <SelectContent className="z-[70] max-h-72 border-neutral-800 bg-neutral-950 text-neutral-100">
+                    <SelectContent className="z-[3100] max-h-72 border-neutral-800 bg-neutral-950 text-neutral-100">
                       {USER_REPORT_REASONS.map((reason) => (
                         <SelectItem key={reason} value={reason} className="focus:bg-neutral-900 focus:text-white">
                           {reason}
@@ -707,7 +707,7 @@ export default function PublicProfilePage() {
       ) : null}
 
       {openReviewModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
           <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>

@@ -108,7 +108,7 @@ export default function AccountTypePage() {
       </main>
 
       {showConfirmModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-6 pt-10 sm:items-center">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-6 pt-10 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 shadow-2xl shadow-black/30">
             <div className="text-lg font-semibold text-white">Estas seguro que quieres ser una cuenta empresarial?</div>
             <p className="mt-2 text-sm text-neutral-400">

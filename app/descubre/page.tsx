@@ -473,7 +473,7 @@ function SwipeHintOverlay({ onDismiss }: { onDismiss: () => void }) {
   return (
     <button
       type="button"
-      className="fixed inset-0 z-[80] bg-black/50"
+      className="fixed inset-0 z-[3000] bg-black/50"
       onClick={onDismiss}
       aria-label="Cerrar guia de swipe"
     >

@@ -68,7 +68,7 @@ export default function SupportNotificationBanner() {
       </div>
 
       {detailsOpen ? (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
           <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-50 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
