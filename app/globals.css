@@ -50,6 +50,12 @@ body {
   font-family: var(--font-geist-sans), "Poppins", system-ui, -apple-system, sans-serif;
 }
 
+html,
+body {
+  min-height: 100%;
+  overscroll-behavior-y: none;
+}
+
 :root {
   --radius: 0.625rem;
   --brand-primary: #f97316;

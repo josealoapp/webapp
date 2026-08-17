@@ -11,7 +11,13 @@ import { ChatRecord, subscribeInboxChatsForUser } from "@/lib/marketplace";
 
 type AppBottomNavTab = "home" | "discover" | "create" | "messages" | "profile";
 
-export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
+export default function AppBottomNav({
+  active,
+  reserveSpace = true,
+}: {
+  active: AppBottomNavTab;
+  reserveSpace?: boolean;
+}) {
   const { theme } = useThemeSetting();
   const [mounted, setMounted] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
@@ -67,7 +73,7 @@ export default function AppBottomNav({ active }: { active: AppBottomNavTab }) {
 
   return (
     <>
-      <div className="app-bottom-nav-spacer" aria-hidden="true" />
+      {reserveSpace ? <div className="app-bottom-nav-spacer" aria-hidden="true" /> : null}
       {!mounted || typeof document === "undefined" ? nav : createPortal(nav, document.body)}
     </>
   );
