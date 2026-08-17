@@ -340,7 +340,15 @@ export async function syncSellerWhatsappAcrossListings(
 }
 
 export async function uploadListingImages(files: File[]) {
-  const optimizedFiles = await Promise.all(files.map((file, index) => optimizeListingImage(file, index)));
+  const optimizedFiles = await Promise.all(
+    files.map(async (file, index) => {
+      try {
+        return await optimizeListingImage(file, index);
+      } catch {
+        return file;
+      }
+    })
+  );
   const token = await auth.currentUser?.getIdToken();
 
   if (!token) {

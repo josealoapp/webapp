@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { moderateImageBuffer } from "@/lib/image-moderation";
 import { uploadListingImageObject, validateListingImage } from "@/lib/s3";
 import { getAdminAuth } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
+
+const SERVER_IMAGE_MAX_DIMENSION = 1600;
+const SERVER_WEBP_QUALITY = 82;
 
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
@@ -13,6 +17,24 @@ function getBearerToken(request: NextRequest) {
   }
 
   return token;
+}
+
+function getWebpFileName(fileName: string, index: number) {
+  const baseName = fileName.replace(/\.[^.]+$/, "") || `image-${index + 1}`;
+  return `${baseName}.webp`;
+}
+
+async function optimizeImageForStorage(buffer: Buffer) {
+  return sharp(buffer)
+    .rotate()
+    .resize({
+      width: SERVER_IMAGE_MAX_DIMENSION,
+      height: SERVER_IMAGE_MAX_DIMENSION,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: SERVER_WEBP_QUALITY })
+    .toBuffer();
 }
 
 export async function POST(request: NextRequest) {
@@ -49,11 +71,12 @@ export async function POST(request: NextRequest) {
         if (moderation.blocked) {
           throw new Error("upload/unsafe-content");
         }
+        const optimizedBuffer = await optimizeImageForStorage(buffer);
 
         return {
-          buffer,
-          name,
-          type,
+          buffer: optimizedBuffer,
+          name: getWebpFileName(name, index),
+          type: "image/webp",
           index,
         };
       })
