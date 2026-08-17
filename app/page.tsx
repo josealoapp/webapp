@@ -6,7 +6,7 @@ import HomeHeader from "@/components/HomeHeader";
 import HomeHero from "@/components/HomeHero";
 import HomeBazarCard from "@/components/HomeBazarCard";
 import HomeSplashScreen from "@/components/HomeSplashScreen";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "@/lib/auth-client";
@@ -146,6 +146,15 @@ export default function HomePage() {
       window.removeEventListener("focus", loadPendingTradeOffer);
     };
   }, []);
+
+  const dismissPendingTradeOffer = () => {
+    try {
+      localStorage.removeItem("pending_trade_offer");
+    } catch {
+      // Ignore storage failures; clearing state still removes the card for this session.
+    }
+    setPendingTradeOffer(null);
+  };
 
   useEffect(() => {
     setPreferredLocation(getDefaultListingLocation());
@@ -447,11 +456,19 @@ export default function HomePage() {
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-28 pt-5">
         {pendingTradeOffer ? (
-          <section className="rounded-[22px] border border-orange-400/30 bg-orange-400/10 p-4">
+          <section className="pending-offer-card relative rounded-[22px] border border-orange-400/30 bg-orange-400/10 p-4 pr-12 text-neutral-50">
+            <button
+              type="button"
+              onClick={dismissPendingTradeOffer}
+              className="pending-offer-dismiss absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-orange-400/30 bg-neutral-950/40 text-neutral-100 hover:bg-neutral-900"
+              aria-label="Cerrar oferta pendiente"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-orange-100">Continúa tu oferta</div>
-                <div className="mt-1 truncate text-xs text-orange-100/70">
+                <div className="pending-offer-title text-sm font-semibold text-orange-100">Continúa tu oferta</div>
+                <div className="pending-offer-copy mt-1 truncate text-xs text-orange-100/70">
                   Termina tu oferta para {pendingTradeOffer.listingTitle}.
                 </div>
               </div>

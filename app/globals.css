@@ -187,6 +187,30 @@ html[data-theme="light"] .listing-price {
   font-weight: 700 !important;
 }
 
+html[data-theme="light"] .pending-offer-card {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .pending-offer-title {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .pending-offer-copy {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .pending-offer-dismiss {
+  background-color: #ffffff !important;
+  border-color: #fed7aa !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .pending-offer-dismiss:hover {
+  background-color: #ffedd5 !important;
+}
+
 html[data-theme="light"] .app-bottom-nav {
   background-color: rgba(255, 255, 255, 0.94) !important;
   border-color: rgba(226, 232, 240, 0.95) !important;
