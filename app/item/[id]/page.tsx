@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, MessageCircle, MoreHorizontal, Share2, X } from "lucide-react";
 import { onAuthStateChanged } from "@/lib/auth-client";
 
 import AppBottomNav from "@/components/AppBottomNav";
@@ -41,6 +41,7 @@ export default function ItemDetailsPage() {
 
   const [openInterest, setOpenInterest] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(null);
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState("");
@@ -464,10 +465,59 @@ export default function ItemDetailsPage() {
     return () => obs.disconnect();
   }, [images.length]);
 
+  useEffect(() => {
+    if (fullscreenImageIndex === null) return;
+
+    if (!images[fullscreenImageIndex]) {
+      setFullscreenImageIndex(null);
+      return;
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFullscreenImageIndex(null);
+      }
+
+      if (event.key === "ArrowLeft") {
+        setFullscreenImageIndex((current) =>
+          current === null ? current : (current - 1 + images.length) % images.length
+        );
+      }
+
+      if (event.key === "ArrowRight") {
+        setFullscreenImageIndex((current) =>
+          current === null ? current : (current + 1) % images.length
+        );
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [fullscreenImageIndex, images]);
+
   const goTo = (index: number) => {
     const el = slideRefs.current[index];
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  };
+
+  const showPreviousFullscreenImage = () => {
+    setFullscreenImageIndex((current) =>
+      current === null ? current : (current - 1 + images.length) % images.length
+    );
+  };
+
+  const showNextFullscreenImage = () => {
+    setFullscreenImageIndex((current) =>
+      current === null ? current : (current + 1) % images.length
+    );
   };
 
   if (!item) {
@@ -529,14 +579,21 @@ export default function ItemDetailsPage() {
                   slideRefs.current[i] = el;
                 }}
                 data-index={i}
-                  className="relative h-full w-full flex-shrink-0 snap-start"
+                className="relative h-full w-full flex-shrink-0 snap-start"
               >
-                <img
-                  src={src}
-                  alt={`${item.title} ${i + 1}`}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/25" />
+                <button
+                  type="button"
+                  onClick={() => setFullscreenImageIndex(i)}
+                  className="absolute inset-0 h-full w-full cursor-zoom-in"
+                  aria-label={`Ver imagen ${i + 1} en pantalla completa`}
+                >
+                  <img
+                    src={src}
+                    alt={`${item.title} ${i + 1}`}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/25" />
+                </button>
               </div>
             ))}
           </div>
@@ -983,6 +1040,60 @@ export default function ItemDetailsPage() {
       </div>
 
       <AppBottomNav active="home" reserveSpace={false} />
+
+      {fullscreenImageIndex !== null && images[fullscreenImageIndex] ? (
+        <div className="fixed inset-0 z-[3000] bg-black text-white">
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => setFullscreenImageIndex(null)}
+            aria-label="Cerrar imagen"
+          />
+
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-0">
+            <img
+              src={images[fullscreenImageIndex]}
+              alt={`${displayTitle} ${fullscreenImageIndex + 1}`}
+              className="max-h-[100dvh] max-w-full object-contain"
+            />
+          </div>
+
+          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+            <div className="rounded-full bg-black/55 px-3 py-1 text-sm font-semibold backdrop-blur">
+              {fullscreenImageIndex + 1}/{images.length}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFullscreenImageIndex(null)}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white backdrop-blur active:scale-95"
+              aria-label="Cerrar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {images.length > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={showPreviousFullscreenImage}
+                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur active:scale-95"
+                aria-label="Imagen anterior"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                onClick={showNextFullscreenImage}
+                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur active:scale-95"
+                aria-label="Imagen siguiente"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <InterestModal
         open={openInterest}
