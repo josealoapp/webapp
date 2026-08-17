@@ -364,7 +364,7 @@ export default function InterestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[3000]">
       {/* overlay */}
       <button
         type="button"
@@ -374,7 +374,7 @@ export default function InterestModal({
       />
 
       {/* sheet */}
-      <div className="absolute bottom-0 left-0 right-0 mx-auto w-full max-w-lg rounded-t-3xl border border-neutral-800 bg-neutral-950 p-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
+      <div className="absolute bottom-0 left-0 right-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-neutral-800 bg-neutral-950 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:bottom-auto sm:top-1/2 sm:max-h-[calc(100dvh-3rem)] sm:-translate-y-1/2 sm:rounded-3xl">
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-neutral-800 sm:hidden" />
 
         <div className="flex items-start justify-between gap-4">
