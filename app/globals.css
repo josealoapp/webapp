@@ -211,6 +211,20 @@ html[data-theme="light"] .pending-offer-dismiss:hover {
   background-color: #ffedd5 !important;
 }
 
+html[data-theme="light"] .item-detail-action-bar {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] .item-detail-action-label {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] .item-detail-action-price {
+  color: #0f172a !important;
+}
+
 html[data-theme="light"] .app-bottom-nav {
   background-color: rgba(255, 255, 255, 0.94) !important;
   border-color: rgba(226, 232, 240, 0.95) !important;

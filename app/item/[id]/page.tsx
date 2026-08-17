@@ -886,13 +886,13 @@ export default function ItemDetailsPage() {
       </div>
 
       {/* FIXED BOTTOM BAR */}
-      <div className="fixed bottom-[calc(var(--app-bottom-nav-height,64px)+env(safe-area-inset-bottom))] left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
+      <div className="item-detail-action-bar fixed bottom-[calc(var(--app-bottom-nav-height,64px)+env(safe-area-inset-bottom))] left-0 right-0 z-50 border-t border-neutral-800 bg-neutral-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <div className="text-xs text-neutral-500">
+            <div className="item-detail-action-label text-xs text-neutral-500">
               {item.type === "bazar" && !selectedBazarItem ? "Valor estimado" : "Precio"}
             </div>
-            <div className="text-lg font-semibold text-neutral-50">
+            <div className="item-detail-action-price text-lg font-semibold text-neutral-50">
               {formatMoney(Number(item.type === "bazar" && !selectedBazarItem ? estimatedBazarValue : displayPrice), displayCurrency)}
             </div>
           </div>
