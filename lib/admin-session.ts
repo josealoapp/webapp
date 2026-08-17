@@ -6,8 +6,6 @@ import { getAdminDb } from "@/lib/firebase-admin";
 const ADMIN_COOKIE_NAME = "josealo_admin_session";
 const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 const ADMIN_USERNAME = "admin";
-const DEFAULT_ADMIN_PASSWORD = "LM9lpnslp0*";
-const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || "josealo-admin-secret";
 const ADMIN_CONFIG_COLLECTION = "adminConfig";
 const ADMIN_CONFIG_DOC = "super-admin";
 
@@ -35,8 +33,30 @@ function hashPassword(password: string, salt: string) {
   return scryptSync(password, salt, 64).toString("hex");
 }
 
+function getAdminSessionSecret() {
+  const secret = process.env.ADMIN_SESSION_SECRET || "";
+  if (secret.length >= 32) return secret;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("admin/session-secret-not-configured");
+  }
+
+  return "dev-only-admin-session-secret-change-before-production";
+}
+
+function getInitialAdminPassword() {
+  const password = process.env.ADMIN_INITIAL_PASSWORD || "";
+  if (password.length >= 12) return password;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("admin/initial-password-not-configured");
+  }
+
+  return "dev-admin-password-change-me";
+}
+
 function signPayload(payload: string) {
-  return createHmac("sha256", ADMIN_SECRET).update(payload).digest("base64url");
+  return createHmac("sha256", getAdminSessionSecret()).update(payload).digest("base64url");
 }
 
 function createSessionToken(payload: AdminSessionPayload) {
@@ -78,8 +98,9 @@ export async function ensureSuperAdminConfig() {
     return snapshot.data() as AdminConfig;
   }
 
+  const initialPassword = getInitialAdminPassword();
   const passwordSalt = randomBytes(16).toString("hex");
-  const passwordHash = hashPassword(DEFAULT_ADMIN_PASSWORD, passwordSalt);
+  const passwordHash = hashPassword(initialPassword, passwordSalt);
   const config: AdminConfig = {
     username: ADMIN_USERNAME,
     passwordHash,
@@ -98,7 +119,10 @@ export async function verifyAdminCredentials(username: string, password: string)
   }
 
   const attemptedHash = hashPassword(password, config.passwordSalt);
-  return attemptedHash === config.passwordHash;
+  return (
+    attemptedHash.length === config.passwordHash.length &&
+    timingSafeEqual(Buffer.from(attemptedHash), Buffer.from(config.passwordHash))
+  );
 }
 
 export async function updateAdminPassword(nextPassword: string) {

@@ -6,6 +6,7 @@ import {
   resetPasswordWithPostgresToken,
 } from "@/lib/postgres-auth";
 import { passwordResetEmailTemplate, sendEmail } from "@/lib/email";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
   const email = cleanText(body?.email).toLowerCase();
+  const limit = await checkRateLimit(getRateLimitKey(request, "auth-password-reset", email), {
+    max: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "auth/too-many-attempts" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    );
+  }
+
   const user = email ? await getAuthUserByEmail(email) : null;
   let devResetUrl = "";
   if (user) {
@@ -61,6 +73,17 @@ export async function PATCH(request: NextRequest) {
     if (!token || password.length < 8) {
       return NextResponse.json({ error: "auth/invalid-payload" }, { status: 400 });
     }
+    const limit = await checkRateLimit(getRateLimitKey(request, "auth-password-reset-confirm", token.slice(0, 16)), {
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "auth/too-many-attempts" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+      );
+    }
+
     await resetPasswordWithPostgresToken(token, password);
     return NextResponse.json({ ok: true });
   } catch (error) {

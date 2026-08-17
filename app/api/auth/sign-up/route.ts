@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPostgresAuthUser } from "@/lib/postgres-auth";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,17 @@ export async function POST(request: NextRequest) {
 
     if (!isValidEmail(email) || password.length < 8) {
       return NextResponse.json({ error: "auth/invalid-payload" }, { status: 400 });
+    }
+
+    const limit = await checkRateLimit(getRateLimitKey(request, "auth-sign-up", email), {
+      max: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "auth/too-many-attempts" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+      );
     }
 
     const result = await createPostgresAuthUser({ email, password, displayName });

@@ -7,6 +7,9 @@ const DEFAULT_THRESHOLDS = {
   porn: 0.7,
   sexy: 0.85,
 } as const;
+const MAX_IMAGE_WIDTH = 8000;
+const MAX_IMAGE_HEIGHT = 8000;
+const MAX_IMAGE_PIXELS = 25_000_000;
 
 type ModerationCategory = "Hentai" | "Porn" | "Sexy";
 
@@ -53,6 +56,20 @@ function findProbability(predictions: PredictionType[], className: ModerationCat
 }
 
 export async function moderateImageBuffer(buffer: Buffer): Promise<ModerationResult> {
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+
+  if (
+    !width ||
+    !height ||
+    width > MAX_IMAGE_WIDTH ||
+    height > MAX_IMAGE_HEIGHT ||
+    width * height > MAX_IMAGE_PIXELS
+  ) {
+    throw new Error("upload/invalid-dimensions");
+  }
+
   const image = sharp(buffer).rotate().removeAlpha().toColourspace("srgb");
   const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
 

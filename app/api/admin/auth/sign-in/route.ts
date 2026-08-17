@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildAdminSessionResponse, verifyAdminCredentials } from "@/lib/admin-session";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,17 @@ export async function POST(request: NextRequest) {
 
     if (!username || !password) {
       return NextResponse.json({ error: "admin/missing-credentials" }, { status: 400 });
+    }
+
+    const limit = await checkRateLimit(getRateLimitKey(request, "admin-sign-in", username), {
+      max: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "admin/too-many-attempts" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+      );
     }
 
     const valid = await verifyAdminCredentials(username, password);

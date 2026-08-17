@@ -3,6 +3,8 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]);
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -49,7 +51,13 @@ export function createS3Client() {
 }
 
 export function validateListingImage(input: { name: string; type: string; size: number }) {
-  if (!input.type.startsWith("image/")) {
+  const extension = getFileExtension(input.name);
+
+  if (!ALLOWED_IMAGE_TYPES.has(input.type.toLowerCase())) {
+    throw new Error("upload/invalid-type");
+  }
+
+  if (extension && !ALLOWED_IMAGE_EXTENSIONS.has(extension)) {
     throw new Error("upload/invalid-type");
   }
 

@@ -191,18 +191,20 @@ export async function listSupportNotificationsFromPostgres(userId: string) {
   return result.rows.map(notificationFromRow);
 }
 
-export async function markSupportNotificationReadInPostgres(notificationId: string) {
+export async function markSupportNotificationReadInPostgres(notificationId: string, userId: string) {
   const now = Date.now();
-  await pgQuery(
+  const result = await pgQuery(
     `
       update support_notifications
       set read = true,
           read_at_ms = $2,
           data = data || $3::jsonb
-      where id = $1
+      where id = $1 and user_id = $4
     `,
-    [notificationId, now, JSON.stringify({ read: true, readAt: now })]
+    [notificationId, now, JSON.stringify({ read: true, readAt: now }), userId]
   );
+
+  return Number(result.rowCount || 0) > 0;
 }
 
 export async function setUserSupportStatusInPostgres(

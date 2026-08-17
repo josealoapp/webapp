@@ -45,6 +45,39 @@ function preserveExistingHandle(
   return nextProfile;
 }
 
+function cleanText(value: unknown, maxLength: number) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, maxLength) : "";
+}
+
+function cleanUrl(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim().slice(0, maxLength);
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function sanitizePublicProfile(profile: Record<string, unknown>, userId: string) {
+  const displayName = cleanText(profile.displayName || profile.name, 30);
+  const description = cleanText(profile.description || profile.profileDescription, 120);
+  const avatarUrl = cleanUrl(profile.avatarUrl, 500);
+  const instagramUsername = cleanText(profile.instagramUsername, 30).replace(/[^a-zA-Z0-9._]/g, "");
+  const now = Date.now();
+
+  return {
+    userId,
+    ...(displayName ? { displayName, name: displayName } : {}),
+    ...(description ? { description, profileDescription: description } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+    ...(instagramUsername ? { instagramUsername } : {}),
+    updatedAt: now,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = cleanUserId(request.nextUrl.searchParams.get("userId"));
@@ -99,7 +132,8 @@ export async function POST(request: NextRequest) {
         await upsertPrivateProfileInPostgres(userId, { ...profile, userId });
       } else {
         const existing = await getPublicProfileFromPostgres(userId);
-        await upsertPublicProfileInPostgres(userId, { ...preserveExistingHandle(profile, existing), userId });
+        const sanitizedProfile = sanitizePublicProfile(profile, userId);
+        await upsertPublicProfileInPostgres(userId, preserveExistingHandle(sanitizedProfile, existing));
       }
 
       return NextResponse.json({ ok: true });
@@ -115,7 +149,9 @@ export async function POST(request: NextRequest) {
       .doc(userId)
       .set(
         {
-          ...(scope === "public" ? preserveExistingHandle(profile, currentPublicProfile) : profile),
+          ...(scope === "public"
+            ? preserveExistingHandle(sanitizePublicProfile(profile, userId), currentPublicProfile)
+            : profile),
           userId,
           updatedAt: Date.now(),
         },

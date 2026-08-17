@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signInWithPostgresPassword } from "@/lib/postgres-auth";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,17 @@ export async function POST(request: NextRequest) {
     const password = cleanText(body?.password, 1000);
     if (!email || !password) {
       return NextResponse.json({ error: "auth/missing-credentials" }, { status: 400 });
+    }
+
+    const limit = await checkRateLimit(getRateLimitKey(request, "auth-sign-in", email), {
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "auth/too-many-attempts" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+      );
     }
 
     const result = await signInWithPostgresPassword(email, password);

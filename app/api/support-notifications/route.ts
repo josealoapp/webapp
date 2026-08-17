@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const token = getBearerToken(request);
     if (!token) return NextResponse.json({ error: "auth/missing-token" }, { status: 401 });
-    await getAdminAuth().verifyIdToken(token);
+    const decoded = await getAdminAuth().verifyIdToken(token);
     const body = (await request.json().catch(() => null)) as { notificationId?: string } | null;
     const notificationId = body?.notificationId?.trim() || "";
     if (!notificationId) {
@@ -53,11 +53,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (isPostgresAdminEnabled()) {
-      await markSupportNotificationReadInPostgres(notificationId);
+      const updated = await markSupportNotificationReadInPostgres(notificationId, decoded.uid);
+      if (!updated) {
+        return NextResponse.json({ error: "support-notifications/not-found" }, { status: 404 });
+      }
       return NextResponse.json({ ok: true });
     }
 
-    await getAdminDb().collection("supportNotifications").doc(notificationId).update({
+    const notificationRef = getAdminDb().collection("supportNotifications").doc(notificationId);
+    const snapshot = await notificationRef.get();
+    if (!snapshot.exists || snapshot.data()?.userId !== decoded.uid) {
+      return NextResponse.json({ error: "support-notifications/not-found" }, { status: 404 });
+    }
+
+    await notificationRef.update({
       read: true,
       readAt: Date.now(),
       readAtServer: FieldValue.serverTimestamp(),

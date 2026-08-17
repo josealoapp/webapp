@@ -72,8 +72,8 @@ function extractPublicColumns(userId: string, profile: Record<string, unknown>) 
           : null,
     email: typeof profile.email === "string" ? profile.email : null,
     avatar_url: typeof profile.avatarUrl === "string" ? profile.avatarUrl : null,
-    support_status: typeof profile.supportStatus === "string" ? profile.supportStatus : "active",
-    is_verified: profile.isVerified === true,
+    support_status: typeof profile.supportStatus === "string" ? profile.supportStatus : null,
+    is_verified: typeof profile.isVerified === "boolean" ? profile.isVerified : null,
     profile: JSON.stringify(profile),
     created_at_ms: Number(profile.createdAt || updatedAt || nowMs()),
     updated_at_ms: updatedAt,
@@ -101,15 +101,15 @@ export async function upsertPublicProfileInPostgres(userId: string, profile: Rec
       insert into user_profiles (
         id, display_name, email, avatar_url, support_status, is_verified, profile, created_at_ms, updated_at_ms
       ) values (
-        $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9
+        $1, $2, $3, $4, coalesce($5, 'active'), coalesce($6, false), $7::jsonb, $8, $9
       )
       on conflict (id) do update
       set
         display_name = coalesce(excluded.display_name, user_profiles.display_name),
         email = coalesce(excluded.email, user_profiles.email),
         avatar_url = coalesce(excluded.avatar_url, user_profiles.avatar_url),
-        support_status = excluded.support_status,
-        is_verified = excluded.is_verified,
+        support_status = coalesce(excluded.support_status, user_profiles.support_status),
+        is_verified = coalesce(excluded.is_verified, user_profiles.is_verified),
         profile = user_profiles.profile || excluded.profile,
         updated_at_ms = excluded.updated_at_ms,
         updated_at = now()

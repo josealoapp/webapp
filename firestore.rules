@@ -38,15 +38,11 @@ service cloud.firestore {
     function publicProfileKeys() {
       return [
         'displayName',
-        'handle',
+        'name',
         'avatarUrl',
         'instagramUsername',
-        'verified',
-        'verifiedAt',
-        'sellerRatingAvg',
-        'sellerRatingCount',
-        'sellerRatingSum',
-        'profileTags',
+        'description',
+        'profileDescription',
         'updatedAt',
         'updatedAtServer'
       ];
@@ -54,6 +50,23 @@ service cloud.firestore {
 
     function hasOnlyPublicProfileFields() {
       return request.resource.data.keys().hasOnly(publicProfileKeys());
+    }
+
+    function optionalString(field, maxLength) {
+      return !request.resource.data.keys().hasAny([field])
+        || (
+          request.resource.data[field] is string
+          && request.resource.data[field].size() <= maxLength
+        );
+    }
+
+    function hasValidPublicProfileFields() {
+      return optionalString('displayName', 30)
+        && optionalString('name', 30)
+        && optionalString('avatarUrl', 500)
+        && optionalString('instagramUsername', 30)
+        && optionalString('description', 120)
+        && optionalString('profileDescription', 120);
     }
 
     function serverManagedListingSaleFields() {
@@ -131,7 +144,8 @@ service cloud.firestore {
 
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
-        && hasOnlyPublicProfileFields();
+        && hasOnlyPublicProfileFields()
+        && hasValidPublicProfileFields();
     }
 
     match /userPrivateProfiles/{userId} {
