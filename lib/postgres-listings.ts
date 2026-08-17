@@ -216,6 +216,23 @@ export async function removeListingInPostgres(listingId: string) {
   );
 }
 
+export async function updateSellerWhatsappForOwnerInPostgres(
+  ownerId: string,
+  input: { sellerWhatsappNumber: string; sellerUsesWhatsapp: boolean }
+) {
+  await pgQuery(
+    `
+      update listings
+      set seller_whatsapp_number = $2,
+          seller_uses_whatsapp = $3,
+          updated_at_ms = $4,
+          updated_at = now()
+      where owner_id = $1
+    `,
+    [ownerId, input.sellerWhatsappNumber || null, input.sellerUsesWhatsapp === true, Date.now()]
+  );
+}
+
 export async function getListingOwnerInPostgres(listingId: string) {
   const result = await pgQuery<{ owner_id: string }>("select owner_id from listings where id = $1", [listingId]);
   return result.rows[0]?.owner_id || null;

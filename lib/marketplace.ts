@@ -325,18 +325,25 @@ export async function syncSellerWhatsappAcrossListings(
   ownerId: string,
   input: { sellerWhatsappNumber: string; sellerUsesWhatsapp: boolean }
 ) {
-  const snap = await getDocs(query(collection(db, "listings"), where("ownerId", "==", ownerId)));
+  const token = await auth.currentUser?.getIdToken();
 
-  await Promise.all(
-    snap.docs.map((docSnap) =>
-      updateDoc(doc(db, "listings", docSnap.id), {
-        sellerWhatsappNumber: input.sellerWhatsappNumber,
-        sellerUsesWhatsapp: input.sellerUsesWhatsapp,
-        updatedAt: Date.now(),
-        updatedAtServer: serverTimestamp(),
-      })
-    )
-  );
+  if (!token) {
+    throw new Error("auth/missing-token");
+  }
+
+  const response = await fetch("/api/profile/whatsapp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ownerId, ...input }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || "profile/whatsapp-sync-failed");
+  }
 }
 
 export async function uploadListingImages(files: File[]) {
