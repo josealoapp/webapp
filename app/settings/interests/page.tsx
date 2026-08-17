@@ -201,7 +201,7 @@ export default function InterestsSettingsPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className={["text-sm font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>Configurar para ti</div>
-        <div className="min-w-[40px] text-right text-sm font-semibold text-orange-300">
+        <div className={["min-w-[40px] text-right text-sm font-bold", isLight ? "text-slate-950" : "text-orange-300"].join(" ")}>
           {selected.length}/{MAX_INTERESTS}
         </div>
         </div>
