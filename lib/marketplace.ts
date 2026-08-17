@@ -340,15 +340,14 @@ export async function syncSellerWhatsappAcrossListings(
 }
 
 export async function uploadListingImages(files: File[]) {
-  const optimizedFiles = await Promise.all(
-    files.map(async (file, index) => {
-      try {
-        return await optimizeListingImage(file, index);
-      } catch {
-        return file;
-      }
-    })
-  );
+  const optimizedFiles: File[] = [];
+  for (const [index, file] of files.entries()) {
+    try {
+      optimizedFiles.push(await optimizeListingImage(file, index));
+    } catch {
+      optimizedFiles.push(file);
+    }
+  }
   const token = await auth.currentUser?.getIdToken();
 
   if (!token) {
@@ -356,7 +355,7 @@ export async function uploadListingImages(files: File[]) {
   }
 
   const uploads: string[] = [];
-  const batchSize = 10;
+  const batchSize = 1;
 
   for (let start = 0; start < optimizedFiles.length; start += batchSize) {
     const batch = optimizedFiles.slice(start, start + batchSize);
