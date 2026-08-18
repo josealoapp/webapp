@@ -23,9 +23,91 @@ type RatingRow = {
   created_at_ms: number | string;
 };
 
+type SaleEventRow = {
+  id: string;
+  listing_id: string;
+  type: string;
+  data: Record<string, unknown>;
+  sold_at_ms: number | string;
+  listing_type: string | null;
+  listing_title: string | null;
+  listing_price: number | string | null;
+  listing_currency: string | null;
+  listing_image: string | null;
+  listing_images: unknown;
+  listing_status: string | null;
+  listing_sold_to_user_name: string | null;
+  bazar_items: unknown;
+};
+
+export type ProfileSaleRow = {
+  id: string;
+  listingId: string;
+  bazarItemId: string;
+  title: string;
+  price: number;
+  currency: string;
+  image: string;
+  soldAt: number;
+  soldToUserName: string;
+};
+
 function toNumber(value: number | string | null | undefined) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function getString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function saleFromEventRow(row: SaleEventRow): ProfileSaleRow | null {
+  const data = row.data || {};
+  const bazarItemId = getString(data.bazarItemId);
+  const bazarItems = asArray<Record<string, unknown>>(row.bazar_items);
+  const bazarItem = bazarItemId ? bazarItems.find((item) => item.id === bazarItemId) : null;
+  const isBazarSale = row.type === "bazarItem" || Boolean(bazarItemId);
+
+  if (isBazarSale) {
+    if (!bazarItem || bazarItem.status !== "sold") return null;
+  } else if (row.listing_status !== "sold") {
+    return null;
+  }
+
+  const listingImages = asArray<string>(row.listing_images);
+  const image =
+    getString(data.saleImage) ||
+    getString(bazarItem?.image) ||
+    row.listing_image ||
+    listingImages[0] ||
+    "";
+  const title =
+    getString(data.saleTitle) ||
+    getString(bazarItem?.title) ||
+    row.listing_title ||
+    "Artículo vendido";
+  const price =
+    toNumber(data.salePrice as number | string | null | undefined) ||
+    toNumber(bazarItem?.price as number | string | null | undefined) ||
+    toNumber(row.listing_price);
+
+  if (price <= 0) return null;
+
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    bazarItemId,
+    title,
+    price,
+    currency: getString(data.saleCurrency) || getString(bazarItem?.currency) || row.listing_currency || "DOP",
+    image,
+    soldAt: toNumber(row.sold_at_ms),
+    soldToUserName: getString(data.soldToUserName) || row.listing_sold_to_user_name || "No especificado",
+  };
 }
 
 function requestFromRow(row: ReviewRequestRow) {
@@ -284,11 +366,38 @@ export async function skipReviewRequestInPostgres(requestId: string, buyerId: st
 }
 
 export async function getSalesCountFromPostgres(userId: string) {
-  const result = await pgQuery<{ count: number }>(
-    "select count(*)::int as count from listing_sold_events where owner_id = $1",
+  const sales = await listProfileSalesFromPostgres(userId);
+  return sales.length;
+}
+
+export async function listProfileSalesFromPostgres(userId: string) {
+  const result = await pgQuery<SaleEventRow>(
+    `
+      select
+        e.id,
+        e.listing_id,
+        e.type,
+        e.data,
+        e.sold_at_ms,
+        l.type as listing_type,
+        l.title as listing_title,
+        l.price as listing_price,
+        l.currency as listing_currency,
+        l.image as listing_image,
+        l.images as listing_images,
+        l.status as listing_status,
+        l.sold_to_user_name as listing_sold_to_user_name,
+        l.bazar_items
+      from listing_sold_events e
+      left join listings l on l.id = e.listing_id
+      where e.owner_id = $1
+      order by e.sold_at_ms desc
+      limit 500
+    `,
     [userId]
   );
-  return result.rows[0]?.count || 0;
+
+  return result.rows.map(saleFromEventRow).filter((sale): sale is ProfileSaleRow => Boolean(sale));
 }
 
 export async function markListingSoldInPostgres(input: {
@@ -307,8 +416,12 @@ export async function markListingSoldInPostgres(input: {
     owner_name: string;
     type: string;
     title: string;
+    price: number | string;
+    currency: string;
+    image: string | null;
+    images: unknown;
     bazar_items: unknown;
-  }>("select id, owner_id, owner_name, type, title, bazar_items from listings where id = $1", [input.listingId]);
+  }>("select id, owner_id, owner_name, type, title, price, currency, image, images, bazar_items from listings where id = $1", [input.listingId]);
   const listing = listingResult.rows[0];
   if (!listing) throw new Error("listing/not-found");
   if (listing.owner_id !== input.ownerId) throw new Error("listing/owner-mismatch");
@@ -368,6 +481,10 @@ export async function markListingSoldInPostgres(input: {
         bazarItemId: input.bazarItemId,
         ownerId: input.ownerId,
         type: "bazarItem",
+        saleTitle: String(items[itemIndex]?.title || listing.title || "Artículo"),
+        salePrice: toNumber(items[itemIndex]?.price as number | string | null | undefined),
+        saleCurrency: getString(items[itemIndex]?.currency) || listing.currency || "DOP",
+        saleImage: getString(items[itemIndex]?.image),
         soldAt,
         allItemsSold,
         ...feedback,
@@ -435,6 +552,10 @@ export async function markListingSoldInPostgres(input: {
       listingId: input.listingId,
       ownerId: input.ownerId,
       type: "listing",
+      saleTitle: listing.title || "Artículo",
+      salePrice: toNumber(listing.price),
+      saleCurrency: listing.currency || "DOP",
+      saleImage: listing.image || asArray<string>(listing.images)[0] || "",
       soldAt,
       ...feedback,
       ...(soldToBuyer ? { soldToUserId: soldToBuyer.buyerId, soldToUserName: soldToBuyer.buyerName } : {}),

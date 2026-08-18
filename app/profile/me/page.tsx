@@ -495,10 +495,10 @@ export default function MyProfilePage() {
         </div>
 
         <div className="mt-4 flex w-full justify-around text-center text-sm text-neutral-300">
-          <div>
+          <Link href="/profile/me/sales" aria-label="Ver ventas">
             <div className="text-base font-semibold text-neutral-50">{salesCount}</div>
             <div className="text-xs text-neutral-400">Ventas</div>
-          </div>
+          </Link>
           <Link href={`/profile/${currentUserId}/connections?tab=followers&name=${encodeURIComponent(currentUserName)}`}>
             <div className="text-base font-semibold text-neutral-50">{followersCount}</div>
             <div className="text-xs text-neutral-400">Seguidores</div>
