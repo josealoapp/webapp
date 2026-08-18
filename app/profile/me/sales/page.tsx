@@ -322,11 +322,11 @@ function GraphCard({
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full rounded-[28px] border p-5 text-left transition",
+        "min-w-full rounded-[28px] border px-4 py-5 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between px-1">
         <div className={["flex items-center gap-2 text-sm font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>
           <BarChart3 className="h-4 w-4 text-orange-400" />
           Gráfica de ventas
@@ -340,8 +340,8 @@ function GraphCard({
 function SalesChart({ points, isLight }: { points: Array<{ label: string; value: number }>; isLight: boolean }) {
   const maxValue = Math.max(1, ...points.map((point) => point.value));
   const chartPoints = points.map((point, index) => {
-    const x = 8 + (index * 84) / Math.max(1, points.length - 1);
-    const y = 72 - (point.value / maxValue) * 48;
+    const x = 2 + (index * 96) / Math.max(1, points.length - 1);
+    const y = 72 - (point.value / maxValue) * 52;
     return { ...point, x, y };
   });
   const path = buildSmoothPath(chartPoints);
@@ -351,9 +351,9 @@ function SalesChart({ points, isLight }: { points: Array<{ label: string; value:
     { x: 50, y: 40, label: "", value: 0 };
 
   return (
-    <div className="h-48">
+    <div className="h-52 w-full">
       <svg viewBox="0 0 100 86" className="h-full w-full" role="img" aria-label="Ventas por periodo">
-        <rect x={Math.max(6, activePoint.x - 7)} y="10" width="14" height="62" rx="2" fill="#ff8500" opacity={isLight ? "0.12" : "0.18"} />
+        <rect x={Math.max(0, Math.min(86, activePoint.x - 7))} y="8" width="14" height="64" rx="2" fill="#ff8500" opacity={isLight ? "0.12" : "0.18"} />
         {chartPoints.map((point) => (
           <line key={`grid-${point.label}`} x1={point.x} x2={point.x} y1="12" y2="72" stroke={isLight ? "#e2e8f0" : "#262626"} strokeDasharray="2 2" />
         ))}
