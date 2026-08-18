@@ -46,6 +46,7 @@ export default function ProfileSalesPage() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>("6m");
   const [selectedSlide, setSelectedSlide] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
 
@@ -120,6 +121,21 @@ export default function ProfileSalesPage() {
   const graphPoints = useMemo(() => buildGraphPoints(filteredSales, range), [filteredSales, range]);
   const recentSales = filteredSales.slice(0, 8);
 
+  const handleCarouselTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleCarouselTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+
+    const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX;
+    const deltaX = touchEndX - touchStartX;
+    if (Math.abs(deltaX) > 40) {
+      setSelectedSlide((current) => (deltaX < 0 ? Math.min(1, current + 1) : Math.max(0, current - 1)));
+    }
+    setTouchStartX(null);
+  };
+
   if (!authResolved || !currentUserId) {
     return <div className={isLight ? "min-h-screen bg-neutral-100" : "min-h-screen bg-neutral-950"} />;
   }
@@ -153,24 +169,22 @@ export default function ProfileSalesPage() {
 
       <main className="mx-auto flex max-w-md flex-col gap-6 px-4 pb-[calc(var(--app-bottom-nav-height)+2rem)]">
         <section>
-          <div>
-            <SummaryCard
-              isLight={isLight}
-              title="Balance disponible"
-              value={formatMoney(totalAmount)}
-              subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
-              icon={<Wallet className="h-5 w-5" />}
-              active={selectedSlide === 0}
-              onClick={() => setSelectedSlide(0)}
-              hidden={selectedSlide !== 0}
-            />
-            <GraphCard
-              isLight={isLight}
-              points={graphPoints}
-              active={selectedSlide === 1}
-              onClick={() => setSelectedSlide(1)}
-              hidden={selectedSlide !== 1}
-            />
+          <div className="overflow-hidden" onTouchStart={handleCarouselTouchStart} onTouchEnd={handleCarouselTouchEnd}>
+            <div className="flex transition-transform duration-300 ease-out" style={{ transform: `translateX(-${selectedSlide * 100}%)` }}>
+              <SummaryCard
+                isLight={isLight}
+                title="Balance disponible"
+                value={formatMoney(totalAmount)}
+                subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
+                icon={<Wallet className="h-5 w-5" />}
+                onClick={() => setSelectedSlide(0)}
+              />
+              <GraphCard
+                isLight={isLight}
+                points={graphPoints}
+                onClick={() => setSelectedSlide(1)}
+              />
+            </div>
           </div>
           <div className="mt-4 flex justify-center gap-2">
             {[0, 1].map((index) => (
@@ -264,27 +278,21 @@ function SummaryCard({
   value,
   subtitle,
   icon,
-  active,
   onClick,
-  hidden = false,
 }: {
   isLight: boolean;
   title: string;
   value: string;
   subtitle: string;
   icon: React.ReactNode;
-  active: boolean;
   onClick: () => void;
-  hidden?: boolean;
 }) {
-  if (hidden) return null;
-
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "w-full rounded-[28px] border p-7 text-left transition",
+        "min-w-full rounded-[28px] border p-7 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
@@ -303,24 +311,18 @@ function SummaryCard({
 function GraphCard({
   isLight,
   points,
-  active,
   onClick,
-  hidden = false,
 }: {
   isLight: boolean;
   points: Array<{ label: string; value: number }>;
-  active: boolean;
   onClick: () => void;
-  hidden?: boolean;
 }) {
-  if (hidden) return null;
-
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "w-full rounded-[28px] border p-5 text-left transition",
+        "min-w-full rounded-[28px] border p-5 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
