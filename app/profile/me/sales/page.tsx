@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BarChart3, CalendarDays, ChevronDown, ImageIcon, ReceiptText, Wallet, X } from "lucide-react";
+import { ArrowLeft, BarChart3, CalendarDays, ImageIcon, SlidersHorizontal, Wallet, X } from "lucide-react";
 import AppBottomNav from "@/components/AppBottomNav";
 import { useThemeSetting } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ export default function ProfileSalesPage() {
   const [range, setRange] = useState<RangeKey>("6m");
   const [selectedSlide, setSelectedSlide] = useState(0);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -137,49 +138,41 @@ export default function ProfileSalesPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className={["text-base font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>Ventas</div>
-        <div className="h-11 w-11" />
+        <button
+          type="button"
+          onClick={() => setRangeMenuOpen(true)}
+          className={[
+            "flex h-11 w-11 items-center justify-center rounded-full border shadow-sm active:scale-95",
+            isLight ? "border-slate-200 bg-white text-slate-950" : "border-neutral-800 bg-neutral-900/80 text-neutral-50",
+          ].join(" ")}
+          aria-label="Ajustar rango"
+        >
+          <SlidersHorizontal className="h-5 w-5" />
+        </button>
       </header>
 
-      <main className="mx-auto flex max-w-md flex-col gap-5 px-4 pb-[calc(var(--app-bottom-nav-height)+2rem)]">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {rangeOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setRange(option.value)}
-              className={[
-                "h-10 shrink-0 rounded-full border px-4 text-xs font-semibold transition",
-                range === option.value
-                  ? "border-orange-400 bg-orange-400 text-black"
-                  : isLight
-                    ? "border-slate-200 bg-transparent text-slate-700 hover:border-orange-400/70"
-                    : "border-neutral-800 bg-neutral-900/50 text-neutral-300 hover:border-orange-400/70",
-              ].join(" ")}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
+      <main className="mx-auto flex max-w-md flex-col gap-6 px-4 pb-[calc(var(--app-bottom-nav-height)+2rem)]">
         <section>
-          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3">
+          <div>
             <SummaryCard
               isLight={isLight}
-              title="Ventas calculadas"
+              title="Balance disponible"
               value={formatMoney(totalAmount)}
-              subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} en el periodo`}
+              subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
               icon={<Wallet className="h-5 w-5" />}
               active={selectedSlide === 0}
               onClick={() => setSelectedSlide(0)}
+              hidden={selectedSlide !== 0}
             />
             <GraphCard
               isLight={isLight}
               points={graphPoints}
               active={selectedSlide === 1}
               onClick={() => setSelectedSlide(1)}
+              hidden={selectedSlide !== 1}
             />
           </div>
-          <div className="flex justify-center gap-2">
+          <div className="mt-4 flex justify-center gap-2">
             {[0, 1].map((index) => (
               <button
                 key={index}
@@ -201,7 +194,9 @@ export default function ProfileSalesPage() {
           <CardContent className="px-4 py-5">
             <div className="mb-4 flex items-center justify-between">
               <div className={["text-lg font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>Ventas recientes</div>
-              <ReceiptText className={["h-5 w-5", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")} />
+              <button type="button" onClick={() => setRangeMenuOpen(true)} className="text-sm font-semibold text-orange-400">
+                Ver todo
+              </button>
             </div>
 
             {loading ? (
@@ -213,15 +208,15 @@ export default function ProfileSalesPage() {
                 Aún no hay ventas en este periodo.
               </div>
             ) : (
-              <div className="divide-y divide-neutral-500/15">
+              <div className={["rounded-[24px] border px-4", isLight ? "border-slate-200" : "border-neutral-800"].join(" ")}>
                 {recentSales.map((sale) => (
                   <button
                     key={sale.id}
                     type="button"
                     onClick={() => setSelectedSale(sale)}
-                    className="flex w-full items-center gap-3 py-3 text-left"
+                    className="flex w-full items-center gap-3 border-b border-neutral-500/15 py-4 text-left last:border-b-0"
                   >
-                    <div className={["h-14 w-14 shrink-0 overflow-hidden rounded-2xl", isLight ? "bg-white" : "bg-neutral-800"].join(" ")}>
+                    <div className={["h-16 w-16 shrink-0 overflow-hidden rounded-2xl", isLight ? "bg-white" : "bg-neutral-800"].join(" ")}>
                       {sale.image ? (
                         <img src={sale.image} alt={sale.title} className="h-full w-full object-cover" />
                       ) : (
@@ -248,6 +243,17 @@ export default function ProfileSalesPage() {
       {selectedSale ? (
         <SaleDetailsModal sale={selectedSale} isLight={isLight} onClose={() => setSelectedSale(null)} />
       ) : null}
+      {rangeMenuOpen ? (
+        <RangeMenu
+          value={range}
+          isLight={isLight}
+          onChange={(nextRange) => {
+            setRange(nextRange);
+            setRangeMenuOpen(false);
+          }}
+          onClose={() => setRangeMenuOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -260,6 +266,7 @@ function SummaryCard({
   icon,
   active,
   onClick,
+  hidden = false,
 }: {
   isLight: boolean;
   title: string;
@@ -268,15 +275,17 @@ function SummaryCard({
   icon: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  hidden?: boolean;
 }) {
+  if (hidden) return null;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full snap-center rounded-[28px] border p-5 text-left transition",
-        isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-900/30",
-        active ? "ring-2 ring-orange-400/40" : "",
+        "w-full rounded-[28px] border p-7 text-left transition",
+        isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
       <div className="flex items-center gap-3">
@@ -285,7 +294,7 @@ function SummaryCard({
         </div>
         <div className={["text-sm", isLight ? "text-slate-600" : "text-neutral-300"].join(" ")}>{title}</div>
       </div>
-      <div className={["mt-8 text-4xl font-bold tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
+      <div className={["mt-9 text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
       <div className={["mt-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
     </button>
   );
@@ -296,20 +305,23 @@ function GraphCard({
   points,
   active,
   onClick,
+  hidden = false,
 }: {
   isLight: boolean;
   points: Array<{ label: string; value: number }>;
   active: boolean;
   onClick: () => void;
+  hidden?: boolean;
 }) {
+  if (hidden) return null;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full snap-center rounded-[28px] border p-5 text-left transition",
-        isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-900/30",
-        active ? "ring-2 ring-orange-400/40" : "",
+        "w-full rounded-[28px] border p-5 text-left transition",
+        isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
       <div className="mb-4 flex items-center justify-between">
@@ -317,7 +329,6 @@ function GraphCard({
           <BarChart3 className="h-4 w-4 text-orange-400" />
           Gráfica de ventas
         </div>
-        <ChevronDown className={["h-4 w-4", isLight ? "text-slate-400" : "text-neutral-500"].join(" ")} />
       </div>
       <SalesChart points={points} isLight={isLight} />
     </button>
@@ -331,24 +342,106 @@ function SalesChart({ points, isLight }: { points: Array<{ label: string; value:
     const y = 72 - (point.value / maxValue) * 48;
     return { ...point, x, y };
   });
-  const path = chartPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const path = buildSmoothPath(chartPoints);
+  const activePoint =
+    chartPoints.findLast?.((point) => point.value > 0) ||
+    chartPoints[chartPoints.length - 1] ||
+    { x: 50, y: 40, label: "", value: 0 };
 
   return (
     <div className="h-48">
       <svg viewBox="0 0 100 86" className="h-full w-full" role="img" aria-label="Ventas por periodo">
+        <rect x={Math.max(6, activePoint.x - 7)} y="10" width="14" height="62" rx="2" fill="#ff8500" opacity={isLight ? "0.12" : "0.18"} />
         {chartPoints.map((point) => (
           <line key={`grid-${point.label}`} x1={point.x} x2={point.x} y1="12" y2="72" stroke={isLight ? "#e2e8f0" : "#262626"} strokeDasharray="2 2" />
         ))}
         <path d={path} fill="none" stroke="#ff8500" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <g>
+          <rect x={Math.min(58, Math.max(28, activePoint.x - 20))} y="8" width="38" height="10" rx="2.5" fill={isLight ? "#ffffff" : "#171717"} stroke={isLight ? "#e2e8f0" : "#2a2a2a"} />
+          <text x={Math.min(77, Math.max(47, activePoint.x - 1))} y="14.8" textAnchor="middle" fontSize="4.2" fill={isLight ? "#475569" : "#a3a3a3"}>
+            <tspan fill="#ff8500" fontWeight="700">{formatCompactMoney(activePoint.value)}</tspan>
+            <tspan>{`: ${activePoint.label}`}</tspan>
+          </text>
+        </g>
         {chartPoints.map((point) => (
           <g key={point.label}>
-            <circle cx={point.x} cy={point.y} r="2.2" fill="#ff8500" stroke={isLight ? "#ffffff" : "#050505"} strokeWidth="1" />
             <text x={point.x} y="82" textAnchor="middle" fontSize="5" fill={isLight ? "#64748b" : "#a3a3a3"}>
               {point.label}
             </text>
           </g>
         ))}
+        <circle cx={activePoint.x} cy={activePoint.y} r="3" fill="#ffffff" stroke="#ff8500" strokeWidth="1.5" />
       </svg>
+    </div>
+  );
+}
+
+function buildSmoothPath(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  return points.reduce((path, point, index) => {
+    if (index === 0) return `M ${point.x} ${point.y}`;
+    const previous = points[index - 1];
+    const midX = (previous.x + point.x) / 2;
+    return `${path} C ${midX} ${previous.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
+  }, "");
+}
+
+function RangeMenu({
+  value,
+  isLight,
+  onChange,
+  onClose,
+}: {
+  value: RangeKey;
+  isLight: boolean;
+  onChange: (range: RangeKey) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end bg-black/60 px-4 pb-4">
+      <div
+        className={[
+          "mx-auto w-full max-w-md rounded-[28px] border p-5 shadow-2xl",
+          isLight ? "border-slate-200 bg-white text-slate-950" : "border-neutral-800 bg-neutral-950 text-white",
+        ].join(" ")}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-lg font-semibold">Ajustar periodo</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={[
+              "flex h-10 w-10 items-center justify-center rounded-full border",
+              isLight ? "border-slate-200 bg-white text-slate-950" : "border-neutral-800 bg-neutral-900 text-white",
+            ].join(" ")}
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid gap-2">
+          {rangeOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              className={[
+                "flex h-12 items-center justify-between rounded-2xl border px-4 text-sm font-semibold",
+                value === option.value
+                  ? "border-orange-400 bg-orange-400 text-black"
+                  : isLight
+                    ? "border-slate-200 bg-transparent text-slate-950"
+                    : "border-neutral-800 bg-neutral-900/40 text-neutral-100",
+              ].join(" ")}
+            >
+              {option.label}
+              {value === option.value ? <span className="h-2 w-2 rounded-full bg-black" /> : null}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -419,6 +512,10 @@ function getRangeStart(range: RangeKey) {
   return start.getTime();
 }
 
+function getRangeLabel(range: RangeKey) {
+  return rangeOptions.find((option) => option.value === range)?.label || "Periodo";
+}
+
 function buildGraphPoints(sales: Sale[], range: RangeKey) {
   if (range === "all") {
     const years = new Map<number, number>();
@@ -451,6 +548,10 @@ function buildGraphPoints(sales: Sale[], range: RangeKey) {
 function formatMoney(value: number, currency = "DOP") {
   const prefix = currency === "USD" ? "USD" : "RD$";
   return `${prefix}${Number(value || 0).toLocaleString("es-DO")}`;
+}
+
+function formatCompactMoney(value: number) {
+  return Number(value || 0).toLocaleString("es-DO", { maximumFractionDigits: 0 });
 }
 
 function formatDate(value: number) {
