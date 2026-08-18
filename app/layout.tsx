@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 const siteUrl = "https://josealo.com";
 const siteTitle = "Josealo | Compra y vende en República Dominicana";
 const siteDescription =
-  "Marketplace para comprar, vender y negociar artículos en República Dominicana. Encuentra vehículos, celulares, tecnología, moda, hogar y más.";
+  "Josealo conecta tu negocio con personas que buscan lo que ofreces. Compra, vende y negocia en República Dominicana con interesados de mayor intención.";
 
 const poppins = Poppins({
   variable: "--font-geist-sans",
@@ -81,9 +81,12 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
     shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
 };
 
