@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 import SellerAvatar from "@/components/SellerAvatar";
+import { useThemeSetting } from "@/components/ThemeProvider";
 import { subscribeFollowers, subscribeFollowing, subscribeFollowingIds, unfollowUser } from "@/lib/follows";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 
@@ -18,6 +19,7 @@ type ConnectionRow = {
 
 export default function ProfileConnectionsPage() {
   const router = useRouter();
+  const { theme } = useThemeSetting();
   const params = useParams<{ userId: string }>();
   const searchParams = useSearchParams();
   const userId = params?.userId || "";
@@ -26,6 +28,7 @@ export default function ProfileConnectionsPage() {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ConnectionRow[]>([]);
   const [viewerFollowingIds, setViewerFollowingIds] = useState<Set<string>>(new Set());
+  const isLight = theme === "light";
 
   useEffect(() => {
     if (!userId) return;
@@ -76,22 +79,30 @@ export default function ProfileConnectionsPage() {
   }, [query, rows]);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50">
-      <header className="sticky top-0 z-20 border-b border-neutral-800 bg-neutral-950/90 px-4 py-4 backdrop-blur">
+    <div className={["min-h-screen", isLight ? "bg-neutral-100 text-slate-950" : "bg-neutral-950 text-neutral-50"].join(" ")}>
+      <header
+        className={[
+          "sticky top-0 z-20 border-b px-4 py-4 backdrop-blur",
+          isLight ? "border-slate-200 bg-white/95" : "border-neutral-800 bg-neutral-950/90",
+        ].join(" ")}
+      >
         <div className="mx-auto max-w-md">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-100"
+              className={[
+                "flex h-10 w-10 items-center justify-center rounded-full border",
+                isLight ? "border-slate-200 bg-white text-slate-950 shadow-sm" : "border-neutral-800 bg-neutral-900 text-neutral-100",
+              ].join(" ")}
               aria-label="Volver"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">
+              <div className={["text-sm font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>
                 {tab === "followers" ? "Seguidores" : "Siguiendo"}
               </div>
-              <div className="truncate text-xs text-neutral-400">{profileName}</div>
+              <div className={["truncate text-xs", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{profileName}</div>
             </div>
           </div>
 
@@ -100,16 +111,26 @@ export default function ProfileConnectionsPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Buscar en ${tab === "followers" ? "seguidores" : "siguiendo"}`}
-              className="w-full rounded-full border border-neutral-800 bg-neutral-900 px-4 py-3 pr-12 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-orange-400"
+              className={[
+                "w-full rounded-full border px-4 py-3 pr-12 text-sm outline-none focus:border-orange-400",
+                isLight
+                  ? "border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 shadow-sm"
+                  : "border-neutral-800 bg-neutral-900 text-neutral-100 placeholder:text-neutral-500",
+              ].join(" ")}
             />
-            <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+            <Search className={["absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")} />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-4 pb-24 pt-5">
         {filteredRows.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-sm text-neutral-400">
+          <div
+            className={[
+              "rounded-2xl border p-4 text-sm",
+              isLight ? "border-slate-200 bg-transparent text-slate-600" : "border-neutral-800 bg-neutral-900/50 text-neutral-400",
+            ].join(" ")}
+          >
             {query.trim()
               ? "No encontramos perfiles con esa búsqueda."
               : `Esta lista de ${tab === "followers" ? "seguidores" : "siguiendo"} está vacía.`}
@@ -122,7 +143,10 @@ export default function ProfileConnectionsPage() {
               return (
                 <div
                   key={row.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-3"
+                  className={[
+                    "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3",
+                    isLight ? "border-slate-200 bg-transparent" : "border-neutral-800 bg-neutral-900/60",
+                  ].join(" ")}
                 >
                   <Link
                     href={`/profile/${row.profileId}?name=${encodeURIComponent(row.profileName)}`}
@@ -136,8 +160,10 @@ export default function ProfileConnectionsPage() {
                       imageClassName="object-cover"
                     />
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-neutral-100">{row.profileName}</div>
-                      <div className="mt-1 text-xs text-neutral-400">@{handle}</div>
+                      <div className={["truncate text-sm font-semibold", isLight ? "text-slate-950" : "text-neutral-100"].join(" ")}>
+                        {row.profileName}
+                      </div>
+                      <div className={["mt-1 text-xs", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>@{handle}</div>
                     </div>
                   </Link>
                   <div className="flex shrink-0 items-center gap-3">
@@ -145,7 +171,12 @@ export default function ProfileConnectionsPage() {
                       <button
                         type="button"
                         onClick={() => unfollowUser(userId, row.profileId)}
-                        className="flex h-10 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-xs font-semibold text-neutral-100 transition hover:border-orange-400 hover:text-white"
+                        className={[
+                          "flex h-10 items-center justify-center rounded-2xl border px-4 text-xs font-semibold transition hover:border-orange-400",
+                          isLight
+                            ? "border-slate-200 bg-white text-slate-950 hover:text-slate-950"
+                            : "border-neutral-800 bg-neutral-950 text-neutral-100 hover:text-white",
+                        ].join(" ")}
                       >
                         Dejar de seguir
                       </button>
