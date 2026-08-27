@@ -158,6 +158,7 @@ export default function HomeHeader({
             <input
               placeholder="Buscar artículos"
               value={query}
+              style={{ fontSize: "16px" }}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setShowSuggestions(true);

@@ -137,13 +137,15 @@ body {
     @apply bg-background text-foreground;
   }
 
-  /* Prevent iOS Safari from auto-zooming focused form fields */
-  @media (max-width: 768px) {
-    input,
-    textarea,
-    select {
-      font-size: 16px;
-    }
+}
+
+/* Prevent iOS Safari from auto-zooming focused form fields. Keep this
+   outside Tailwind layers so utility classes like text-sm cannot override it. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }
 
