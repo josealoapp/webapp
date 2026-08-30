@@ -23,6 +23,15 @@ type UserPrivateProfileRow = {
   updated_at_ms: number | string;
 };
 
+export type PublicUserSearchResult = {
+  userId: string;
+  displayName: string;
+  handle: string;
+  avatarUrl: string;
+  profileDescription: string;
+  isVerified: boolean;
+};
+
 function nowMs() {
   return Date.now();
 }
@@ -59,6 +68,29 @@ function privateProfileFromRow(row: UserPrivateProfileRow | undefined) {
   };
 }
 
+function publicSearchResultFromRow(row: UserProfileRow): PublicUserSearchResult {
+  const profile = row.profile || {};
+  const displayName =
+    row.display_name ||
+    (typeof profile.displayName === "string" ? profile.displayName : "") ||
+    (typeof profile.name === "string" ? profile.name : "") ||
+    "Usuario";
+
+  return {
+    userId: row.id,
+    displayName,
+    handle: typeof profile.handle === "string" ? profile.handle : "",
+    avatarUrl: row.avatar_url || (typeof profile.avatarUrl === "string" ? profile.avatarUrl : ""),
+    profileDescription:
+      typeof profile.profileDescription === "string"
+        ? profile.profileDescription
+        : typeof profile.description === "string"
+          ? profile.description
+          : "",
+    isVerified: row.is_verified === true || profile.isVerified === true,
+  };
+}
+
 function extractPublicColumns(userId: string, profile: Record<string, unknown>) {
   const updatedAt = Number(profile.updatedAt || nowMs());
 
@@ -83,6 +115,30 @@ function extractPublicColumns(userId: string, profile: Record<string, unknown>) 
 export async function getPublicProfileFromPostgres(userId: string) {
   const result = await pgQuery<UserProfileRow>("select * from user_profiles where id = $1", [userId]);
   return publicProfileFromRow(result.rows[0]);
+}
+
+export async function searchPublicProfilesInPostgres(searchQuery: string, limit: number) {
+  const likeQuery = `%${searchQuery}%`;
+  const result = await pgQuery<UserProfileRow>(
+    `
+      select *
+      from user_profiles
+      where support_status <> 'deactivated'
+        and (
+          lower(coalesce(display_name, '')) like $1
+          or lower(coalesce(profile ->> 'displayName', '')) like $1
+          or lower(coalesce(profile ->> 'name', '')) like $1
+          or lower(coalesce(profile ->> 'handle', '')) like $1
+          or lower(coalesce(profile ->> 'profileDescription', '')) like $1
+          or lower(coalesce(profile ->> 'description', '')) like $1
+        )
+      order by is_verified desc, updated_at_ms desc, id desc
+      limit $2
+    `,
+    [likeQuery, limit]
+  );
+
+  return result.rows.map(publicSearchResultFromRow);
 }
 
 export async function getPrivateProfileFromPostgres(userId: string) {
