@@ -19,6 +19,7 @@ type Sale = {
   title: string;
   price: number;
   currency: string;
+  category: string;
   image: string;
   soldAt: number;
   soldToUserName: string;
@@ -49,6 +50,7 @@ export default function ProfileSalesPage() {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -82,7 +84,6 @@ export default function ProfileSalesPage() {
     if (!currentUserId) return;
 
     let cancelled = false;
-    setLoading(true);
     auth.currentUser
       ?.getIdToken()
       .then((token) =>
@@ -119,7 +120,19 @@ export default function ProfileSalesPage() {
     [filteredSales]
   );
   const graphPoints = useMemo(() => buildGraphPoints(filteredSales, range), [filteredSales, range]);
-  const recentSales = filteredSales.slice(0, 8);
+  const categoryOptions = useMemo(() => {
+    const categories = Array.from(new Set(filteredSales.map((sale) => sale.category || "Sin categoría")));
+    return ["Todos", ...categories.sort((a, b) => a.localeCompare(b, "es"))];
+  }, [filteredSales]);
+  const activeCategory = categoryOptions.includes(selectedCategory) ? selectedCategory : "Todos";
+  const visibleSales = useMemo(
+    () =>
+      activeCategory === "Todos"
+        ? filteredSales
+        : filteredSales.filter((sale) => (sale.category || "Sin categoría") === activeCategory),
+    [activeCategory, filteredSales]
+  );
+  const recentSales = visibleSales.slice(0, 8);
 
   const handleCarouselTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null);
@@ -173,7 +186,7 @@ export default function ProfileSalesPage() {
             <div className="flex transition-transform duration-300 ease-out" style={{ transform: `translateX(-${selectedSlide * 100}%)` }}>
               <SummaryCard
                 isLight={isLight}
-                title="Balance disponible"
+                title="Ganancias totales"
                 value={formatMoney(totalAmount)}
                 subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
                 icon={<Wallet className="h-5 w-5" />}
@@ -213,13 +226,38 @@ export default function ProfileSalesPage() {
               </button>
             </div>
 
+            {categoryOptions.length > 1 ? (
+              <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                {categoryOptions.map((category) => {
+                  const active = activeCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setSelectedCategory(category)}
+                      className={[
+                        "h-9 shrink-0 rounded-full border px-4 text-sm font-semibold transition",
+                        active
+                          ? "border-orange-400 bg-orange-400 text-black"
+                          : isLight
+                            ? "border-slate-200 bg-white text-slate-700"
+                            : "border-neutral-800 bg-neutral-950 text-neutral-300",
+                      ].join(" ")}
+                    >
+                      {category}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
             {loading ? (
               <div className={["rounded-2xl border p-4 text-sm", isLight ? "border-slate-200 text-slate-500" : "border-neutral-800 text-neutral-400"].join(" ")}>
                 Cargando ventas...
               </div>
             ) : recentSales.length === 0 ? (
               <div className={["rounded-2xl border p-4 text-sm", isLight ? "border-slate-200 text-slate-600" : "border-neutral-800 text-neutral-400"].join(" ")}>
-                Aún no hay ventas en este periodo.
+                Aún no hay ventas en {activeCategory === "Todos" ? "este periodo" : activeCategory}.
               </div>
             ) : (
               <div className={["rounded-[24px] border px-4", isLight ? "border-slate-200" : "border-neutral-800"].join(" ")}>
@@ -242,6 +280,9 @@ export default function ProfileSalesPage() {
                     <div className="min-w-0 flex-1">
                       <div className={["truncate text-sm font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>{sale.title}</div>
                       <div className={["mt-1 text-xs", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{formatDate(sale.soldAt)}</div>
+                      <div className={["mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold", isLight ? "border-orange-200 bg-orange-50 text-orange-600" : "border-orange-400/30 bg-orange-400/10 text-orange-300"].join(" ")}>
+                        {sale.category || "Sin categoría"}
+                      </div>
                     </div>
                     <div className={["text-sm font-bold", isLight ? "text-slate-950" : "text-white"].join(" ")}>{formatMoney(sale.price, sale.currency)}</div>
                   </button>
@@ -296,12 +337,7 @@ function SummaryCard({
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <div className="flex items-center gap-3">
-        <div className={["flex h-12 w-12 items-center justify-center rounded-2xl", isLight ? "bg-orange-50 text-orange-500" : "bg-neutral-800 text-orange-400"].join(" ")}>
-          {icon}
-        </div>
-        <div className={["text-sm", isLight ? "text-slate-600" : "text-neutral-300"].join(" ")}>{title}</div>
-      </div>
+      <MetricCardTitle isLight={isLight} icon={icon} title={title} />
       <div className={["mt-9 text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
       <div className={["mt-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
     </button>
@@ -326,14 +362,29 @@ function GraphCard({
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className={["flex items-center gap-2 text-sm font-semibold", isLight ? "text-slate-950" : "text-white"].join(" ")}>
-          <BarChart3 className="h-4 w-4 text-orange-400" />
-          Gráfica de ventas
-        </div>
+      <div className="mb-3 px-3 pt-2">
+        <MetricCardTitle isLight={isLight} icon={<BarChart3 className="h-5 w-5" />} title="Gráfica de ventas" />
       </div>
       <SalesChart points={points} isLight={isLight} />
     </button>
+  );
+}
+
+function MetricCardTitle({ isLight, icon, title }: { isLight: boolean; icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={[
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl",
+          isLight ? "bg-orange-50 text-orange-500" : "bg-neutral-800 text-orange-400",
+        ].join(" ")}
+      >
+        {icon}
+      </div>
+      <div className={["text-sm font-medium", isLight ? "text-slate-600" : "text-neutral-300"].join(" ")}>
+        {title}
+      </div>
+    </div>
   );
 }
 
@@ -490,6 +541,9 @@ function SaleDetailsModal({ sale, isLight, onClose }: { sale: Sale; isLight: boo
             <div className={["mt-2 flex items-center gap-2 text-sm", isLight ? "text-slate-600" : "text-neutral-400"].join(" ")}>
               <CalendarDays className="h-4 w-4" />
               {formatDate(sale.soldAt)}
+            </div>
+            <div className={["mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold", isLight ? "border-orange-200 bg-orange-50 text-orange-600" : "border-orange-400/30 bg-orange-400/10 text-orange-300"].join(" ")}>
+              {sale.category || "Sin categoría"}
             </div>
             <div className={["mt-2 text-sm", isLight ? "text-slate-600" : "text-neutral-400"].join(" ")}>
               Vendido a: <span className={isLight ? "font-semibold text-slate-950" : "font-semibold text-white"}>{sale.soldToUserName}</span>

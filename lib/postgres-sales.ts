@@ -33,6 +33,8 @@ type SaleEventRow = {
   listing_title: string | null;
   listing_price: number | string | null;
   listing_currency: string | null;
+  listing_category: string | null;
+  listing_bazar_category: string | null;
   listing_image: string | null;
   listing_images: unknown;
   listing_status: string | null;
@@ -47,6 +49,7 @@ export type ProfileSaleRow = {
   title: string;
   price: number;
   currency: string;
+  category: string;
   image: string;
   soldAt: number;
   soldToUserName: string;
@@ -104,6 +107,12 @@ function saleFromEventRow(row: SaleEventRow): ProfileSaleRow | null {
     title,
     price,
     currency: getString(data.saleCurrency) || getString(bazarItem?.currency) || row.listing_currency || "DOP",
+    category:
+      getString(data.saleCategory) ||
+      getString(bazarItem?.category) ||
+      row.listing_bazar_category ||
+      row.listing_category ||
+      "Sin categoría",
     image,
     soldAt: toNumber(row.sold_at_ms),
     soldToUserName: getString(data.soldToUserName) || row.listing_sold_to_user_name || "No especificado",
@@ -383,6 +392,8 @@ export async function listProfileSalesFromPostgres(userId: string) {
         l.title as listing_title,
         l.price as listing_price,
         l.currency as listing_currency,
+        l.category as listing_category,
+        l.bazar_category as listing_bazar_category,
         l.image as listing_image,
         l.images as listing_images,
         l.status as listing_status,

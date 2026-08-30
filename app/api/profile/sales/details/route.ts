@@ -13,6 +13,7 @@ type FirestoreSaleEvent = {
   saleTitle?: string;
   salePrice?: number;
   saleCurrency?: string;
+  saleCategory?: string;
   saleImage?: string;
   soldToUserName?: string;
 };
@@ -83,6 +84,11 @@ async function listProfileSalesFromFirestore(userId: string): Promise<ProfileSal
         title,
         price,
         currency: getString(event.saleCurrency) || getString(bazarItem?.currency) || getString(listing.currency, "DOP"),
+        category:
+          getString(event.saleCategory) ||
+          getString(bazarItem?.category) ||
+          getString(listing.bazarCategory) ||
+          getString(listing.category, "Sin categoría"),
         image:
           getString(event.saleImage) ||
           getString(bazarItem?.image) ||
