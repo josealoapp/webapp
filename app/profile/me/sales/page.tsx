@@ -333,13 +333,15 @@ function SummaryCard({
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full rounded-[28px] border p-7 text-left transition",
+        "min-w-full rounded-[28px] border px-4 py-5 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <MetricCardTitle isLight={isLight} icon={icon} title={title} />
-      <div className={["mt-9 text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
-      <div className={["mt-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
+      <div className="px-3 pt-2">
+        <MetricCardTitle isLight={isLight} icon={icon} title={title} />
+      </div>
+      <div className={["mt-9 px-3 text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
+      <div className={["mt-3 px-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
     </button>
   );
 }
