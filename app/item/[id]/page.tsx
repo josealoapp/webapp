@@ -1539,23 +1539,30 @@ async function buildItemQrPng(url: string) {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("qr/context-unavailable");
 
-  context.fillStyle = "#333333";
+  context.fillStyle = "#343434";
   context.fillRect(0, 0, size, size);
 
-  const cardX = 126;
-  const cardY = 220;
-  const cardWidth = 828;
-  const cardHeight = 800;
-  drawRoundedRect(context, cardX, cardY, cardWidth, cardHeight, 176);
+  const cardWidth = 836;
+  const cardHeight = Math.round(cardWidth * (425 / 350));
+  const cardX = (size - cardWidth) / 2;
+  const cardY = (size - cardHeight) / 2;
+  const scale = cardWidth / 350;
+  const cardRadius = 80 * scale;
+  const cardPaddingX = 26 * scale;
+  const cardPaddingBottom = 28 * scale;
+  const headerHeight = 100 * scale;
+  const contentRadius = 53 * scale;
+
+  drawRoundedRect(context, cardX, cardY, cardWidth, cardHeight, cardRadius);
   context.fillStyle = "#000000";
   context.fill();
 
   const [logoImage, qrImage] = await Promise.all([
     loadCanvasImage(getQrLogoSrc()),
     QRCode.toDataURL(url, {
-      errorCorrectionLevel: "H",
-      margin: 1,
-      scale: 16,
+      errorCorrectionLevel: "M",
+      margin: 0,
+      width: 560,
       color: {
         dark: "#000000",
         light: "#ffffff",
@@ -1563,19 +1570,32 @@ async function buildItemQrPng(url: string) {
     }).then(loadCanvasImage),
   ]);
 
-  const logoWidth = 500;
+  const logoWidth = 205 * scale;
   const logoHeight = logoWidth / (logoImage.naturalWidth / logoImage.naturalHeight);
-  context.drawImage(logoImage, (size - logoWidth) / 2, 300, logoWidth, logoHeight);
+  context.drawImage(
+    logoImage,
+    cardX + (cardWidth - logoWidth) / 2,
+    cardY + (headerHeight - logoHeight) / 2,
+    logoWidth,
+    logoHeight
+  );
 
-  const qrCardSize = 590;
-  const qrCardX = (size - qrCardSize) / 2;
-  const qrCardY = 410;
-  drawRoundedRect(context, qrCardX, qrCardY, qrCardSize, qrCardSize, 110);
+  const qrCardX = cardX + cardPaddingX;
+  const qrCardY = cardY + headerHeight;
+  const qrCardWidth = cardWidth - cardPaddingX * 2;
+  const qrCardHeight = cardHeight - headerHeight - cardPaddingBottom;
+  drawRoundedRect(context, qrCardX, qrCardY, qrCardWidth, qrCardHeight, contentRadius);
   context.fillStyle = "#ffffff";
   context.fill();
 
-  const qrSize = 486;
-  context.drawImage(qrImage, (size - qrSize) / 2, qrCardY + (qrCardSize - qrSize) / 2, qrSize, qrSize);
+  const qrSize = Math.min(qrCardWidth, qrCardHeight) * 0.74;
+  context.drawImage(
+    qrImage,
+    qrCardX + (qrCardWidth - qrSize) / 2,
+    qrCardY + (qrCardHeight - qrSize) / 2,
+    qrSize,
+    qrSize
+  );
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
