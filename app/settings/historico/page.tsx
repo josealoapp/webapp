@@ -13,7 +13,7 @@ import {
   isBazarExpired,
   isListingInHistory,
   Listing,
-  subscribeListings,
+  searchListings,
 } from "@/lib/marketplace";
 import { formatMoney } from "@/lib/money";
 
@@ -53,8 +53,32 @@ export default function HistoricPage() {
 
   useEffect(() => {
     if (!currentUserId) return;
-    const unsub = subscribeListings((rows) => setListings(rows));
-    return () => unsub();
+
+    let cancelled = false;
+    const loadHistory = async () => {
+      try {
+        const [soldResult, activeBazarResult] = await Promise.all([
+          searchListings({ ownerId: currentUserId, status: "sold", limit: 50 }),
+          searchListings({ ownerId: currentUserId, status: "active", type: "bazar", limit: 50 }),
+        ]);
+        if (cancelled) return;
+
+        const merged = new Map<string, Listing>();
+        [...soldResult.items, ...activeBazarResult.items].forEach((item) => {
+          if (isListingInHistory(item)) merged.set(item.id, item);
+        });
+        setListings(Array.from(merged.values()));
+      } catch {
+        if (!cancelled) setListings([]);
+      }
+    };
+
+    void loadHistory();
+    const intervalId = window.setInterval(loadHistory, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [currentUserId]);
 
   const soldListings = useMemo(
