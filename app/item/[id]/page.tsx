@@ -1539,8 +1539,7 @@ async function buildItemQrPng(url: string) {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("qr/context-unavailable");
 
-  context.fillStyle = "#343434";
-  context.fillRect(0, 0, size, size);
+  context.clearRect(0, 0, size, size);
 
   const cardWidth = 836;
   const cardHeight = Math.round(cardWidth * (425 / 350));
