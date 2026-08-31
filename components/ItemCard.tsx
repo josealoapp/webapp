@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import InterestModal from "./InterestModal";
 import SellerAvatar from "@/components/SellerAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { formatMoney } from "@/lib/money";
 import { formatListingAge } from "@/lib/relative-time";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 
@@ -15,6 +16,7 @@ type Item = {
   href?: string;
   title: string;
   price: number;
+  currency?: "DOP" | "USD";
   location: string;
   image?: string;
   sellerId?: string;
@@ -63,7 +65,7 @@ export default function ItemCard({ item }: { item: Item }) {
         <div className="relative z-10 -mt-20 rounded-t-3xl bg-neutral-950 px-4 pb-4 pt-4">
           <div className="min-w-0">
             <div className="listing-price text-lg font-bold text-orange-400">
-              RD${Number(item.price || 0).toLocaleString()}
+              {formatMoney(Number(item.price || 0), item.currency)}
             </div>
 
             <div className="mt-1 flex min-w-0 items-center gap-2">

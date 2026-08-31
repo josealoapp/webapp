@@ -44,6 +44,7 @@ function normalizeLike(body: Record<string, unknown>, actorId: string): SocialLi
     itemTitle: cleanText(body.itemTitle, 220),
     image: cleanText(body.image, 1200),
     price: Number(body.price || 0),
+    currency: body.currency === "USD" ? "USD" : "DOP",
     location: cleanText(body.location, 180),
     href: cleanText(body.href, 500),
     createdAt: Number(body.createdAt || Date.now()),

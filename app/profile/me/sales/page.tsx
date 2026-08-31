@@ -26,6 +26,7 @@ type Sale = {
 };
 
 type RangeKey = "1m" | "3m" | "6m" | "1y" | "all";
+type CurrencyKey = "DOP" | "USD";
 
 const rangeOptions: Array<{ value: RangeKey; label: string }> = [
   { value: "1m", label: "Último mes" },
@@ -51,6 +52,8 @@ export default function ProfileSalesPage() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [summaryCurrency, setSummaryCurrency] = useState<CurrencyKey>("DOP");
+  const [graphCurrency, setGraphCurrency] = useState<CurrencyKey>("DOP");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -116,10 +119,20 @@ export default function ProfileSalesPage() {
   }, [range, sales]);
 
   const totalAmount = useMemo(
-    () => filteredSales.reduce((sum, sale) => sum + Number(sale.price || 0), 0),
-    [filteredSales]
+    () =>
+      filteredSales
+        .filter((sale) => normalizeCurrency(sale.currency) === summaryCurrency)
+        .reduce((sum, sale) => sum + Number(sale.price || 0), 0),
+    [filteredSales, summaryCurrency]
   );
-  const graphPoints = useMemo(() => buildGraphPoints(filteredSales, range), [filteredSales, range]);
+  const summarySalesCount = useMemo(
+    () => filteredSales.filter((sale) => normalizeCurrency(sale.currency) === summaryCurrency).length,
+    [filteredSales, summaryCurrency]
+  );
+  const graphPoints = useMemo(
+    () => buildGraphPoints(filteredSales.filter((sale) => normalizeCurrency(sale.currency) === graphCurrency), range),
+    [filteredSales, graphCurrency, range]
+  );
   const categoryOptions = useMemo(() => {
     const categories = Array.from(new Set(filteredSales.map((sale) => sale.category || "Sin categoría")));
     return ["Todos", ...categories.sort((a, b) => a.localeCompare(b, "es"))];
@@ -187,14 +200,18 @@ export default function ProfileSalesPage() {
               <SummaryCard
                 isLight={isLight}
                 title="Ganancias totales"
-                value={formatMoney(totalAmount)}
-                subtitle={`${filteredSales.length} ${filteredSales.length === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
+                value={formatMoney(totalAmount, summaryCurrency)}
+                subtitle={`${summarySalesCount} ${summarySalesCount === 1 ? "venta" : "ventas"} · ${getRangeLabel(range)}`}
                 icon={<Wallet className="h-5 w-5" />}
+                currency={summaryCurrency}
+                onCurrencyChange={setSummaryCurrency}
                 onClick={() => setSelectedSlide(0)}
               />
               <GraphCard
                 isLight={isLight}
                 points={graphPoints}
+                currency={graphCurrency}
+                onCurrencyChange={setGraphCurrency}
                 onClick={() => setSelectedSlide(1)}
               />
             </div>
@@ -319,6 +336,8 @@ function SummaryCard({
   value,
   subtitle,
   icon,
+  currency,
+  onCurrencyChange,
   onClick,
 }: {
   isLight: boolean;
@@ -326,6 +345,8 @@ function SummaryCard({
   value: string;
   subtitle: string;
   icon: React.ReactNode;
+  currency: CurrencyKey;
+  onCurrencyChange: (currency: CurrencyKey) => void;
   onClick: () => void;
 }) {
   return (
@@ -333,26 +354,76 @@ function SummaryCard({
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full rounded-[28px] border px-4 py-5 text-left transition",
+        "flex min-h-[272px] min-w-full flex-col rounded-[28px] border px-4 py-5 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <div className="px-3 pt-2">
+      <div className="flex items-start justify-between gap-3 px-3 pt-2">
         <MetricCardTitle isLight={isLight} icon={icon} title={title} />
+        <CurrencyToggle value={currency} isLight={isLight} onChange={onCurrencyChange} />
       </div>
-      <div className={["mt-9 px-3 text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
-      <div className={["mt-3 px-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
+      <div className="mt-auto px-3">
+        <div className={["text-[44px] font-bold leading-none tracking-normal", isLight ? "text-slate-950" : "text-white"].join(" ")}>{value}</div>
+        <div className={["mt-3 text-sm", isLight ? "text-slate-500" : "text-neutral-400"].join(" ")}>{subtitle}</div>
+      </div>
     </button>
+  );
+}
+
+function CurrencyToggle({
+  value,
+  isLight,
+  onChange,
+}: {
+  value: CurrencyKey;
+  isLight: boolean;
+  onChange: (currency: CurrencyKey) => void;
+}) {
+  return (
+    <div
+      className={[
+        "grid h-9 shrink-0 grid-cols-2 rounded-full border p-1",
+        isLight ? "border-slate-200 bg-slate-100" : "border-neutral-800 bg-neutral-900",
+      ].join(" ")}
+    >
+      {(["DOP", "USD"] as CurrencyKey[]).map((option) => {
+        const active = value === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onChange(option);
+            }}
+            className={[
+              "min-w-12 rounded-full px-2 text-xs font-bold transition",
+              active
+                ? "bg-orange-400 text-black"
+                : isLight
+                  ? "text-slate-500"
+                  : "text-neutral-400",
+            ].join(" ")}
+          >
+            {option === "DOP" ? "RD$" : "USD"}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
 function GraphCard({
   isLight,
   points,
+  currency,
+  onCurrencyChange,
   onClick,
 }: {
   isLight: boolean;
   points: Array<{ label: string; value: number }>;
+  currency: CurrencyKey;
+  onCurrencyChange: (currency: CurrencyKey) => void;
   onClick: () => void;
 }) {
   return (
@@ -360,12 +431,13 @@ function GraphCard({
       type="button"
       onClick={onClick}
       className={[
-        "min-w-full rounded-[28px] border px-4 py-5 text-left transition",
+        "min-w-full rounded-[28px] border px-2 py-5 text-left transition",
         isLight ? "border-slate-200 bg-white shadow-sm" : "border-neutral-800 bg-neutral-950 shadow-[inset_0_0_36px_rgba(255,255,255,0.03)]",
       ].join(" ")}
     >
-      <div className="mb-3 px-3 pt-2">
+      <div className="mb-3 flex items-start justify-between gap-3 px-3 pt-2">
         <MetricCardTitle isLight={isLight} icon={<BarChart3 className="h-5 w-5" />} title="Gráfica de ventas" />
+        <CurrencyToggle value={currency} isLight={isLight} onChange={onCurrencyChange} />
       </div>
       <SalesChart points={points} isLight={isLight} />
     </button>
@@ -391,10 +463,16 @@ function MetricCardTitle({ isLight, icon, title }: { isLight: boolean; icon: Rea
 }
 
 function SalesChart({ points, isLight }: { points: Array<{ label: string; value: number }>; isLight: boolean }) {
-  const maxValue = Math.max(1, ...points.map((point) => point.value));
+  const chartWidth = 160;
+  const plotLeft = 20;
+  const plotRight = 154;
+  const plotTop = 14;
+  const plotBottom = 72;
+  const rawMaxValue = Math.max(0, ...points.map((point) => point.value));
+  const { maxValue, ticks } = buildChartScale(rawMaxValue);
   const chartPoints = points.map((point, index) => {
-    const x = 2 + (index * 96) / Math.max(1, points.length - 1);
-    const y = 72 - (point.value / maxValue) * 52;
+    const x = plotLeft + (index * (plotRight - plotLeft)) / Math.max(1, points.length - 1);
+    const y = plotBottom - (point.value / maxValue) * (plotBottom - plotTop);
     return { ...point, x, y };
   });
   const path = buildSmoothPath(chartPoints);
@@ -404,16 +482,34 @@ function SalesChart({ points, isLight }: { points: Array<{ label: string; value:
     { x: 50, y: 40, label: "", value: 0 };
 
   return (
-    <div className="h-52 w-full">
-      <svg viewBox="0 0 100 86" className="h-full w-full" role="img" aria-label="Ventas por periodo">
-        <rect x={Math.max(0, Math.min(86, activePoint.x - 7))} y="8" width="14" height="64" rx="2" fill="#ff8500" opacity={isLight ? "0.12" : "0.18"} />
+    <div className="h-52 w-full px-0">
+      <svg viewBox={`0 0 ${chartWidth} 86`} className="h-full w-full" role="img" aria-label="Ventas por periodo">
+        <rect x={Math.max(plotLeft, Math.min(plotRight - 18, activePoint.x - 9))} y={plotTop} width="18" height={plotBottom - plotTop} rx="2" fill="#ff8500" opacity={isLight ? "0.12" : "0.18"} />
+        {ticks.map((tick) => {
+          const y = plotBottom - (tick / maxValue) * (plotBottom - plotTop);
+          return (
+            <g key={`tick-${tick}`}>
+              <line
+                x1={plotLeft}
+                x2={plotRight}
+                y1={y}
+                y2={y}
+                stroke={isLight ? "#e2e8f0" : "#262626"}
+                strokeDasharray="2 2"
+              />
+              <text x={plotLeft - 3} y={y + 1.7} textAnchor="end" fontSize="4.2" fill={isLight ? "#64748b" : "#a3a3a3"}>
+                {formatAxisMoney(tick)}
+              </text>
+            </g>
+          );
+        })}
         {chartPoints.map((point) => (
-          <line key={`grid-${point.label}`} x1={point.x} x2={point.x} y1="12" y2="72" stroke={isLight ? "#e2e8f0" : "#262626"} strokeDasharray="2 2" />
+          <line key={`grid-${point.label}`} x1={point.x} x2={point.x} y1={plotTop} y2={plotBottom} stroke={isLight ? "#e2e8f0" : "#262626"} strokeDasharray="2 2" />
         ))}
         <path d={path} fill="none" stroke="#ff8500" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         <g>
-          <rect x={Math.min(58, Math.max(28, activePoint.x - 20))} y="8" width="38" height="10" rx="2.5" fill={isLight ? "#ffffff" : "#171717"} stroke={isLight ? "#e2e8f0" : "#2a2a2a"} />
-          <text x={Math.min(77, Math.max(47, activePoint.x - 1))} y="14.8" textAnchor="middle" fontSize="4.2" fill={isLight ? "#475569" : "#a3a3a3"}>
+          <rect x={Math.min(chartWidth - 50, Math.max(8, activePoint.x - 25))} y="8" width="50" height="10" rx="2.5" fill={isLight ? "#ffffff" : "#171717"} stroke={isLight ? "#e2e8f0" : "#2a2a2a"} />
+          <text x={Math.min(chartWidth - 25, Math.max(33, activePoint.x))} y="14.8" textAnchor="middle" fontSize="4.2" fill={isLight ? "#475569" : "#a3a3a3"}>
             <tspan fill="#ff8500" fontWeight="700">{formatCompactMoney(activePoint.value)}</tspan>
             <tspan>{`: ${activePoint.label}`}</tspan>
           </text>
@@ -441,6 +537,33 @@ function buildSmoothPath(points: Array<{ x: number; y: number }>) {
     const midX = (previous.x + point.x) / 2;
     return `${path} C ${midX} ${previous.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
   }, "");
+}
+
+function buildChartScale(maxValue: number) {
+  const step = getChartStep(maxValue);
+  const axisMax = Math.max(step, Math.ceil(maxValue / step) * step);
+  const tickCount = Math.min(5, Math.max(1, Math.floor(axisMax / step)));
+  const ticks = Array.from({ length: tickCount }, (_, index) => axisMax - index * step).filter((tick) => tick > 0);
+
+  return {
+    maxValue: axisMax,
+    ticks,
+  };
+}
+
+function getChartStep(maxValue: number) {
+  if (maxValue <= 50_000) return 10_000;
+  if (maxValue <= 250_000) return 50_000;
+  if (maxValue <= 1_000_000) return 100_000;
+  if (maxValue <= 5_000_000) return 500_000;
+
+  const exponent = Math.floor(Math.log10(maxValue));
+  const magnitude = 10 ** exponent;
+  const normalized = maxValue / magnitude;
+
+  if (normalized <= 2) return magnitude / 5;
+  if (normalized <= 5) return magnitude;
+  return magnitude * 2;
 }
 
 function RangeMenu({
@@ -604,12 +727,29 @@ function buildGraphPoints(sales: Sale[], range: RangeKey) {
 }
 
 function formatMoney(value: number, currency = "DOP") {
-  const prefix = currency === "USD" ? "USD" : "RD$";
+  const prefix = normalizeCurrency(currency) === "USD" ? "USD" : "RD$";
   return `${prefix}${Number(value || 0).toLocaleString("es-DO")}`;
+}
+
+function normalizeCurrency(currency?: string): CurrencyKey {
+  return currency === "USD" ? "USD" : "DOP";
 }
 
 function formatCompactMoney(value: number) {
   return Number(value || 0).toLocaleString("es-DO", { maximumFractionDigits: 0 });
+}
+
+function formatAxisMoney(value: number) {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    return `${Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1)}M`;
+  }
+
+  if (value >= 1_000) {
+    return `${Math.round(value / 1_000)}k`;
+  }
+
+  return String(value);
 }
 
 function formatDate(value: number) {

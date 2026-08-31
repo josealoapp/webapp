@@ -11,6 +11,7 @@ import { auth } from "@/lib/firebase";
 import { followUser, subscribeFollowingIds } from "@/lib/follows";
 import { ChatRecord, Listing, searchListings, subscribeInboxChatsForUser } from "@/lib/marketplace";
 import { normalizeLocationName } from "@/lib/location";
+import { formatMoney } from "@/lib/money";
 import { DEFAULT_PROFILE_AVATAR } from "@/lib/profile-avatar";
 import { SupportNotification, subscribeSupportNotifications } from "@/lib/support-notifications";
 import { PublicUserSearchResult, searchUsers } from "@/lib/user-search";
@@ -374,7 +375,7 @@ export default function HomeHeader({
                             <div className="mt-1 text-xs text-neutral-400">{item.location}</div>
                           </div>
                           <div className="listing-price text-sm font-bold text-orange-400">
-                            RD${item.price.toLocaleString()}
+                            {formatMoney(item.price, item.currency)}
                           </div>
                         </button>
                       ))}

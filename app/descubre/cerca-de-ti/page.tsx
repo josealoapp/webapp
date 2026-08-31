@@ -52,6 +52,7 @@ export default function NearbyDiscoverPage() {
         id: item.id,
         title: item.title,
         price: item.price,
+        currency: item.currency || "DOP",
         type: item.type || "article",
         location: item.location,
         image: item.image,

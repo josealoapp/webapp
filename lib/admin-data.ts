@@ -839,6 +839,7 @@ export async function getAdminReportDetails(reportId: string): Promise<AdminRepo
           id: string;
           title: string;
           price: string;
+          currency: string;
           category: string;
           location: string;
           image: string;
@@ -846,7 +847,7 @@ export async function getAdminReportDetails(reportId: string): Promise<AdminRepo
           created_at_ms: string | number;
         }>(
           `
-            select id, title, price, category, location, image, status, created_at_ms
+            select id, title, price, currency, category, location, image, status, created_at_ms
             from listings
             where owner_id = $1
             order by created_at_ms desc
@@ -865,6 +866,7 @@ export async function getAdminReportDetails(reportId: string): Promise<AdminRepo
       id: row.id,
       title: row.title || "Publicación sin título",
       price: Number(row.price || 0),
+      currency: row.currency || "DOP",
       category: row.category || "Sin categoría",
       location: row.location || "",
       image: row.image || "",
@@ -957,6 +959,7 @@ export async function getAdminReportDetails(reportId: string): Promise<AdminRepo
         id: docSnap.id,
         title: String(data.title || "Publicación sin título"),
         price: Number(data.price || 0),
+        currency: data.currency === "USD" ? "USD" : "DOP",
         category: String(data.category || "Sin categoría"),
         location: String(data.location || ""),
         image: String(data.image || ""),

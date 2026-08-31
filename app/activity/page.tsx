@@ -28,6 +28,7 @@ import {
   subscribeSupportNotifications,
 } from "@/lib/support-notifications";
 import { getPostAuthDestination } from "@/lib/account-profile";
+import { formatMoney } from "@/lib/money";
 import { getOrCreateUserHandle } from "@/lib/user-handle";
 
 type ActivityEntry = {
@@ -414,7 +415,7 @@ export default function ActivityPage() {
                     <div className="listing-title truncate text-sm font-medium text-slate-950 dark:text-white">{entry.itemTitle}</div>
                     <div className="mt-1 truncate text-xs font-normal text-slate-600 dark:text-neutral-400">{entry.ownerName}</div>
                     <div className="listing-price mt-1 text-xs font-bold text-orange-400">
-                      RD${Number(entry.price || 0).toLocaleString()}
+                      {formatMoney(Number(entry.price || 0), entry.currency)}
                     </div>
                   </div>
                 </Link>

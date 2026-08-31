@@ -15,6 +15,7 @@ export type LikeRecord = {
   itemTitle: string;
   image: string;
   price: number;
+  currency?: string;
   location: string;
   href: string;
   createdAt: number;

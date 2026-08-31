@@ -304,6 +304,7 @@ export default function ItemDetailsPage() {
       itemTitle: displayTitle,
       image: images[0] || "",
       price: displayPrice,
+      currency: displayCurrency,
       location: item.location,
       href,
     });

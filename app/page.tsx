@@ -34,6 +34,7 @@ import {
 } from "@/lib/location";
 import { formatBazarTimeLeftShort } from "@/lib/bazar-duration";
 import { appCategories, getCanonicalCategoryName, normalizeCategoryName } from "@/lib/categories";
+import { formatMoney } from "@/lib/money";
 import { formatListingAge } from "@/lib/relative-time";
 import { useThemeSetting } from "@/components/ThemeProvider";
 
@@ -569,7 +570,7 @@ export default function HomePage() {
                       </span>
                     </div>
                     <div className="listing-price text-sm font-bold text-orange-400">
-                      RD${price.toLocaleString()}
+                      {formatMoney(price, listing?.currency)}
                     </div>
                     <div className="listing-title mt-1 truncate text-xs font-medium text-neutral-300">{chat.listingTitle}</div>
                     <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">
@@ -607,6 +608,8 @@ export default function HomePage() {
                       item.type === "bazar"
                         ? activeBazarItems.reduce((sum, bazarItem) => sum + Number(bazarItem.price || 0), 0)
                         : item.price;
+                    const displayCurrency =
+                      item.type === "bazar" ? activeBazarItems[0]?.currency || item.currency : item.currency;
                     const bazarTimeLeft =
                       item.type === "bazar" && item.bazarEndsAt
                         ? formatBazarTimeLeftShort(item.bazarEndsAt, bazarNow)
@@ -637,7 +640,7 @@ export default function HomePage() {
                       ) : null}
                     </div>
                     <div className="listing-price text-sm font-bold text-orange-400">
-                      RD${displayPrice.toLocaleString()}
+                      {formatMoney(displayPrice, displayCurrency)}
                     </div>
                     {item.type === "bazar" ? (
                       <div className="mt-1 flex min-w-0 items-center gap-1.5">
@@ -769,7 +772,7 @@ export default function HomePage() {
                         )}
                       </div>
                       <div className="listing-price text-sm font-bold text-orange-400">
-                        RD${item.price.toLocaleString()}
+                        {formatMoney(item.price, item.currency)}
                       </div>
                       <div className="listing-title mt-1 truncate text-xs font-medium text-neutral-300">{item.title}</div>
                       <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-neutral-500">

@@ -22,6 +22,7 @@ import {
   readStoredUserLocation,
   saveManualListingLocation,
 } from "@/lib/location";
+import { formatMoney } from "@/lib/money";
 import { formatListingAge } from "@/lib/relative-time";
 
 type CategoryFilters = {
@@ -47,6 +48,7 @@ type CategoryResult = {
   href: string;
   title: string;
   price: number;
+  currency?: string;
   type?: "article" | "bazar";
   image: string;
   location: string;
@@ -102,6 +104,7 @@ function flattenCategoryListings(listings: Listing[], categoryName: string): Cat
         href: `/item/${listing.id}?bazarItemId=${encodeURIComponent(item.id)}`,
         title: item.title,
         price: Number(item.price || 0),
+        currency: item.currency || listing.currency || "DOP",
         type: "bazar",
         image: item.image || listing.image || "",
         location: listing.location,
@@ -119,6 +122,7 @@ function flattenCategoryListings(listings: Listing[], categoryName: string): Cat
         href: `/item/${listing.id}`,
         title: listing.title,
         price: Number(listing.price || 0),
+        currency: listing.currency || "DOP",
         type: listing.type || "article",
         image: listing.image || "",
         location: listing.location,
@@ -388,7 +392,7 @@ export default function CategoryDetailPage() {
                     <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">Sin foto</div>
                   )}
                 </div>
-                <div className="listing-price text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
+                <div className="listing-price text-sm font-bold text-orange-400">{formatMoney(item.price, item.currency)}</div>
                 <div className="mt-1 flex min-w-0 items-center gap-1.5">
                   {item.type === "bazar" ? (
                     <span className="shrink-0 text-xs font-bold uppercase text-blue-400">Bazar</span>

@@ -26,6 +26,7 @@ type ListingStatsRow = {
   id: string;
   title: string;
   price: number | string;
+  currency: string;
   category: string;
   bazar_category: string | null;
   tags: unknown;
@@ -188,6 +189,7 @@ export async function listListingsForStatsFromPostgres() {
     data: {
       title: row.title,
       price: Number(row.price || 0),
+      currency: row.currency,
       category: row.category,
       bazarCategory: row.bazar_category || "",
       tags: asArray<string>(row.tags),

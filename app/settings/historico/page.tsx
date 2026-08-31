@@ -15,6 +15,7 @@ import {
   Listing,
   subscribeListings,
 } from "@/lib/marketplace";
+import { formatMoney } from "@/lib/money";
 
 export default function HistoricPage() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function HistoricPage() {
                     ) : null}
                   </div>
                   <div className="listing-title text-sm font-medium text-neutral-100">{item.title}</div>
-                  <div className="listing-price mt-1 text-sm font-bold text-orange-400">RD${item.price.toLocaleString()}</div>
+                  <div className="listing-price mt-1 text-sm font-bold text-orange-400">{formatMoney(item.price, item.currency)}</div>
                   <div className="mt-2 text-xs text-neutral-400">{item.category} · {item.location}</div>
                   <div className="mt-1 text-xs text-neutral-500">
                     {isBazar && isBazarExpired(item) ? "Bazar finalizado" : "Vendida"}{" "}

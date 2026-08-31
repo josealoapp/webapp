@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, Instagram, Settings, Star, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ImageIcon, Instagram, MoreHorizontal, Search, Settings, Star, Trash2, X } from "lucide-react";
 import { onAuthStateChanged, updateProfile } from "@/lib/auth-client";
 import AppBottomNav from "@/components/AppBottomNav";
 import CategoryStories from "@/components/CategoryStories";
@@ -15,8 +15,12 @@ import { subscribeIncomingLikesForOwner } from "@/lib/likes";
 import {
   isListingVisibleInOwnerProfile,
   listOwnerListings,
+  ChatRecord,
+  deleteListing,
   Listing,
+  markListingSold,
   syncOwnerAvatarAcrossListings,
+  subscribeChatsForUser,
   uploadListingImages,
 } from "@/lib/marketplace";
 import { getPostAuthDestination } from "@/lib/account-profile";
@@ -65,6 +69,17 @@ export default function MyProfilePage() {
   const [editDescription, setEditDescription] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [editError, setEditError] = useState("");
+  const [inventoryQuery, setInventoryQuery] = useState("");
+  const [openListingMenuId, setOpenListingMenuId] = useState("");
+  const [sellerChats, setSellerChats] = useState<ChatRecord[]>([]);
+  const [deletingListingId, setDeletingListingId] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [soldListing, setSoldListing] = useState<Listing | null>(null);
+  const [soldWithJosealo, setSoldWithJosealo] = useState<"si" | "no" | "">("");
+  const [saleSpeedRating, setSaleSpeedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [soldToUserId, setSoldToUserId] = useState("");
+  const [publishingSold, setPublishingSold] = useState(false);
+  const [soldError, setSoldError] = useState("");
 
   useEffect(() => {
     return onAuthStateChanged(auth, (user) => {
@@ -108,6 +123,20 @@ export default function MyProfilePage() {
     return () => {
       cancelled = true;
     };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setSellerChats([]);
+      return;
+    }
+
+    return subscribeChatsForUser(
+      currentUserId,
+      "seller",
+      setSellerChats,
+      () => setSellerChats([])
+    );
   }, [currentUserId]);
 
   useEffect(() => {
@@ -301,9 +330,28 @@ export default function MyProfilePage() {
     );
   }, [storyCategories]);
 
-  const visibleListings = activeCategoryId
-    ? myListings.filter((item) => (item.category?.trim() || "General").toLowerCase() === activeCategoryId)
-    : myListings;
+  const visibleListings = useMemo(() => {
+    const normalizedQuery = normalizeInventoryText(inventoryQuery);
+    return (activeCategoryId
+      ? myListings.filter((item) => (item.category?.trim() || "General").toLowerCase() === activeCategoryId)
+      : myListings
+    ).filter((item) => {
+      if (!normalizedQuery) return true;
+      const text = normalizeInventoryText(
+        `${item.title} ${item.category} ${item.bazarCategory || ""} ${item.location} ${item.price}`
+      );
+      return text.includes(normalizedQuery);
+    });
+  }, [activeCategoryId, inventoryQuery, myListings]);
+  const soldListingChats = useMemo(
+    () =>
+      soldListing
+        ? sellerChats
+            .filter((chat) => chat.listingId === soldListing.id)
+            .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+        : [],
+    [sellerChats, soldListing]
+  );
   const isSignedIn = Boolean(currentUserId);
   const userIdCanUpdateAt = userIdUpdatedAt ? userIdUpdatedAt + 365 * 24 * 60 * 60 * 1000 : 0;
   const userIdLocked = Boolean(userIdChangeCount > 0 && userIdCanUpdateAt && Date.now() < userIdCanUpdateAt);
@@ -390,6 +438,64 @@ export default function MyProfilePage() {
       setListingsCursor(result.nextCursor);
     } finally {
       setLoadingListings(false);
+    }
+  };
+  const openSoldFlow = (listing: Listing) => {
+    setOpenListingMenuId("");
+    setSoldListing(listing);
+    setSoldWithJosealo("");
+    setSaleSpeedRating(null);
+    setSoldToUserId("");
+    setSoldError("");
+  };
+  const handleDeleteListing = async (listingId: string) => {
+    if (deletingListingId) return;
+
+    setDeletingListingId(listingId);
+    setDeleteError("");
+    try {
+      await deleteListing(listingId);
+      setListings((current) => current.filter((item) => item.id !== listingId));
+      setOpenListingMenuId("");
+    } catch {
+      setDeleteError("No pudimos eliminar la publicación. Intenta de nuevo.");
+    } finally {
+      setDeletingListingId("");
+    }
+  };
+  const handlePublishSold = async () => {
+    if (!soldListing || publishingSold) return;
+    if (!soldWithJosealo) {
+      setSoldError("Selecciona si la venta fue gracias a Josealo.");
+      return;
+    }
+    if (!saleSpeedRating) {
+      setSoldError("Selecciona un valor del 1 al 5.");
+      return;
+    }
+    if (soldListingChats.length > 0 && !soldToUserId) {
+      setSoldError("Selecciona a quién se lo vendiste.");
+      return;
+    }
+
+    setPublishingSold(true);
+    setSoldError("");
+
+    try {
+      const soldToChat = soldListingChats.find((chat) => chat.buyerId === soldToUserId);
+      await markListingSold(soldListing.id, {
+        soldWithJosealo: soldWithJosealo === "si",
+        saleSpeedRating,
+        soldToUserId: soldToChat?.buyerId,
+        soldToUserName: soldToChat?.buyerName,
+      });
+      setListings((current) => current.filter((item) => item.id !== soldListing.id));
+      setSoldListing(null);
+      setSoldToUserId("");
+    } catch {
+      setSoldError("No pudimos marcar la publicación como vendida. Intenta de nuevo.");
+    } finally {
+      setPublishingSold(false);
     }
   };
 
@@ -700,39 +806,280 @@ export default function MyProfilePage() {
             <CategoryStories categories={storyCategories} activeId={activeCategoryId} onSelect={setActiveCategoryId} />
           </div>
         ) : null}
-	        <div className="grid w-full grid-cols-3 gap-px">
+        <div className="px-4 pb-5 pt-1">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <input
+              value={inventoryQuery}
+              onChange={(event) => setInventoryQuery(event.target.value)}
+              placeholder="Buscar en tus publicaciones"
+              style={{ fontSize: "16px" }}
+              className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 pl-11 pr-4 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-orange-400"
+            />
+          </div>
+        </div>
+        {deleteError ? (
+          <div className="mx-4 mb-3 rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+            {deleteError}
+          </div>
+        ) : null}
+        <div className="w-full px-4">
           {visibleListings.length === 0 ? (
-            <div className="col-span-3 flex justify-center px-4 py-8">
+            <div className="flex justify-center py-8">
               <div className="max-w-sm rounded-2xl border border-neutral-800 bg-neutral-900/10 px-5 py-4 text-center text-sm text-neutral-400">
-                Aun no tienes publicaciones. Crea una para verla aqui.
+                {inventoryQuery.trim()
+                  ? "No encontramos publicaciones con esa búsqueda."
+                  : "Aun no tienes publicaciones. Crea una para verla aqui."}
               </div>
             </div>
           ) : (
-            visibleListings.map((item) => (
-              <Link key={item.id} href={`/item/${item.id}`} className="aspect-square overflow-hidden bg-neutral-800">
-                {item.image ? (
-                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full bg-neutral-800" />
-                )}
-              </Link>
-            ))
-	          )}
-	        </div>
-	        {listingsCursor ? (
-	          <div className="px-4 py-5">
-	            <button
-	              type="button"
-	              onClick={loadMoreListings}
-	              disabled={loadingListings}
-	              className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
-	            >
-	              {loadingListings ? "Cargando..." : "Cargar más"}
-	            </button>
-	          </div>
-	        ) : null}
-	      </div>
+            <div className="space-y-3">
+              {visibleListings.map((item) => (
+                <div
+                  key={item.id}
+                  className="relative flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-3"
+                >
+                  <Link href={`/item/${item.id}`} className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-800">
+                    {item.image ? (
+                      <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="h-5 w-5 text-neutral-500" />
+                      </div>
+                    )}
+                  </Link>
+                  <Link href={`/item/${item.id}`} className="min-w-0 flex-1">
+                    <div className="listing-title truncate text-sm font-semibold text-neutral-100">{item.title}</div>
+                    <div className="mt-1 truncate text-xs text-neutral-500">{item.category || "General"}</div>
+                    <div className="listing-price mt-1 text-sm font-bold text-orange-400">
+                      {formatListingMoney(item.price, item.currency)}
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setOpenListingMenuId((current) => (current === item.id ? "" : item.id))}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-950 text-neutral-300 hover:text-white"
+                    aria-label={`Opciones de ${item.title}`}
+                    aria-expanded={openListingMenuId === item.id}
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+
+                  {openListingMenuId === item.id ? (
+                    <div className="absolute right-3 top-[calc(100%-4px)] z-30 min-w-[210px] overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
+                      <button
+                        type="button"
+                        onClick={() => openSoldFlow(item)}
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-100 hover:bg-neutral-900"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-orange-400" />
+                        Marcar como vendido
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteListing(item.id)}
+                        disabled={deletingListingId === item.id}
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-red-300 hover:bg-red-950/30 disabled:text-neutral-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {deletingListingId === item.id ? "Eliminando..." : "Eliminar"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {listingsCursor ? (
+          <div className="px-4 py-5">
+            <button
+              type="button"
+              onClick={loadMoreListings}
+              disabled={loadingListings}
+              className="h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+            >
+              {loadingListings ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        ) : null}
+      </div>
       <AppBottomNav active="profile" />
+
+      {soldListing ? (
+        <SoldListingModal
+          listing={soldListing}
+          chats={soldListingChats}
+          soldWithJosealo={soldWithJosealo}
+          saleSpeedRating={saleSpeedRating}
+          soldToUserId={soldToUserId}
+          publishing={publishingSold}
+          error={soldError}
+          onSoldWithJosealoChange={setSoldWithJosealo}
+          onSaleSpeedRatingChange={setSaleSpeedRating}
+          onSoldToUserIdChange={setSoldToUserId}
+          onClose={() => {
+            if (publishingSold) return;
+            setSoldListing(null);
+          }}
+          onSubmit={handlePublishSold}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SoldListingModal({
+  listing,
+  chats,
+  soldWithJosealo,
+  saleSpeedRating,
+  soldToUserId,
+  publishing,
+  error,
+  onSoldWithJosealoChange,
+  onSaleSpeedRatingChange,
+  onSoldToUserIdChange,
+  onClose,
+  onSubmit,
+}: {
+  listing: Listing;
+  chats: ChatRecord[];
+  soldWithJosealo: "si" | "no" | "";
+  saleSpeedRating: 1 | 2 | 3 | 4 | 5 | null;
+  soldToUserId: string;
+  publishing: boolean;
+  error: string;
+  onSoldWithJosealoChange: (value: "si" | "no") => void;
+  onSaleSpeedRatingChange: (value: 1 | 2 | 3 | 4 | 5) => void;
+  onSoldToUserIdChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+      <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-lg font-semibold">Marcar como vendido</div>
+            <div className="mt-1 truncate text-sm text-neutral-500">{listing.title}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-800 text-neutral-300 hover:text-white"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-neutral-400">
+          Publica un cierre rapido de tu venta para ayudarnos a mejorar JOSEALO.
+        </p>
+
+        <div className="mt-5">
+          <div className="text-sm font-medium text-neutral-200">¿Lo vendiste gracias a Josealo?</div>
+          <div className="mt-3 flex gap-3">
+            {[
+              { value: "si" as const, label: "Si" },
+              { value: "no" as const, label: "No" },
+            ].map((option) => (
+              <label
+                key={option.value}
+                className={[
+                  "flex flex-1 items-center gap-2 rounded-2xl border px-4 py-3 text-sm",
+                  soldWithJosealo === option.value
+                    ? "border-orange-400 bg-orange-400/10 text-orange-200"
+                    : "border-neutral-800 bg-neutral-900 text-neutral-300",
+                ].join(" ")}
+              >
+                <input
+                  type="radio"
+                  name="profileSoldWithJosealo"
+                  value={option.value}
+                  checked={soldWithJosealo === option.value}
+                  onChange={() => onSoldWithJosealoChange(option.value)}
+                  className="h-4 w-4 accent-orange-400"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {chats.length > 0 ? (
+          <div className="mt-5">
+            <div className="text-sm font-medium text-neutral-200">¿A quién se lo vendiste?</div>
+            <select
+              value={soldToUserId}
+              onChange={(event) => onSoldToUserIdChange(event.target.value)}
+              className="mt-3 h-12 w-full rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm text-neutral-100 outline-none focus:border-orange-400"
+            >
+              <option value="">Seleccionar comprador</option>
+              {chats.map((chat) => (
+                <option key={chat.buyerId} value={chat.buyerId}>
+                  {chat.buyerName || "Comprador"}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 text-xs text-neutral-500">Ordenado por la conversación más reciente.</div>
+          </div>
+        ) : null}
+
+        <div className="mt-5">
+          <div className="text-sm font-medium text-neutral-200">
+            Del 1 al 5, ¿qué tanto te tomó venderlo siendo 1 mucho tiempo y 5 poco tiempo?
+          </div>
+          <div className="mt-3 grid grid-cols-5 gap-2">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <label
+                key={value}
+                className={[
+                  "flex items-center justify-center rounded-2xl border px-0 py-3 text-sm font-semibold",
+                  saleSpeedRating === value
+                    ? "border-orange-400 bg-orange-400/10 text-orange-200"
+                    : "border-neutral-800 bg-neutral-900 text-neutral-300",
+                ].join(" ")}
+              >
+                <input
+                  type="radio"
+                  name="profileSaleSpeedRating"
+                  value={value}
+                  checked={saleSpeedRating === value}
+                  onChange={() => onSaleSpeedRatingChange(value as 1 | 2 | 3 | 4 | 5)}
+                  className="sr-only"
+                />
+                {value}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-900/40 bg-red-950/30 p-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={publishing}
+            className="h-12 flex-1 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 disabled:text-neutral-500"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={publishing}
+            className="h-12 flex-1 rounded-2xl bg-orange-400 px-4 text-sm font-semibold text-black hover:bg-orange-300 disabled:bg-neutral-700 disabled:text-neutral-300"
+          >
+            {publishing ? "Publicando..." : "Publicar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -744,4 +1091,17 @@ function formatReviewDate(value: number) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function normalizeInventoryText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function formatListingMoney(value: number, currency = "DOP") {
+  const prefix = currency === "USD" ? "USD" : "RD$";
+  return `${prefix}${Number(value || 0).toLocaleString("es-DO")}`;
 }

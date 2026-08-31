@@ -13,6 +13,7 @@ import {
   readStoredUserLocation,
   saveManualListingLocation,
 } from "@/lib/location";
+import { formatMoney } from "@/lib/money";
 import { DEFAULT_PROFILE_AVATAR } from "@/lib/profile-avatar";
 import { recordSearchEvent } from "@/lib/search-analytics";
 import { PublicUserSearchResult, searchUsers } from "@/lib/user-search";
@@ -328,7 +329,7 @@ export default function SearchPage() {
                     <div className="listing-title line-clamp-2 min-h-10 text-sm font-semibold text-neutral-100">{item.title}</div>
                     <div className="mt-2 truncate text-xs text-neutral-400">{item.location}</div>
                     <div className="listing-price mt-2 text-sm font-bold text-orange-400">
-                      RD${item.price.toLocaleString()}
+                      {formatMoney(item.price, item.currency)}
                     </div>
                   </div>
                 </Link>

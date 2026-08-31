@@ -37,6 +37,7 @@ export type AdminReportedListing = {
   id: string;
   title: string;
   price: number;
+  currency?: string;
   category: string;
   location: string;
   image: string;

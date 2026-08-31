@@ -10,6 +10,7 @@ type RawBazarItem = {
   id?: string;
   title?: string;
   price?: number;
+  currency?: string;
   image?: string;
   status?: "active" | "sold";
   soldAt?: number;
@@ -18,6 +19,7 @@ type RawBazarItem = {
 type RawListing = {
   title?: string;
   price?: number;
+  currency?: string;
   category?: string;
   bazarCategory?: string;
   tags?: string[];
@@ -52,6 +54,7 @@ export type AdminSoldItem = {
   brand: string;
   model: string;
   price: number;
+  currency?: string;
   location: string;
   latitude: number;
   longitude: number;
@@ -431,6 +434,7 @@ function flattenSoldListing(snapshotId: string, listing: RawListing) {
         brand: identity.brand,
         model: identity.model,
         price,
+        currency: item.currency || listing.currency || "DOP",
         location: coordinates.name,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
@@ -464,6 +468,7 @@ function flattenSoldListing(snapshotId: string, listing: RawListing) {
     brand: identity.brand,
     model: identity.model,
     price,
+    currency: listing.currency || "DOP",
     location: coordinates.name,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
@@ -506,6 +511,7 @@ function flattenActiveListing(snapshotId: string, listing: RawListing) {
         brand: identity.brand,
         model: identity.model,
         price,
+        currency: item.currency || listing.currency || "DOP",
         location: coordinates.name,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
@@ -538,6 +544,7 @@ function flattenActiveListing(snapshotId: string, listing: RawListing) {
     brand: identity.brand,
     model: identity.model,
     price,
+    currency: listing.currency || "DOP",
     location: coordinates.name,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,

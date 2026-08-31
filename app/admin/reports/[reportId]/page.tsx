@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileWarning, MapPin, MessageCircle, Package, ShieldAlert, Store, Timer } from "lucide-react";
 import AdminBottomNav from "@/components/admin/AdminBottomNav";
 import type { AdminReportDetails } from "@/lib/admin-types";
+import { formatMoney } from "@/lib/money";
 
 export default function AdminReportDetailsPage() {
   const router = useRouter();
@@ -149,7 +150,7 @@ export default function AdminReportDetailsPage() {
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <div className="listing-price text-sm font-bold text-orange-300">RD${item.price.toLocaleString()}</div>
+                        <div className="listing-price text-sm font-bold text-orange-300">{formatMoney(item.price, item.currency)}</div>
                         <div className="mt-1 text-xs capitalize text-neutral-500">{item.status}</div>
                       </div>
                     </Link>

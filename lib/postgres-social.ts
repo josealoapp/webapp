@@ -13,6 +13,7 @@ export type SocialLikeRecord = {
   itemTitle: string;
   image: string;
   price: number;
+  currency?: string;
   location: string;
   href: string;
   createdAt: number;
@@ -67,6 +68,7 @@ function likeFromRow(row: LikeRow): SocialLikeRecord {
     itemTitle: String(data.itemTitle || ""),
     image: String(data.image || ""),
     price: Number(data.price || 0),
+    currency: data.currency === "USD" ? "USD" : "DOP",
     location: String(data.location || ""),
     href: String(data.href || ""),
     createdAt: toNumber(row.created_at_ms),

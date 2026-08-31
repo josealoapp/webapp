@@ -16,6 +16,7 @@ import { normalizeCategoryName } from "@/lib/categories";
 import { auth } from "@/lib/firebase";
 import { getLikeRecordId, likeItem, subscribeLikeIdsForUser } from "@/lib/likes";
 import { getActiveBazarItems, Listing, searchListings } from "@/lib/marketplace";
+import { formatMoney } from "@/lib/money";
 import { formatListingAge } from "@/lib/relative-time";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 
@@ -26,6 +27,7 @@ type DiscoverItem = {
   href: string;
   title: string;
   price: number;
+  currency?: "DOP" | "USD";
   type?: "article" | "bazar";
   category: string;
   location: string;
@@ -144,6 +146,7 @@ export default function DiscoverPage() {
               href: `/item/${item.id}?bazarItemId=${bazarItem.id}`,
               title: bazarItem.title,
               price: bazarItem.price,
+              currency: bazarItem.currency || item.currency || "DOP",
               type: "bazar",
               category: listingCategory,
               location: item.location,
@@ -173,6 +176,7 @@ export default function DiscoverPage() {
             href: `/item/${item.id}`,
             title: item.title,
             price: item.price,
+            currency: item.currency || "DOP",
             type: item.type || "article",
             category: item.category,
             location: item.location,
@@ -245,6 +249,7 @@ export default function DiscoverPage() {
       itemTitle: item.title,
       image: item.image || "",
       price: item.price,
+      currency: item.currency,
       location: item.location,
       href: item.href,
     });
@@ -642,7 +647,7 @@ function SwipeCard({
 
       <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[2rem] bg-neutral-950 px-6 pb-6 pt-7">
         <div className="listing-price text-2xl font-bold text-orange-400">
-          RD${Number(item.price).toLocaleString()}
+          {formatMoney(Number(item.price), item.currency)}
         </div>
         <div className="mt-2 flex min-w-0 items-center gap-3">
           {item.type === "bazar" ? (

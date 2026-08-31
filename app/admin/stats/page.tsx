@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import type { AdminMarketplaceStats, AdminSoldItem, AdminStatsLocation } from "@/lib/admin-stats";
 import { appCategories, getCategoryInputKind } from "@/lib/categories";
+import { formatMoney } from "@/lib/money";
 
 const COLORS = ["#fb923c", "#22c55e", "#38bdf8", "#facc15", "#f472b6", "#a78bfa", "#f87171", "#2dd4bf"];
 const MAP_BOUNDS = {
@@ -1313,7 +1314,7 @@ function SoldItemRow({
             <span>{item.location}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="listing-price text-sm font-bold text-orange-300">{formatCurrency(item.price)}</span>
+            <span className="listing-price text-sm font-bold text-orange-300">{formatMoney(item.price, item.currency)}</span>
             <span className="text-xs text-neutral-500">
               {item.status === "active" ? "En venta" : item.daysToSell ? `${item.daysToSell} días` : "Sin tiempo"}
             </span>

@@ -8,6 +8,7 @@ import SellerAvatar from "@/components/SellerAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { followUser } from "@/lib/follows";
 import { getActiveBazarItems, Listing } from "@/lib/marketplace";
+import { formatMoney } from "@/lib/money";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import { formatBazarTimeLeft } from "@/lib/bazar-duration";
 import { formatListingAge } from "@/lib/relative-time";
@@ -115,7 +116,7 @@ export default function HomeBazarCard({
               ) : null}
             </div>
             <div className="listing-price mt-2 text-sm font-bold text-orange-400">
-              RD${Number(bazarItem.price).toLocaleString()}
+              {formatMoney(Number(bazarItem.price), bazarItem.currency || item.currency)}
             </div>
             <div className="mt-1 flex min-w-0 items-center gap-1.5">
               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-blue-300">Bazar</span>
