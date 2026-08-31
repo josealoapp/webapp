@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, MessageCircle, MoreHorizontal, Share2, X } from "lucide-react";
+import QRCode from "qrcode";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Heart, Link as LinkIcon, MessageCircle, MoreHorizontal, Share2, X } from "lucide-react";
 import { onAuthStateChanged } from "@/lib/auth-client";
 
 import AppBottomNav from "@/components/AppBottomNav";
@@ -31,6 +32,7 @@ import { AppSkeleton } from "@/components/AppSkeleton";
 import { clearPendingAuthAction, readPendingAuthAction } from "@/lib/pending-auth-action";
 import { subscribeVerifiedUser } from "@/lib/user-verified";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import logoQrSrc from "@/app/logo-qr.svg";
 
 export default function ItemDetailsPage() {
   const router = useRouter();
@@ -69,6 +71,9 @@ export default function ItemDetailsPage() {
   const [listingChats, setListingChats] = useState<ChatRecord[]>([]);
   const [removingReservation, setRemovingReservation] = useState(false);
   const [reservationError, setReservationError] = useState("");
+  const [openShareActions, setOpenShareActions] = useState(false);
+  const [exportingQr, setExportingQr] = useState(false);
+  const [shareError, setShareError] = useState("");
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -308,6 +313,69 @@ export default function ItemDetailsPage() {
       location: item.location,
       href,
     });
+  };
+  const getShareUrl = () => {
+    const path = `/item/${item?.id || id || ""}${
+      selectedBazarItem?.id ? `?bazarItemId=${encodeURIComponent(selectedBazarItem.id)}` : ""
+    }`;
+    return `${window.location.origin}${path}`;
+  };
+  const shareLink = async () => {
+    if (!item) return;
+
+    const url = getShareUrl();
+    setShareError("");
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: displayTitle,
+          text: selectedBazarItem ? `${selectedBazarItem.title} en ${item.title}` : displayTitle,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+      setOpenShareActions(false);
+    } catch (error) {
+      const name = error instanceof DOMException ? error.name : "";
+      if (name !== "AbortError") {
+        setShareError("No pudimos compartir el link. Intenta de nuevo.");
+      }
+    }
+  };
+  const exportQr = async () => {
+    if (!item || exportingQr) return;
+
+    setExportingQr(true);
+    setShareError("");
+    try {
+      const blob = await buildItemQrPng(getShareUrl());
+      const fileName = `josealo-qr-${item.id}.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+      const shareWithFiles = navigator.canShare?.({ files: [file] });
+
+      if (shareWithFiles && navigator.share) {
+        await navigator.share({
+          title: `QR ${displayTitle}`,
+          files: [file],
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+      setOpenShareActions(false);
+    } catch (error) {
+      const name = error instanceof DOMException ? error.name : "";
+      if (name !== "AbortError") {
+        setShareError("No pudimos exportar el QR. Intenta de nuevo.");
+      }
+    } finally {
+      setExportingQr(false);
+    }
   };
 
   const openWhatsappInterest = () => {
@@ -683,15 +751,8 @@ export default function ItemDetailsPage() {
                 ].join(" ")}
                 aria-label="Compartir"
                 onClick={() => {
-                  if (navigator.share) {
-                    navigator
-                      .share({
-                        title: displayTitle,
-                        text: selectedBazarItem ? `${selectedBazarItem.title} en ${item.title}` : displayTitle,
-                        url: window.location.href,
-                      })
-                      .catch(() => {});
-                  }
+                  setShareError("");
+                  setOpenShareActions(true);
                 }}
               >
                 <Share2 className="h-5 w-5" />
@@ -1342,6 +1403,55 @@ export default function ItemDetailsPage() {
         </div>
       ) : null}
 
+      {openShareActions ? (
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
+          <div className="w-full max-w-sm rounded-3xl border border-neutral-800 bg-neutral-950 p-4 text-neutral-100 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 px-1 pb-4">
+              <div className="min-w-0">
+                <div className="text-lg font-semibold">Compartir publicación</div>
+                <div className="mt-1 truncate text-sm text-neutral-500">{displayTitle}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (exportingQr) return;
+                  setOpenShareActions(false);
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-800 text-neutral-300 hover:text-white"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void shareLink()}
+              disabled={exportingQr}
+              className="flex h-12 w-full items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+            >
+              <LinkIcon className="h-4 w-4 text-orange-400" />
+              Compartir link
+            </button>
+            <button
+              type="button"
+              onClick={() => void exportQr()}
+              disabled={exportingQr}
+              className="mt-3 flex h-12 w-full items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 hover:border-orange-400 disabled:text-neutral-500"
+            >
+              <Download className="h-4 w-4 text-orange-400" />
+              {exportingQr ? "Exportando..." : "Exportar QR"}
+            </button>
+
+            {shareError ? (
+              <div className="mt-3 rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+                {shareError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {openReportModal ? (
         <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 sm:items-center">
           <div className="w-full max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-5 text-neutral-100 shadow-2xl">
@@ -1418,4 +1528,94 @@ export default function ItemDetailsPage() {
 function formatMoney(value: number, currency: "DOP" | "USD" = "DOP") {
   const prefix = currency === "USD" ? "USD" : "RD$";
   return `${prefix}${Number(value || 0).toLocaleString()}`;
+}
+
+async function buildItemQrPng(url: string) {
+  const size = 1080;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("qr/context-unavailable");
+
+  context.fillStyle = "#333333";
+  context.fillRect(0, 0, size, size);
+
+  const cardX = 126;
+  const cardY = 220;
+  const cardWidth = 828;
+  const cardHeight = 800;
+  drawRoundedRect(context, cardX, cardY, cardWidth, cardHeight, 176);
+  context.fillStyle = "#000000";
+  context.fill();
+
+  const [logoImage, qrImage] = await Promise.all([
+    loadCanvasImage(getQrLogoSrc()),
+    QRCode.toDataURL(url, {
+      errorCorrectionLevel: "H",
+      margin: 1,
+      scale: 16,
+      color: {
+        dark: "#000000",
+        light: "#ffffff",
+      },
+    }).then(loadCanvasImage),
+  ]);
+
+  const logoWidth = 500;
+  const logoHeight = logoWidth / (logoImage.naturalWidth / logoImage.naturalHeight);
+  context.drawImage(logoImage, (size - logoWidth) / 2, 300, logoWidth, logoHeight);
+
+  const qrCardSize = 590;
+  const qrCardX = (size - qrCardSize) / 2;
+  const qrCardY = 410;
+  drawRoundedRect(context, qrCardX, qrCardY, qrCardSize, qrCardSize, 110);
+  context.fillStyle = "#ffffff";
+  context.fill();
+
+  const qrSize = 486;
+  context.drawImage(qrImage, (size - qrSize) / 2, qrCardY + (qrCardSize - qrSize) / 2, qrSize, qrSize);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("qr/export-failed"));
+      }
+    }, "image/png");
+  });
+}
+
+function getQrLogoSrc() {
+  const value = logoQrSrc as string | { src: string };
+  return typeof value === "string" ? value : value.src;
+}
+
+function loadCanvasImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("qr/image-load-failed"));
+    image.src = src;
+  });
+}
+
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + safeRadius, y);
+  context.arcTo(x + width, y, x + width, y + height, safeRadius);
+  context.arcTo(x + width, y + height, x, y + height, safeRadius);
+  context.arcTo(x, y + height, x, y, safeRadius);
+  context.arcTo(x, y, x + width, y, safeRadius);
+  context.closePath();
 }
